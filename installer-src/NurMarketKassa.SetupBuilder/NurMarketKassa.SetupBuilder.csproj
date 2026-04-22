@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>NurMarketKassaSetup</AssemblyName>
+    <RootNamespace>NurMarketKassaSetup</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>None</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\\..\\publish\\single-file-v19\\NurMarketKassa.exe" LogicalName="Payload.NurMarketKassa.exe" />
+    <EmbeddedResource Include="..\\..\\src\\NurMarketKassa\\appsettings.json" LogicalName="Payload.appsettings.json" />
+    <Resource Include="..\\..\\src\\NurMarketKassa\\Assets\\app-logo.png" Link="Assets\\app-logo.png" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <ApplicationIcon>..\\..\\src\\NurMarketKassa\\Assets\\app-logo.ico</ApplicationIcon>
+  </PropertyGroup>
+</Project>

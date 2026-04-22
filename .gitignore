@@ -1,0 +1,58 @@
+# ─── Сборка .NET / MSBuild ─────────────────────────────────────────
+**/bin/
+**/obj/
+**/out/
+
+# Публикация single-file / payload для установщика
+publish/
+
+# Локальные артефакты сборки (не коммитить)
+dist/
+build-output/
+build-verify/
+tmp-hw-build/
+
+# Логи
+*.log
+**/Logs/
+
+# ─── Visual Studio / Rider / VS Code ────────────────────────────────
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.rsuser
+*.sln.docstates
+*.DotSettings.user
+
+# ─── Тесты / покрытие ───────────────────────────────────────────────
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# ─── NuGet / кэш пакетов (если появятся локально) ──────────────────
+**/packages/
+*.nupkg
+project.lock.json
+
+# ─── Секреты и локальные настройки (не в репозиторий) ──────────────
+appsettings.*.local.json
+appsettings.Development.local.json
+*.pfx
+*.snk
+
+# ─── ОС и редакторы ─────────────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+*~
+*.swp
+*.tmp
+*.temp
+
+# ─── Прочее ─────────────────────────────────────────────────────────
+*.cache

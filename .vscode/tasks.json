@@ -1,0 +1,75 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build NurMarketKassa",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& \"C:\\Program Files\\dotnet\\dotnet.exe\" build \"${workspaceFolder}\\src\\NurMarketKassa\\NurMarketKassa.csproj\" -c Debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true,
+        "focus": false
+      }
+    },
+    {
+      "label": "Restart NurMarketKassa",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$p = Get-Process NurMarketKassa -ErrorAction SilentlyContinue; if ($p) { $p | Stop-Process -Force }; Start-Sleep -Milliseconds 350; & \"C:\\Program Files\\dotnet\\dotnet.exe\" run --project \"${workspaceFolder}\\src\\NurMarketKassa\\NurMarketKassa.csproj\" -c Debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "focus": false
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      }
+    },
+    {
+      "label": "Kill NurMarketKassa",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "$p = Get-Process NurMarketKassa -ErrorAction SilentlyContinue; if ($p) { $p | Stop-Process -Force; Write-Host 'NurMarketKassa stopped.' } else { Write-Host 'NurMarketKassa is not running.' }"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": false,
+        "focus": false
+      }
+    }
+  ]
+}
