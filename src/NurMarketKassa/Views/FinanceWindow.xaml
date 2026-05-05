@@ -1,0 +1,1104 @@
+﻿<Window x:Class="NurMarketKassa.Views.FinanceWindow"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="clr-namespace:NurMarketKassa.Converters;assembly=NurMarketKassa"
+    xmlns:conv="clr-namespace:NurMarketKassa.Converters"
+	Title="Финансы"
+	Height="750"
+	Width="1100"
+	Style="{DynamicResource AppWindow}"
+	WindowStartupLocation="CenterOwner"
+	Loaded="Window_Loaded"
+	ManipulationBoundaryFeedback="Window_ManipulationBoundaryFeedback">
+    <FrameworkElement.Resources>
+        <ResourceDictionary>
+            <conv:AmountToColorConverter x:Key="AmountColor" />
+            <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+            <conv:InverseBoolConverter x:Key="InverseBool" />
+            <Style
+				x:Key="{x:Type DatePickerTextBox}"
+				TargetType="{x:Type DatePickerTextBox}">
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DatePickerTextBox}">
+                            <Grid>
+                                <TextBox
+									x:Name="PART_TextBox"
+									Background="#00FFFFFF"
+									BorderThickness="0"
+									VerticalContentAlignment="Center"
+									Padding="4,0"
+									Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="{x:Type DatePicker}"
+				TargetType="{x:Type DatePicker}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInput}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Padding"
+					Value="2" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DatePicker}">
+                            <Border
+								x:Name="InternalBorder"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="{TemplateBinding Control.BorderThickness}"
+								CornerRadius="8"
+								Padding="5,0">
+                                <Grid
+									x:Name="PART_Root"
+									HorizontalAlignment="Stretch"
+									VerticalAlignment="Stretch">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition
+											Width="*" />
+                                        <ColumnDefinition
+											Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <DatePickerTextBox
+										x:Name="PART_TextBox"
+										Grid.Column="0"
+										HorizontalContentAlignment="Stretch"
+										VerticalContentAlignment="Center"
+										Focusable="False" />
+                                    <Button
+										x:Name="PART_Button"
+										Grid.Column="1"
+										Width="20"
+										Background="#00FFFFFF"
+										BorderThickness="0"
+										Foreground="{DynamicResource BrushTextSoft}"
+										Content="📅"
+										Cursor="Hand" />
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										TargetName="InternalBorder"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.BorderBrush" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="DatePill"
+				TargetType="{x:Type RadioButton}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="Padding"
+					Value="14,6" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type RadioButton}">
+                            <Border
+								x:Name="pill"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="1"
+								CornerRadius="10"
+								Padding="{TemplateBinding Control.Padding}">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="ToggleButton.IsChecked"
+									Value="True">
+                                    <Setter
+										TargetName="pill"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.Background" />
+                                    <Setter
+										TargetName="pill"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.BorderBrush" />
+                                    <Setter
+										Property="Foreground"
+										Value="#FFFFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="PrimaryActionButton"
+				TargetType="{x:Type Button}">
+                <Setter
+					Property="Height"
+					Value="36" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushAccent}" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushTextInverted}" />
+                <Setter
+					Property="FontWeight"
+					Value="SemiBold" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type Button}">
+                            <Border
+								x:Name="btn"
+								Background="{TemplateBinding Control.Background}"
+								CornerRadius="8">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center"
+									Margin="15,0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										TargetName="btn"
+										Property="UIElement.Opacity"
+										Value="0.9" />
+                                </Trigger>
+                                <Trigger
+									Property="IsEnabled"
+									Value="False">
+                                    <Setter
+										TargetName="btn"
+										Property="UIElement.Opacity"
+										Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="TimeBadge"
+				TargetType="{x:Type Border}">
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInputAlt}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Border.CornerRadius"
+					Value="8" />
+                <Setter
+					Property="Border.Padding"
+					Value="10,4" />
+                <Setter
+					Property="Margin"
+					Value="0" />
+            </Style>
+            <Style
+				x:Key="SecondaryActionButton"
+				TargetType="{x:Type Button}">
+                <Setter
+					Property="Height"
+					Value="36" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushPanelSoft}" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type Button}">
+                            <Border
+								x:Name="border"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="{TemplateBinding Control.BorderThickness}"
+								CornerRadius="8">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center"
+									Margin="12,0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										TargetName="border"
+										Value="{DynamicResource BrushInputAlt}"
+										Property="Border.Background" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="KpiCard"
+				TargetType="{x:Type Border}">
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInputAlt}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Border.CornerRadius"
+					Value="10" />
+                <Setter
+					Property="Border.Padding"
+					Value="16" />
+                <Setter
+					Property="Margin"
+					Value="4" />
+                <Setter
+					Property="UIElement.Effect"
+					Value="{DynamicResource CardShadow}" />
+            </Style>
+            <Style
+				x:Key="{x:Type DataGridCell}"
+				TargetType="{x:Type DataGridCell}">
+                <Setter
+					Property="Focusable"
+					Value="False" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="Padding"
+					Value="6,4" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DataGridCell}">
+                            <Border
+								Background="{TemplateBinding Control.Background}">
+                                <ContentPresenter
+									HorizontalAlignment="{TemplateBinding Control.HorizontalContentAlignment}"
+									VerticalAlignment="{TemplateBinding Control.VerticalContentAlignment}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="{x:Type DataGridRow}"
+				TargetType="{x:Type DataGridRow}">
+                <Setter
+					Property="FrameworkElement.FocusVisualStyle"
+					Value="{x:Null}" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushPanel}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="BorderThickness"
+					Value="0.5" />
+                <Setter
+					Property="Margin"
+					Value="2" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DataGridRow}">
+                            <Border
+								x:Name="RowBorder"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="{TemplateBinding Control.BorderThickness}"
+								CornerRadius="5"
+								Margin="{TemplateBinding FrameworkElement.Margin}">
+                                <SelectiveScrollingGrid>
+                                    <DataGridCellsPresenter
+										ItemsPanel="{TemplateBinding DataGridRow.ItemsPanel}" />
+                                </SelectiveScrollingGrid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="DataGridRow.IsSelected"
+									Value="True">
+                                    <Setter
+										TargetName="RowBorder"
+										Property="Border.Background"
+										Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="ModernGrid"
+				TargetType="{x:Type DataGrid}">
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="DataGrid.RowHeight"
+					Value="40" />
+                <Setter
+					Property="DataGrid.GridLinesVisibility"
+					Value="None" />
+                <Setter
+					Property="DataGrid.ColumnHeaderStyle">
+                    <Setter.Value>
+                        <Style
+							TargetType="{x:Type DataGridColumnHeader}">
+                            <Setter
+								Property="Background"
+								Value="#00FFFFFF" />
+                            <Setter
+								Property="Foreground"
+								Value="{DynamicResource BrushTextSoft}" />
+                            <Setter
+								Property="Padding"
+								Value="10,5" />
+                            <Setter
+								Property="FontWeight"
+								Value="SemiBold" />
+                            <Setter
+								Property="BorderThickness"
+								Value="0,0,0,1" />
+                            <Setter
+								Property="BorderBrush"
+								Value="{DynamicResource BrushBorderStrong}" />
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="PosCatalogTabItem"
+				TargetType="{x:Type TabItem}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushTextMuted}" />
+                <Setter
+					Property="FontSize"
+					Value="13" />
+                <Setter
+					Property="FontWeight"
+					Value="SemiBold" />
+                <Setter
+					Property="Padding"
+					Value="16,10" />
+                <Setter
+					Property="Margin"
+					Value="0,0,6,0" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushPanelSoft}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type TabItem}">
+                            <Border
+								x:Name="TabRoot"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="{TemplateBinding Control.BorderThickness}"
+								CornerRadius="5"
+								Padding="{TemplateBinding Control.Padding}">
+                                <ContentPresenter
+									ContentSource="Header"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										TargetName="TabRoot"
+										Value="{DynamicResource BrushInputAlt}"
+										Property="Border.Background" />
+                                </Trigger>
+                                <Trigger
+									Property="TabItem.IsSelected"
+									Value="True">
+                                    <Setter
+										TargetName="TabRoot"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.Background" />
+                                    <Setter
+										TargetName="TabRoot"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.BorderBrush" />
+                                    <Setter
+										Property="Foreground"
+										Value="#FFFFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="HamburgerMenuItem"
+				TargetType="{x:Type Button}">
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="HorizontalAlignment"
+					Value="Stretch" />
+                <Setter
+					Property="Height"
+					Value="44" />
+                <Setter
+					Property="Padding"
+					Value="16,0" />
+                <Setter
+					Property="FontSize"
+					Value="14" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type Button}">
+                            <Border
+								Background="{TemplateBinding Control.Background}">
+                                <ContentPresenter
+									HorizontalAlignment="Left"
+									VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										Value="{DynamicResource BrushInputAlt}"
+										Property="Background" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </FrameworkElement.Resources>
+    <Grid
+		Margin="0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition
+				Width="220" />
+            <ColumnDefinition
+				Width="*" />
+        </Grid.ColumnDefinitions>
+        <Border
+			Grid.Column="0"
+			Background="{DynamicResource BrushPanel}"
+			BorderBrush="{DynamicResource BrushBorder}"
+			BorderThickness="0,0,1,0">
+            <StackPanel
+				Margin="12,20">
+                <TextBlock
+					Text="NUR MARKET"
+					FontSize="18"
+					FontWeight="Bold"
+					Foreground="{DynamicResource BrushAccent}"
+					HorizontalAlignment="Center"
+					Margin="0,0,0,24" />
+                <Button
+					Content="🛒 Продажа"
+					Height="44"
+					Margin="0,4"
+					Style="{StaticResource HamburgerMenuItem}"
+					Click="NavigateToSale_Click" />
+                <Button
+					Content="📦 Склад"
+					Height="44"
+					Margin="0,4"
+					Style="{StaticResource HamburgerMenuItem}"
+					Click="NavigateToStock_Click" />
+                <Button
+					Content="🔑 Смена"
+					Height="44"
+					Margin="0,4"
+					Style="{StaticResource HamburgerMenuItem}"
+					Click="ManageShift_Click" />
+                <Button
+					Content="🍎 Товары"
+					Height="44"
+					Margin="0,4"
+					Style="{StaticResource HamburgerMenuItem}"
+					Click="NavigateToProducts_Click" />
+                <Button
+					Content="📊 Финансы"
+					Height="44"
+					Margin="0,4"
+					Style="{StaticResource HamburgerMenuItem}"
+					IsEnabled="False"
+					Background="{DynamicResource BrushAccentSoft}" />
+            </StackPanel>
+        </Border>
+        <ScrollViewer
+			Grid.Column="1"
+			VerticalScrollBarVisibility="Auto">
+            <Grid
+				Margin="16"
+				Background="{DynamicResource BrushPanel}">
+                <Grid.RowDefinitions>
+                    <RowDefinition
+						Height="Auto" />
+                    <RowDefinition
+						Height="Auto" />
+                    <RowDefinition
+						Height="Auto" />
+                    <RowDefinition
+						Height="Auto" />
+                    <RowDefinition
+						Height="Auto" />
+                    <RowDefinition
+						Height="Auto" />
+                    <RowDefinition
+						Height="*" />
+                    <RowDefinition
+						Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid
+					Row="0"
+					Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition
+							Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+						Text="Финансы"
+						FontSize="26"
+						FontWeight="Bold"
+						Foreground="{DynamicResource BrushText}"
+						VerticalAlignment="Center" />
+                    <StackPanel
+						Grid.Column="1"
+						Orientation="Horizontal">
+                        <Border
+							Background="{DynamicResource BrushInput}"
+							CornerRadius="8"
+							Padding="4,0"
+							BorderBrush="{DynamicResource BrushBorder}"
+							BorderThickness="1">
+                            <TextBox
+								x:Name="SearchReceiptBox"
+								Width="220"
+								Height="34"
+								BorderThickness="0"
+								VerticalContentAlignment="Center"
+								FontSize="14"
+								Style="{DynamicResource TouchTextBox}"
+								TextChanged="SearchReceiptBox_TextChanged" />
+                        </Border>
+                        <Button
+							Content="Обновить"
+							Style="{StaticResource PrimaryActionButton}"
+							Margin="10,0,0,0"
+							Click="Refresh_Click" />
+                        <Button
+							Content="Выйти"
+							Style="{StaticResource SecondaryActionButton}"
+							Margin="10,0,0,0"
+							Click="Exit_Click" />
+                    </StackPanel>
+                </Grid>
+                <UniformGrid
+					Grid.Row="1"
+					Columns="6"
+					Margin="0,0,0,16">
+                    <Border
+						Style="{StaticResource KpiCard}">
+                        <StackPanel>
+                            <TextBlock
+								Text="Выручка"
+								Foreground="{DynamicResource BrushTextSoft}"
+								FontSize="12"
+								Margin="0,0,0,4" />
+                            <TextBlock
+								x:Name="TotalSalesText"
+								FontSize="20"
+								FontWeight="Bold"
+								Foreground="{DynamicResource BrushAccent}" />
+                        </StackPanel>
+                    </Border>
+                    <Border
+						Style="{StaticResource KpiCard}">
+                        <StackPanel>
+                            <TextBlock
+								Text="Возвраты"
+								Foreground="{DynamicResource BrushTextSoft}"
+								FontSize="12"
+								Margin="0,0,0,4" />
+                            <TextBlock
+								x:Name="TotalRefundsText"
+								FontSize="20"
+								FontWeight="Bold"
+								Foreground="{DynamicResource BrushDanger}" />
+                        </StackPanel>
+                    </Border>
+                    <Border
+						Style="{StaticResource KpiCard}">
+                        <StackPanel>
+                            <TextBlock
+								Text="Наличные"
+								Foreground="{DynamicResource BrushTextSoft}"
+								FontSize="12"
+								Margin="0,0,0,4" />
+                            <TextBlock
+								x:Name="CashText"
+								FontSize="20"
+								FontWeight="Bold"
+								Foreground="{DynamicResource BrushText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border
+						Style="{StaticResource KpiCard}">
+                        <StackPanel>
+                            <TextBlock
+								Text="Безнал"
+								Foreground="{DynamicResource BrushTextSoft}"
+								FontSize="12"
+								Margin="0,0,0,4" />
+                            <TextBlock
+								x:Name="NonCashText"
+								FontSize="20"
+								FontWeight="Bold"
+								Foreground="{DynamicResource BrushText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border
+						Style="{StaticResource KpiCard}">
+                        <StackPanel>
+                            <TextBlock
+								Text="Средний чек"
+								Foreground="{DynamicResource BrushTextSoft}"
+								FontSize="12"
+								Margin="0,0,0,4" />
+                            <TextBlock
+								x:Name="AvgReceiptText"
+								FontSize="20"
+								FontWeight="Bold"
+								Foreground="{DynamicResource BrushAccent}" />
+                        </StackPanel>
+                    </Border>
+                    <Border
+						Style="{StaticResource KpiCard}">
+                        <StackPanel>
+                            <TextBlock
+								Text="Чеки"
+								Foreground="{DynamicResource BrushTextSoft}"
+								FontSize="12"
+								Margin="0,0,0,4" />
+                            <TextBlock
+								x:Name="ReceiptCountText"
+								FontSize="20"
+								FontWeight="Bold"
+								Foreground="{DynamicResource BrushText}" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+                <StackPanel
+					Grid.Row="2"
+					Orientation="Horizontal"
+					Margin="0,0,0,12">
+                    <StackPanel
+						Orientation="Horizontal"
+						Margin="0,0,16,0">
+                        <RadioButton
+							Content="Сегодня"
+							Style="{StaticResource DatePill}"
+							IsChecked="True"
+							Tag="Today"
+							GroupName="QuickDate"
+							Click="QuickDate_Click" />
+                        <RadioButton
+							Content="Вчера"
+							Style="{StaticResource DatePill}"
+							Margin="4,0,0,0"
+							Tag="Yesterday"
+							GroupName="QuickDate"
+							Click="QuickDate_Click" />
+                        <RadioButton
+							Content="Неделя"
+							Style="{StaticResource DatePill}"
+							Margin="4,0,0,0"
+							Tag="Week"
+							GroupName="QuickDate"
+							Click="QuickDate_Click" />
+                        <RadioButton
+							Content="Месяц"
+							Style="{StaticResource DatePill}"
+							Margin="4,0,0,0"
+							Tag="Month"
+							GroupName="QuickDate"
+							Click="QuickDate_Click" />
+                        <RadioButton
+							x:Name="CustomDatePill"
+							Content="Спец. дата"
+							Style="{StaticResource DatePill}"
+							Margin="4,0,0,0"
+							Tag="Custom"
+							GroupName="QuickDate"
+							Click="QuickDate_Click" />
+                    </StackPanel>
+                    <StackPanel
+						x:Name="CustomDatePanel"
+						Orientation="Horizontal"
+						Visibility="Collapsed">
+                        <TextBlock
+							Text="От:"
+							VerticalAlignment="Center"
+							Margin="0,0,4,0"
+							Foreground="{DynamicResource BrushText}" />
+                        <DatePicker
+							x:Name="FromPicker"
+							Width="120"
+							VerticalAlignment="Center"
+							Margin="0,0,6,0"
+							SelectedDateChanged="DatePicker_DateChanged" />
+                        <TextBlock
+							Text="—"
+							VerticalAlignment="Center"
+							Margin="0,0,6,0"
+							Foreground="{DynamicResource BrushText}" />
+                        <TextBlock
+							Text="До:"
+							VerticalAlignment="Center"
+							Margin="0,0,4,0"
+							Foreground="{DynamicResource BrushText}" />
+                        <DatePicker
+							x:Name="ToPicker"
+							Width="120"
+							VerticalAlignment="Center"
+							Margin="0,0,12,0"
+							SelectedDateChanged="DatePicker_DateChanged" />
+                    </StackPanel>
+                </StackPanel>
+                <Border
+					Grid.Row="3"
+					Style="{StaticResource TimeBadge}"
+					HorizontalAlignment="Right"
+					VerticalAlignment="Center"
+					Margin="0,6,10,6">
+                    <TextBlock
+						x:Name="CurrentTimeText"
+						FontSize="14"
+						FontWeight="SemiBold"
+						Foreground="{DynamicResource BrushText}" />
+                </Border>
+                <Popup
+					x:Name="ReceiptDetailsPopup"
+					Placement="Center"
+					StaysOpen="False"
+					AllowsTransparency="True"
+					PopupAnimation="Fade">
+                    <Border
+						Background="{DynamicResource BrushPanel}"
+						CornerRadius="12"
+						Padding="16"
+						BorderBrush="{DynamicResource BrushBorder}"
+						BorderThickness="1"
+						Effect="{DynamicResource CardShadow}"
+						MinWidth="400"
+						MaxWidth="600">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition
+									Height="Auto" />
+                                <RowDefinition
+									Height="*" />
+                                <RowDefinition
+									Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock
+								x:Name="PopupTitle"
+								FontWeight="Bold"
+								FontSize="16"
+								Foreground="{DynamicResource BrushText}"
+								Margin="0,0,0,10" />
+                            <ScrollViewer
+								Grid.Row="1"
+								MaxHeight="400"
+								VerticalScrollBarVisibility="Auto">
+                                <ItemsControl
+									x:Name="PopupItemsControl"
+									Foreground="{DynamicResource BrushText}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock
+												TextWrapping="Wrap"
+												Margin="0,2"
+												Text="{Binding}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <Button
+								Grid.Row="2"
+								Content="Закрыть"
+								Style="{StaticResource SecondaryActionButton}"
+								HorizontalAlignment="Right"
+								Margin="0,10,0,0"
+								Click="CloseReceiptDetails_Click" />
+                        </Grid>
+                    </Border>
+                </Popup>
+                <TabControl
+					Grid.Row="4"
+					Background="#00FFFFFF"
+					BorderThickness="0"
+					ItemContainerStyle="{StaticResource PosCatalogTabItem}"
+					Margin="0,10,0,0"
+					Grid.RowSpan="2">
+                    <TabItem
+						Header="Продажи"
+						Margin="0,0,-12,0">
+                        <Border
+							Background="#00FFFFFF"
+							Padding="8">
+                            <DataGrid
+								x:Name="SalesGrid"
+								ScrollViewer.PanningMode="Both"
+								Style="{StaticResource ModernGrid}"
+								AutoGenerateColumns="False"
+								IsReadOnly="True"
+								ItemsSource="{Binding SalesView}"
+								MouseDoubleClick="SalesGrid_MouseDoubleClick">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn
+										Header="Дата"
+										Width="Auto"
+										MinWidth="60"
+										Binding="{Binding CreatedAt, StringFormat=dd.MM}" />
+                                    <DataGridTextColumn
+										Header="Время"
+										Width="Auto"
+										MinWidth="60"
+										Binding="{Binding CreatedAt, StringFormat=HH:mm}" />
+                                    <DataGridTextColumn
+										Header="Чек"
+										Width="*"
+										Binding="{Binding ReceiptNumber}">
+                                        <DataGridBoundColumn.ElementStyle>
+                                            <Style
+												TargetType="{x:Type TextBlock}">
+                                                <Setter
+													Property="TextTrimming"
+													Value="CharacterEllipsis" />
+                                                <Setter
+													Property="FrameworkElement.ToolTip"
+													Value="{Binding ReceiptNumber}" />
+                                            </Style>
+                                        </DataGridBoundColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn
+										Header="Сумма"
+										Width="130"
+										Binding="{Binding TotalAmount, StringFormat='{}{0:N2} сом'}">
+                                        <DataGridBoundColumn.ElementStyle>
+                                            <Style
+												TargetType="{x:Type TextBlock}">
+                                                <Setter
+													Property="Foreground"
+													Value="{Binding TotalAmount, Converter='{StaticResource AmountColor}'}" />
+                                                <Setter
+													Property="FontWeight"
+													Value="SemiBold" />
+                                            </Style>
+                                        </DataGridBoundColumn.ElementStyle>
+                                    </DataGridTextColumn>
+                                    <DataGridTextColumn
+										Header="Оплата"
+										Width="100"
+										Binding="{Binding PaymentMethod}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </TabItem>
+                    <TabItem
+						Header="Возвраты"
+						Margin="16,0,-24,0">
+                        <Border
+							Background="#00FFFFFF"
+							Padding="8">
+                            <DataGrid
+								x:Name="RefundsGrid"
+								ScrollViewer.PanningMode="Both"
+								Style="{StaticResource ModernGrid}"
+								AutoGenerateColumns="False"
+								ItemsSource="{Binding RefundsView}"
+								MouseDoubleClick="RefundsGrid_MouseDoubleClick">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn
+										Header="Дата"
+										Width="80"
+										Binding="{Binding CreatedAt, StringFormat=dd.MM}" />
+                                    <DataGridTextColumn
+										Header="Время"
+										Width="70"
+										Binding="{Binding CreatedAt, StringFormat=HH:mm}" />
+                                    <DataGridTextColumn
+										Header="Чек"
+										Width="180"
+										Binding="{Binding ReceiptNumber}" />
+                                    <DataGridTextColumn
+										Header="Сумма"
+										Width="120"
+										Binding="{Binding TotalAmount, StringFormat='{}{0:N2} сом'}" />
+                                    <DataGridTextColumn
+										Header="Причина"
+										Width="250"
+										Binding="{Binding Reason}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </TabItem>
+                    <TabItem
+						Header="История"
+						Margin="27,0,-48,0">
+                        <Border
+							Background="#00FFFFFF"
+							Padding="8">
+                            <DataGrid
+								x:Name="HistoryGrid"
+								ScrollViewer.PanningMode="Both"
+								Style="{StaticResource ModernGrid}"
+								AutoGenerateColumns="False"
+								ItemsSource="{Binding HistoryView}"
+								MouseDoubleClick="HistoryGrid_MouseDoubleClick">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn
+										Header="Дата"
+										Width="Auto"
+										MinWidth="55"
+										Binding="{Binding CreatedAt, StringFormat=dd.MM}" />
+                                    <DataGridTextColumn
+										Header="Время"
+										Width="Auto"
+										MinWidth="55"
+										Binding="{Binding CreatedAt, StringFormat=HH:mm}" />
+                                    <DataGridTextColumn
+										Header="Тип"
+										Width="1*"
+										Binding="{Binding Type}" />
+                                    <DataGridTextColumn
+										Header="Чек"
+										Width="3*"
+										Binding="{Binding ReceiptNumber}" />
+                                    <DataGridTextColumn
+										Header="Сумма"
+										Width="Auto"
+										MinWidth="110"
+										Binding="{Binding TotalAmount, StringFormat='{}{0:N2} сом'}" />
+                                    <DataGridTextColumn
+										Header="Оплата"
+										Width="Auto"
+										MinWidth="90"
+										Binding="{Binding PaymentMethod}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </TabItem>
+                </TabControl>
+                <Border
+					Grid.Row="5"
+					Margin="0,8,0,0"
+					Padding="12"
+					Background="{DynamicResource BrushDangerSoft}"
+					CornerRadius="8"
+					Visibility="{Binding HasError, Converter='{StaticResource BoolToVis}'}">
+                    <TextBlock
+						Foreground="{DynamicResource BrushDanger}"
+						TextWrapping="Wrap"
+						Text="{Binding ErrorMessage}" />
+                </Border>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Window>

@@ -64,6 +64,22 @@ public sealed class NurMarketApiClient : IDisposable
         return false;
     }
 
+    /// <summary>GET /main/agents/me/products/ (список товаров агента).</summary>
+    public async Task<List<JsonElement>> GetAgentProductsAsync(CancellationToken ct = default)
+    {
+        HttpResponseMessage httpResponseMessage = await _http.GetAsync(
+            App.Settings.ApiBaseUrl + "/main/agents/me/products/", ct).ConfigureAwait(false);
+        httpResponseMessage.EnsureSuccessStatusCode();
+        using (JsonDocument jsonDocument = JsonDocument.Parse(
+            await httpResponseMessage.Content.ReadAsStringAsync().ConfigureAwait(false)))
+        {
+            if (jsonDocument.RootElement.TryGetProperty("results", out JsonElement results) &&
+                results.ValueKind == JsonValueKind.Array)
+                return results.EnumerateArray().ToList();
+        }
+        return new List<JsonElement>();
+    }
+
     public async Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default)
     {
         await _loginMutex.WaitAsync(ct).ConfigureAwait(false);

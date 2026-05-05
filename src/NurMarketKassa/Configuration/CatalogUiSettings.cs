@@ -1,3 +1,5 @@
+
+#nullable disable
 namespace NurMarketKassa.Configuration;
 
 public sealed class CatalogUiSettings
@@ -8,6 +10,5 @@ public sealed class CatalogUiSettings
 
     public int SearchLimit { get; init; } = 40;
 
-    /// <summary>Задержка поиска после ввода (мс).</summary>
     public int SearchDebounceMs { get; init; } = 380;
 }

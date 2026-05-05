@@ -46,9 +46,15 @@ public sealed class UserPreferences
     /// <summary>Показывать экранную клавиатуру при фокусе в поле (выкл. — только кнопка «⌨» и явные вызовы).</summary>
     public bool AutoShowTouchKeyboard { get; set; } = true;
 
+    public CatalogViewMode CatalogViewMode { get; set; } = CatalogViewMode.Cards;
+    public bool SingleClickToCart { get; set; }
+    public bool ToolsPanelExpanded { get; set; }
+
     public string LastLoginEmail { get; set; } = "";
 
     public string LastLoginPassword { get; set; } = "";
+    public string LastFilterCategory { get; set; } = "";
+    public string LastFilterBrand { get; set; } = "";
 
     public static UserPreferences Instance { get; } = new();
 
@@ -110,6 +116,16 @@ public sealed class UserPreferences
                 p.LastLoginEmail = fromFile.LastLoginEmail!;
             if (fromFile.LastLoginPassword is not null)
                 p.LastLoginPassword = fromFile.LastLoginPassword;
+            if (!string.IsNullOrEmpty(fromFile.LastFilterCategory))
+                p.LastFilterCategory = fromFile.LastFilterCategory;
+            if (!string.IsNullOrEmpty(fromFile.LastFilterBrand))
+                p.LastFilterBrand = fromFile.LastFilterBrand;
+            if (fromFile.CatalogViewMode is not null)
+                p.CatalogViewMode = fromFile.CatalogViewMode.Value;
+            if (fromFile.SingleClickToCart is not null)
+                p.SingleClickToCart = fromFile.SingleClickToCart.Value;
+            if (fromFile.ToolsPanelExpanded is not null)
+                p.ToolsPanelExpanded = fromFile.ToolsPanelExpanded.Value;
         }
         catch
         {
@@ -143,6 +159,11 @@ public sealed class UserPreferences
                 AutoShowTouchKeyboard = AutoShowTouchKeyboard,
                 LastLoginEmail = LastLoginEmail,
                 LastLoginPassword = LastLoginPassword,
+                LastFilterCategory = LastFilterCategory,
+                LastFilterBrand = LastFilterBrand,
+                CatalogViewMode = CatalogViewMode,
+                SingleClickToCart = SingleClickToCart,
+                ToolsPanelExpanded = ToolsPanelExpanded,
             };
             File.WriteAllText(FilePath, JsonSerializer.Serialize(dto, JsonOpt));
         }
@@ -192,5 +213,10 @@ public sealed class UserPreferences
         public bool? AutoShowTouchKeyboard { get; set; }
         public string? LastLoginEmail { get; set; }
         public string? LastLoginPassword { get; set; }
+        public string? LastFilterCategory { get; set; }
+        public string? LastFilterBrand { get; set; }
+        public CatalogViewMode? CatalogViewMode { get; set; }
+        public bool? SingleClickToCart { get; set; }
+        public bool? ToolsPanelExpanded { get; set; }
     }
 }

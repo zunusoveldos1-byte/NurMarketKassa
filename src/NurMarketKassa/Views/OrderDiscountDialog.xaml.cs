@@ -1,90 +1,94 @@
+using System;
 using System.Windows;
+using System.Windows.Controls;
 using NurMarketKassa.Services;
 
-namespace NurMarketKassa.Views;
+#nullable disable
 
-public partial class OrderDiscountDialog : Window
+namespace NurMarketKassa.Views
 {
-    public string DiscountMode { get; private set; } = "percent";
-    public string DiscountValue { get; private set; } = "";
-    public bool ClearRequested { get; private set; }
-
-    public OrderDiscountDialog(string? currentPercent, string? currentSum)
+    public partial class OrderDiscountDialog : Window
     {
-        InitializeComponent();
+        public string DiscountMode { get; private set; } = "percent";
+        public string DiscountValue { get; private set; } = "";
+        public bool ClearRequested { get; private set; }
 
-        var pct = (currentPercent ?? "").Trim();
-        var sum = (currentSum ?? "").Trim();
-
-        CurrentDiscountText.Text = !string.IsNullOrEmpty(pct)
-            ? $"Сейчас действует скидка: {pct}%"
-            : !string.IsNullOrEmpty(sum)
-                ? $"Сейчас действует скидка: {sum} сом"
-                : "Сейчас скидка на чек не задана.";
-
-        if (!string.IsNullOrEmpty(sum))
+        public OrderDiscountDialog(string currentPercent, string currentSum)
         {
-            RbSum.IsChecked = true;
-            ValueBox.Text = sum;
-        }
-        else
-        {
-            RbPercent.IsChecked = true;
-            ValueBox.Text = pct;
-        }
+            InitializeComponent();
 
-        SyncModeUi();
-        Loaded += (_, _) =>
-        {
-            ValueBox.Focus();
-            ValueBox.SelectAll();
-        };
-    }
+            string pct = (currentPercent ?? "").Trim();
+            string sum = (currentSum ?? "").Trim();
 
-    private void DiscountType_Changed(object sender, RoutedEventArgs e) => SyncModeUi();
+            CurrentDiscountText.Text = !string.IsNullOrEmpty(pct)
+                ? $"Сейчас действует скидка: {pct}%"
+                : !string.IsNullOrEmpty(sum)
+                    ? $"Сейчас действует скидка: {sum} сом"
+                    : "Сейчас скидка на чек не задана.";
 
-    private void SyncModeUi()
-    {
-        if (RbPercent is null || RbSum is null || ValueLabel is null)
-            return;
+            if (!string.IsNullOrEmpty(sum))
+            {
+                RbSum.IsChecked = true;
+                ValueBox.Text = sum;
+            }
+            else
+            {
+                RbPercent.IsChecked = true;
+                ValueBox.Text = pct;
+            }
 
-        var percent = RbPercent.IsChecked == true;
-        DiscountMode = percent ? "percent" : "sum";
-        ValueLabel.Text = percent ? "Введите процент скидки" : "Введите сумму скидки";
-    }
+            SyncModeUi();
 
-    private void Apply_Click(object sender, RoutedEventArgs e)
-    {
-        ErrorText.Visibility = Visibility.Collapsed;
-        ErrorText.Text = "";
-        SyncModeUi();
-
-        var raw = (ValueBox.Text ?? "").Trim();
-        string? err = DiscountMode == "percent"
-            ? OrderDiscountHelper.ValidatePercent(raw)
-            : OrderDiscountHelper.ValidateSum(raw);
-
-        if (err != null)
-        {
-            ErrorText.Text = err;
-            ErrorText.Visibility = Visibility.Visible;
-            return;
+            Loaded += (_, _) =>
+            {
+                ValueBox.Focus();
+                ValueBox.SelectAll();
+            };
         }
 
-        DiscountValue = OrderDiscountHelper.NormalizeDecimal(raw);
-        ClearRequested = false;
-        DialogResult = true;
-    }
+        private void DiscountType_Changed(object sender, RoutedEventArgs e) => SyncModeUi();
 
-    private void Clear_Click(object sender, RoutedEventArgs e)
-    {
-        ClearRequested = true;
-        DiscountValue = "";
-        DialogResult = true;
-    }
+        private void SyncModeUi()
+        {
+            if (RbPercent == null || RbSum == null || ValueLabel == null)
+                return;
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
+            bool isPercent = RbPercent.IsChecked == true;
+            DiscountMode = isPercent ? "percent" : "sum";
+            ValueLabel.Text = isPercent ? "Введите процент скидки" : "Введите сумму скидки";
+        }
+
+        private void Apply_Click(object sender, RoutedEventArgs e)
+        {
+            ErrorText.Visibility = Visibility.Collapsed;
+            ErrorText.Text = "";
+            SyncModeUi();
+
+            string raw = (ValueBox.Text ?? "").Trim();
+            string error = DiscountMode == "percent"
+                ? OrderDiscountHelper.ValidatePercent(raw)
+                : OrderDiscountHelper.ValidateSum(raw);
+
+            if (error != null)
+            {
+                ErrorText.Text = error;
+                ErrorText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                DiscountValue = OrderDiscountHelper.NormalizeDecimal(raw);
+                ClearRequested = false;
+                DialogResult = true;
+            }
+        }
+
+        private void Clear_Click(object sender, RoutedEventArgs e)
+        {
+            ClearRequested = true;
+            DiscountValue = "";
+            DialogResult = true;
+        }
+
+        private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
     }
 }

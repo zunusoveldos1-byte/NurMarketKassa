@@ -1,0 +1,226 @@
+﻿<Window
+	x:Class="NurMarketKassa.Views.FilterWindow"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Title="Фильтры"
+	Height="580"
+	Width="620"
+	Style="{DynamicResource AppWindow}"
+	WindowStartupLocation="CenterOwner"
+	ResizeMode="NoResize"
+	WindowStyle="None"
+	AllowsTransparency="True"
+	Background="#00FFFFFF"
+	xmlns:views="clr-namespace:NurMarketKassa.Converters">
+    <FrameworkElement.Resources>
+        <ResourceDictionary>
+            <Style
+				x:Key="FilterLabel"
+				TargetType="{x:Type TextBlock}">
+                <Setter
+					Property="FontSize"
+					Value="12" />
+                <Setter
+					Property="FontWeight"
+					Value="SemiBold" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Margin"
+					Value="0,6,0,2" />
+            </Style>
+            <Style
+				x:Key="{x:Type ComboBox}"
+				TargetType="{x:Type ComboBox}">
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInput}" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Padding"
+					Value="8,4" />
+                <Setter
+					Property="Margin"
+					Value="0,0,0,8" />
+            </Style>
+            <Style
+				x:Key="{x:Type DatePicker}"
+				TargetType="{x:Type DatePicker}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInput}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Padding"
+					Value="4,2" />
+                <Setter
+					Property="Margin"
+					Value="0,0,0,8" />
+            </Style>
+            <Style
+				x:Key="{x:Type CheckBox}"
+				TargetType="{x:Type CheckBox}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Margin"
+					Value="0,10,0,0" />
+                <Setter
+					Property="FontSize"
+					Value="14" />
+                <Setter
+					Property="Height"
+					Value="28" />
+            </Style>
+        </ResourceDictionary>
+    </FrameworkElement.Resources>
+    <Border
+		Background="{DynamicResource BrushPanel}"
+		CornerRadius="12"
+		BorderBrush="{DynamicResource BrushBorder}"
+		BorderThickness="1"
+		Effect="{DynamicResource CardShadow}"
+		Padding="20">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition
+					Height="Auto" />
+                <RowDefinition
+					Height="*" />
+                <RowDefinition
+					Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid
+				Row="0"
+				Margin="0,0,0,12">
+                <TextBlock
+					Text="Фильтры"
+					FontSize="18"
+					FontWeight="Bold"
+					Foreground="{DynamicResource BrushText}"
+					VerticalAlignment="Center" />
+                <Button
+					Content="✕"
+					HorizontalAlignment="Left"
+					Style="{StaticResource TouchGhostButton}"
+					Width="58"
+					Height="32"
+					Margin="520,0,0,0"
+					Click="Close_Click" />
+            </Grid>
+            <ScrollViewer
+				Grid.Row="1"
+				VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock
+						Text="Дата начала"
+						Style="{StaticResource FilterLabel}" />
+                    <DatePicker
+						x:Name="DateFromPicker" />
+                    <TextBlock
+						Text="Дата конца"
+						Style="{StaticResource FilterLabel}" />
+                    <DatePicker
+						x:Name="DateToPicker" />
+                    <TextBlock
+						Text="Категория"
+						Style="{StaticResource FilterLabel}" />
+                    <ComboBox
+						x:Name="CategoryCombo"
+						ItemsSource="{Binding Categories}"
+						SelectedItem="{Binding SelectedCategory}" />
+                    <TextBlock
+						Text="Бренд"
+						Style="{StaticResource FilterLabel}" />
+                    <ComboBox
+						x:Name="BrandCombo"
+						ItemsSource="{Binding FilteredBrands}"
+						SelectedItem="{Binding SelectedBrand}" />
+                    <TextBlock
+						Text="Клиент"
+						Style="{StaticResource FilterLabel}" />
+                    <ComboBox
+						x:Name="ClientCombo"
+						ItemsSource="{Binding Clients}" />
+                    <TextBlock
+						Text="Статус"
+						Style="{StaticResource FilterLabel}" />
+                    <ComboBox
+						x:Name="StatusCombo"
+						ItemsSource="{Binding Statuses}" />
+                    <TextBlock
+						Text="Горячие клавиши"
+						Style="{StaticResource FilterLabel}" />
+                    <ComboBox
+						x:Name="HotkeyGroupCombo"
+						ItemsSource="{Binding HotkeyGroups}" />
+                    <CheckBox
+						x:Name="WeightCheck"
+						Content="Только весовые"
+						IsChecked="{Binding OnlyWeight}" />
+                    <CheckBox
+						x:Name="InStockCheck"
+						Content="В наличии"
+						IsChecked="{Binding OnlyInStock}" />
+                    <CheckBox
+						x:Name="FavoriteCheck"
+						Content="Избранное"
+						IsChecked="{Binding OnlyFavorite}" />
+                </StackPanel>
+            </ScrollViewer>
+            <StackPanel
+				Grid.Row="2"
+				Orientation="Horizontal"
+				HorizontalAlignment="Right"
+				Margin="0,16,0,0">
+                <Button
+					Content="Сбросить"
+					Style="{StaticResource TouchSecondaryButton}"
+					Width="100"
+					Margin="0,0,10,0"
+					Click="Reset_Click" />
+                <Button
+					Content="Применить"
+					Width="100"
+					Background="#FFD700"
+					Foreground="#111827"
+					FontWeight="Bold"
+					BorderThickness="0"
+					Cursor="Hand"
+					Click="Apply_Click">
+                    <Control.Template>
+                        <ControlTemplate
+							TargetType="{x:Type Button}">
+                            <Border
+								Background="{TemplateBinding Control.Background}"
+								CornerRadius="6"
+								Padding="10,6">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Control.Template>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

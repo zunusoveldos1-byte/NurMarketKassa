@@ -1,25 +1,24 @@
+using System;
 using System.Windows;
+using System.Windows.Controls;
 
-namespace NurMarketKassa.Views;
+#nullable disable
 
-public partial class OpenShiftDialog : Window
+namespace NurMarketKassa.Views
 {
-    public string OpeningCash => OpeningCashBox.Text.Trim();
-
-    public OpenShiftDialog()
+    public partial class OpenShiftDialog : Window
     {
-        InitializeComponent();
-        OpeningCashBox.Focus();
-        OpeningCashBox.SelectAll();
-    }
+        public string OpeningCash => OpeningCashBox.Text.Trim();
 
-    private void Ok_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = true;
-    }
+        public OpenShiftDialog()
+        {
+            InitializeComponent();
+            OpeningCashBox.Focus();
+            OpeningCashBox.SelectAll();
+        }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
+        private void Ok_Click(object sender, RoutedEventArgs e) => DialogResult = true;
+
+        private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
     }
 }

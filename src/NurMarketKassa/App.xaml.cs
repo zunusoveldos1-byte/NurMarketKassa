@@ -1,93 +1,113 @@
+using NurMarketKassa.Configuration;
+using NurMarketKassa.Services;
+using NurMarketKassa.Services.Hardware;
 using System;
 using System.Net.Http;
 using System.Text;
 using System.Windows;
 using System.Windows.Input;
-using NurMarketKassa.Configuration;
-using NurMarketKassa.Services;
 
-namespace NurMarketKassa;
-
-public partial class App : Application
+namespace NurMarketKassa
 {
-    public static AppSettings Settings { get; private set; } = null!;
-    public static NurMarketApiClient Api { get; private set; } = null!;
-    public static CartSession Cart { get; } = new();
-    public static OfflineSalesSyncService OfflineSync { get; private set; } = null!;
-    public static string? PosCashboxId { get; set; }
-
-    /// <summary>Если true, закрытие главного окна не перенаправляет на экран входа (полное завершение приложения).</summary>
-    internal static bool ExitWithoutLoginRedirect { get; set; }
-
-    /// <summary>Человекочитаемое имя кассы из списка касс API (не UUID).</summary>
-    public static string? PosCashboxDisplayName { get; set; }
-
-    public static string? ActiveShiftId { get; set; }
-
-    private HttpClient? _http;
-
-    static App()
+    public partial class App : Application
     {
-        EventManager.RegisterClassHandler(
-            typeof(UIElement),
-            UIElement.PreviewGotKeyboardFocusEvent,
-            new KeyboardFocusChangedEventHandler(TouchKeyboard.OnPreviewKeyboardFocus),
-            handledEventsToo: true);
-    }
+        private static ScalePrinterAgentService? _agentService;
+        public static AppSettings Settings { get; private set; } = null!;
+        public static NurMarketApiClient Api { get; private set; } = null!;
+        public static CartSession Cart { get; } = new();
+        public static OfflineSalesSyncService OfflineSync { get; private set; } = null!;
+        public static string? CurrentUserId { get; set; }
+        public static string? PosCashboxId { get; set; }
+        internal static bool ExitWithoutLoginRedirect { get; set; }
+        public static string? PosCashboxDisplayName { get; set; }
+        public static string? ActiveShiftId { get; set; }
 
-    public static void ApplyTheme(bool dark)
-    {
-        var uri = new Uri(dark ? "Themes/AppThemeDark.xaml" : "Themes/AppThemeLight.xaml", UriKind.Relative);
-        var dict = new ResourceDictionary { Source = uri };
-        Current.Resources.MergedDictionaries.Clear();
-        Current.Resources.MergedDictionaries.Add(dict);
-    }
+        private HttpClient? _http;
 
-    protected override void OnStartup(StartupEventArgs e)
-    {
-        DispatcherUnhandledException += (_, args) =>
+        static App()
         {
-            PosLogger.Log(
-                $"DispatcherUnhandledException: {args.Exception.GetType().FullName}: {args.Exception.Message} | {args.Exception.StackTrace}",
-                "ERROR");
+            // Регистрируем обработчик фокуса для Touch Keyboard
+            EventManager.RegisterClassHandler(
+                typeof(UIElement),
+                UIElement.PreviewGotKeyboardFocusEvent,
+                new KeyboardFocusChangedEventHandler(TouchKeyboard.OnPreviewKeyboardFocus),
+                handledEventsToo: true);
+        }
+
+        public static void ApplyTheme(bool dark)
+        {
+            var uri = new Uri(dark ? "Themes/AppThemeDark.xaml" : "Themes/AppThemeLight.xaml", UriKind.Relative);
+            var dict = new ResourceDictionary { Source = uri };
+            Current.Resources.MergedDictionaries.Clear();
+            Current.Resources.MergedDictionaries.Add(dict);
+        }
+
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            // Игнорируем Velopack (заменено заглушкой)
             try
             {
-                MessageBox.Show(
-                    "Ошибка интерфейса:\n\n" + args.Exception.Message + "\n\n" + args.Exception.GetType().FullName,
-                    "Nur Market — Касса",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                // Если нужна реальная поддержка автообновлений – установите Velopack и раскомментируйте:
+                // VelopackApp.Build().Run();
             }
-            catch
+            catch (Exception ex)
             {
-                /* ignore */
+                MessageBox.Show($"Ошибка обновления: {ex.Message}");
             }
 
-            args.Handled = true;
-        };
+            DispatcherUnhandledException += (_, args) =>
+            {
+                PosLogger.Log(
+                    $"DispatcherUnhandledException: {args.Exception.GetType().FullName}: {args.Exception.Message} | {args.Exception.StackTrace}",
+                    "ERROR");
+                try
+                {
+                    MessageBox.Show(
+                        "Ошибка интерфейса:\n\n" + args.Exception.Message + "\n\n" + args.Exception.GetType().FullName,
+                        "Nur Market — Касса",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+                catch
+                {
+                    /* ignore */
+                }
+                args.Handled = true;
+            };
 
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        Settings = AppSettings.Load();
-        UserPreferences.LoadFromDiskAndMergeDefaults(Settings);
-        ApplyTheme(UserPreferences.Instance.DarkTheme);
-        AutostartHelper.SyncFromPreference(UserPreferences.Instance.Autostart);
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(55) };
-        Api = new NurMarketApiClient(_http, Settings);
-        OfflineSync = new OfflineSalesSyncService(Api);
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            Settings = AppSettings.Load();
+            UserPreferences.LoadFromDiskAndMergeDefaults(Settings);
+            ApplyTheme(UserPreferences.Instance.DarkTheme);
+            AutostartHelper.SyncFromPreference(UserPreferences.Instance.Autostart);
+            _http = new HttpClient { Timeout = TimeSpan.FromSeconds(55) };
+            Api = new NurMarketApiClient(_http, Settings);
+            OfflineSync = new OfflineSalesSyncService(Api);
 
-        base.OnStartup(e);
-        var login = new Views.LoginWindow();
-        login.Show();
-        _ = Dispatcher.BeginInvoke(() => OfflineSync.Start(), System.Windows.Threading.DispatcherPriority.Background);
+            System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, args) =>
+            {
+                if (args.IsAvailable)
+                {
+                    Dispatcher.InvokeAsync(() => OfflineSync.TriggerSyncNowAsync());
+                }
+            };
+
+            base.OnStartup(e);
+            var login = new Views.LoginWindow();
+            login.Show();
+            _ = Dispatcher.BeginInvoke(() => OfflineSync.Start(), System.Windows.Threading.DispatcherPriority.Background);
+            _agentService = new ScalePrinterAgentService();
+            _agentService.Start();
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            Cart.Dispose();
+            OfflineSync.Dispose();
+            Api.Dispose();
+            _http?.Dispose();
+            _agentService?.Dispose();
+            base.OnExit(e);
+        }
     }
-
-    protected override void OnExit(ExitEventArgs e)
-    {
-        Cart.Dispose();
-        OfflineSync.Dispose();
-        Api.Dispose();
-        _http?.Dispose();
-        base.OnExit(e);
-    }
-
 }

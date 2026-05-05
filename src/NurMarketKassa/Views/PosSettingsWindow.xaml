@@ -1,192 +1,405 @@
 <Window x:Class="NurMarketKassa.Views.PosSettingsWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Настройки кассы"
-        Height="640"
-        Width="540"
-        MinHeight="560"
-        MinWidth="480"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        Style="{StaticResource AppWindow}">
-    <Grid Margin="18">
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Title="Настройки кассы"
+	Height="640"
+	Width="620"
+	MinHeight="560"
+	MinWidth="480"
+	WindowStartupLocation="CenterOwner"
+	ResizeMode="NoResize"
+	Style="{StaticResource AppWindow}">
+    <FrameworkElement.Resources>
+        <ResourceDictionary>
+            <Style
+				x:Key="DatePill"
+				TargetType="{x:Type RadioButton}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="Padding"
+					Value="14,6" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type RadioButton}">
+                            <Border
+								x:Name="pill"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="1"
+								CornerRadius="10"
+								Padding="{TemplateBinding Control.Padding}">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="ToggleButton.IsChecked"
+									Value="True">
+                                    <Setter
+										TargetName="pill"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.Background" />
+                                    <Setter
+										TargetName="pill"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.BorderBrush" />
+                                    <Setter
+										Property="Foreground"
+										Value="#FFFFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </FrameworkElement.Resources>
+    <Grid
+		Margin="18">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition
+				Height="Auto" />
+            <RowDefinition
+				Height="*" />
+            <RowDefinition
+				Height="Auto" />
+            <RowDefinition
+				Height="Auto" />
         </Grid.RowDefinitions>
-
-        <Border Grid.Row="0" Style="{StaticResource ElevatedCardBorder}" CornerRadius="12">
+        <Border
+			Grid.Row="0"
+			Style="{StaticResource ElevatedCardBorder}"
+			CornerRadius="12">
             <StackPanel>
-                <TextBlock Text="Настройки кассы"
-                           Style="{StaticResource DialogTitleText}"/>
-                <TextBlock Text="Оборудование, печать и режим работы кассы"
-                           Margin="0,8,0,0"
-                           Style="{StaticResource DialogLabelText}"/>
+                <TextBlock
+					Text="Настройки кассы"
+					Style="{StaticResource DialogTitleText}" />
+                <TextBlock
+					Text="Оборудование, печать и режим работы кассы"
+					Margin="0,8,0,0"
+					Style="{StaticResource DialogLabelText}" />
             </StackPanel>
         </Border>
-
-        <Border Grid.Row="1"
-                Margin="0,14,0,0"
-                BorderBrush="{StaticResource BrushBorder}"
-                BorderThickness="0,0,0,1"
-                Padding="0,0,0,10">
-            <TabControl Style="{StaticResource PosCatalogTabControl}"
-                        ItemContainerStyle="{StaticResource PosCatalogTabItem}">
-                <TabItem Header="Весы" Margin="0,0,-6,0">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  Padding="0,12,0,8">
-                        <Border Style="{StaticResource ModernSectionBorder}">
+        <Border
+			Grid.Row="1"
+			Margin="0,14,0,0"
+			BorderBrush="{StaticResource BrushBorder}"
+			BorderThickness="0,0,0,1"
+			Padding="0,0,0,10">
+            <TabControl
+				Style="{StaticResource PosCatalogTabControl}"
+				ItemContainerStyle="{StaticResource PosCatalogTabItem}">
+                <TabItem
+					Header="Весы"
+					Margin="0,0,-6,0">
+                    <ScrollViewer
+						VerticalScrollBarVisibility="Auto"
+						Padding="0,12,0,8">
+                        <Border
+							Style="{StaticResource ModernSectionBorder}">
                             <StackPanel>
-                                <TextBlock Text="Весы (COM)"
-                                           Style="{StaticResource SectionTitleText}"/>
-                                <CheckBox x:Name="ScaleEnabledCheck"
-                                          Content="Включить опрос весов"
-                                          Style="{StaticResource TouchCheckBox}"
-                                          Margin="0,12,0,8"/>
-                                <TextBlock Text="COM-порт" Style="{StaticResource DialogLabelText}"/>
-                                <ComboBox x:Name="ScaleComCombo"
-                                          IsEditable="True"
-                                          Margin="0,4,0,8"
-                                          Style="{StaticResource TouchComboBox}"/>
-                                <TextBlock Text="Скорость (baud)" Style="{StaticResource DialogLabelText}"/>
-                                <TextBox x:Name="ScaleBaudBox"
-                                         Margin="0,4,0,8"
-                                         Style="{StaticResource TouchTextBox}"/>
-                                <TextBlock Text="Запрос веса (hex, опционально), напр. 05"
-                                           Style="{StaticResource DialogLabelText}"/>
-                                <TextBox x:Name="ScaleHexBox"
-                                         Margin="0,4,0,8"
-                                         Style="{StaticResource TouchTextBox}"/>
-                                <TextBlock Text="Повтор запроса (мс, 0 = не слать)"
-                                           Style="{StaticResource DialogLabelText}"/>
-                                <TextBox x:Name="ScalePollBox"
-                                         Margin="0,4,0,0"
-                                         Style="{StaticResource TouchTextBox}"/>
+                                <TextBlock
+									Text="Весы (COM)"
+									Style="{StaticResource SectionTitleText}" />
+                                <CheckBox
+									x:Name="ScaleEnabledCheck"
+									Content="Включить опрос весов"
+									Style="{StaticResource TouchCheckBox}"
+									Margin="0,12,0,8" />
+                                <TextBlock
+									Text="COM-порт"
+									Style="{StaticResource DialogLabelText}" />
+                                <ComboBox
+									x:Name="ScaleComCombo"
+									IsEditable="True"
+									Margin="0,4,0,8"
+									Style="{StaticResource TouchComboBox}" />
+                                <TextBlock
+									Text="Скорость (baud)"
+									Style="{StaticResource DialogLabelText}" />
+                                <TextBox
+									x:Name="ScaleBaudBox"
+									Margin="0,4,0,8"
+									Style="{StaticResource TouchTextBox}" />
+                                <TextBlock
+									Text="Запрос веса (hex, опционально), напр. 05"
+									Style="{StaticResource DialogLabelText}" />
+                                <TextBox
+									x:Name="ScaleHexBox"
+									Margin="0,4,0,8"
+									Style="{StaticResource TouchTextBox}" />
+                                <TextBlock
+									Text="Повтор запроса (мс, 0 = не слать)"
+									Style="{StaticResource DialogLabelText}" />
+                                <TextBox
+									x:Name="ScalePollBox"
+									Margin="0,4,0,0"
+									Style="{StaticResource TouchTextBox}" />
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
                 </TabItem>
-
-                <TabItem Header="Печать" Margin="7,0,-17,0">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  Padding="0,12,0,8">
-                        <Border Style="{StaticResource ModernSectionBorder}">
+                <TabItem
+					Header="Печать"
+					Margin="7,0,-17,0">
+                    <ScrollViewer
+						VerticalScrollBarVisibility="Auto"
+						Padding="0,12,0,8">
+                        <Border
+							Style="{StaticResource ModernSectionBorder}">
                             <StackPanel>
-                                <TextBlock Text="Термопринтер (LPT / ESC-POS)"
-                                           Style="{StaticResource SectionTitleText}"/>
-                                <CheckBox x:Name="ReceiptEnabledCheck"
-                                          Content="Печатать чек при оплате, если это выбрано в окне оплаты"
-                                          Style="{StaticResource TouchCheckBox}"
-                                          Margin="0,12,0,8"/>
-                                <TextBlock Text="LPT-порт или путь" Style="{StaticResource DialogLabelText}"/>
-                                <TextBox x:Name="ReceiptLptBox"
-                                         Margin="0,4,0,8"
-                                         Style="{StaticResource TouchTextBox}"/>
-                                <TextBlock Text="Кодировка текста" Style="{StaticResource DialogLabelText}"/>
-                                <ComboBox x:Name="ReceiptEncCombo"
-                                          Margin="0,4,0,8"
-                                          Style="{StaticResource TouchComboBox}">
-                                    <ComboBoxItem Content="cp866 — кириллица DOS/OEM" Tag="cp866"/>
-                                    <ComboBoxItem Content="cp1251 / windows-1251" Tag="cp1251"/>
-                                    <ComboBoxItem Content="wpc1251 (слот 46)" Tag="wpc1251"/>
+                                <TextBlock
+									Text="Термопринтер (LPT / ESC-POS)"
+									Style="{StaticResource SectionTitleText}" />
+                                <CheckBox
+									x:Name="ReceiptEnabledCheck"
+									Content="Печатать чек при оплате, если это выбрано в окне оплаты"
+									Style="{StaticResource TouchCheckBox}"
+									Margin="0,12,0,8" />
+                                <TextBlock
+									Text="LPT-порт или путь"
+									Style="{StaticResource DialogLabelText}" />
+                                <TextBox
+									x:Name="ReceiptLptBox"
+									Margin="0,4,0,8"
+									Style="{StaticResource TouchTextBox}" />
+                                <TextBlock
+									Text="Кодировка текста"
+									Style="{StaticResource DialogLabelText}" />
+                                <ComboBox
+									x:Name="ReceiptEncCombo"
+									Margin="0,4,0,8"
+									Style="{StaticResource TouchComboBox}">
+                                    <ComboBoxItem
+										Content="cp866 — кириллица DOS/OEM"
+										Tag="cp866" />
+                                    <ComboBoxItem
+										Content="cp1251 / windows-1251"
+										Tag="cp1251" />
+                                    <ComboBoxItem
+										Content="wpc1251 (слот 46)"
+										Tag="wpc1251" />
                                 </ComboBox>
-                                <TextBlock Text="Таблица ESC t (как в PRINTER_EXE_CHAIN: 17 / 46 / 73 или авто)"
-                                           Style="{StaticResource DialogLabelText}"/>
-                                <ComboBox x:Name="ReceiptTableCombo"
-                                          Margin="0,4,0,8"
-                                          Style="{StaticResource TouchComboBox}">
-                                    <ComboBoxItem Content="Авто (по кодировке: 866→17, 1251→46)" Tag=""/>
-                                    <ComboBoxItem Content="17 — CP866 / OEM" Tag="17"/>
-                                    <ComboBoxItem Content="46 — CP1251 / WPC1251 (Cashino EP-200)" Tag="46"/>
-                                    <ComboBoxItem Content="73" Tag="73"/>
+                                <TextBlock
+									Text="Таблица ESC t (как в PRINTER_EXE_CHAIN: 17 / 46 / 73 или авто)"
+									Style="{StaticResource DialogLabelText}" />
+                                <ComboBox
+									x:Name="ReceiptTableCombo"
+									Margin="0,4,0,8"
+									Style="{StaticResource TouchComboBox}">
+                                    <ComboBoxItem
+										Content="Авто (по кодировке: 866→17, 1251→46)"
+										Tag="" />
+                                    <ComboBoxItem
+										Content="17 — CP866 / OEM"
+										Tag="17" />
+                                    <ComboBoxItem
+										Content="46 — CP1251 / WPC1251 (Cashino EP-200)"
+										Tag="46" />
+                                    <ComboBoxItem
+										Content="73"
+										Tag="73" />
                                 </ComboBox>
-                                <TextBlock Text="ESC R (0–255, пусто = не слать)"
-                                           Style="{StaticResource DialogLabelText}"/>
-                                <TextBox x:Name="ReceiptEscRBox"
-                                         Margin="0,4,0,8"
-                                         Style="{StaticResource TouchTextBox}"/>
-                                <TextBlock Text="Повторы печати при сбое" Style="{StaticResource DialogLabelText}"/>
-                                <TextBox x:Name="ReceiptRetryBox"
-                                         Margin="0,4,0,0"
-                                         Style="{StaticResource TouchTextBox}"/>
+                                <TextBlock
+									Text="ESC R (0–255, пусто = не слать)"
+									Style="{StaticResource DialogLabelText}" />
+                                <TextBox
+									x:Name="ReceiptEscRBox"
+									Margin="0,4,0,8"
+									Style="{StaticResource TouchTextBox}" />
+                                <TextBlock
+									Text="Повторы печати при сбое"
+									Style="{StaticResource DialogLabelText}" />
+                                <TextBox
+									x:Name="ReceiptRetryBox"
+									Margin="0,4,0,0"
+									Style="{StaticResource TouchTextBox}" />
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
                 </TabItem>
-
-                <TabItem Header="Обновления" Margin="15,0,-29,0">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  Padding="0,12,0,8">
-                        <Border Style="{StaticResource ModernSectionBorder}">
+                <TabItem
+					Header="Обновления"
+					Margin="15,0,-29,0">
+                    <ScrollViewer
+						VerticalScrollBarVisibility="Auto"
+						Padding="0,12,0,8">
+                        <Border
+							Style="{StaticResource ModernSectionBorder}">
                             <StackPanel>
-                                <TextBlock Text="Обновление приложения"
-                                           Style="{StaticResource SectionTitleText}"/>
-                                <TextBlock x:Name="AppVersionText"
-                                           Margin="0,10,0,4"
-                                           Style="{StaticResource DialogLabelText}"/>
-                                <TextBlock Text="Версию и ссылку на установщик задают в appsettings.json (Updates.ManifestUrl) или переменной DESKTOP_MARKET_UPDATE_MANIFEST_URL. По URL должен отдаваться JSON с полями latest_version и download_url (https)."
-                                           Style="{StaticResource SectionCaptionText}"
-                                           Margin="0,0,0,8"/>
-                                <Button Content="Проверить обновления"
-                                        Click="CheckUpdate_Click"
-                                        Style="{StaticResource TouchSecondaryButton}"
-                                        HorizontalAlignment="Left"
-                                        MinWidth="220"/>
+                                <TextBlock
+									Text="Обновление приложения"
+									Style="{StaticResource SectionTitleText}" />
+                                <TextBlock
+									x:Name="AppVersionText"
+									Margin="0,10,0,4"
+									Style="{StaticResource DialogLabelText}" />
+                                <TextBlock
+									Text="Версию и ссылку на установщик задают в appsettings.json (Updates.ManifestUrl) или переменной DESKTOP_MARKET_UPDATE_MANIFEST_URL. По URL должен отдаваться JSON с полями latest_version и download_url (https)."
+									Style="{StaticResource SectionCaptionText}"
+									Margin="0,0,0,8"
+									Height="43"
+									Width="523" />
+                                <Button
+									Content="Проверить обновления"
+									Style="{StaticResource TouchSecondaryButton}"
+									HorizontalAlignment="Left"
+									MinWidth="220"
+									Click="CheckUpdate_Click" />
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
                 </TabItem>
-
-                <TabItem Header="Экран" Margin="28,0,-41,0">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  Padding="0,12,0,8">
-                        <Border Style="{StaticResource ModernSectionBorder}">
+                <TabItem
+					Header="Экран"
+					Margin="28,0,-41,0">
+                    <ScrollViewer
+						VerticalScrollBarVisibility="Auto"
+						Padding="0,12,0,8">
+                        <Border
+							Style="{StaticResource ModernSectionBorder}">
                             <StackPanel>
-                                <TextBlock Text="Экран и автозагрузка"
-                                           Style="{StaticResource SectionTitleText}"/>
-                                <CheckBox x:Name="FullscreenCheck"
-                                          Content="Полноэкранный режим без рамки"
-                                          Style="{StaticResource TouchCheckBox}"
-                                          Margin="0,12,0,8"/>
-                                <CheckBox x:Name="AutostartCheck"
-                                          Content="Запускать вместе с Windows"
-                                          Style="{StaticResource TouchCheckBox}"
-                                          Margin="0,0,0,8"/>
-                                <CheckBox x:Name="AutoTouchKeyboardCheck"
-                                          Content="Показывать экранную клавиатуру при фокусе в поле ввода"
-                                          Style="{StaticResource TouchCheckBox}"
-                                          Margin="0,0,0,0"/>
-                                <TextBlock Text="Выключите, если клавиатура не нужна при работе с мышью; при включении после закрытия OSK она не будет принудительно всплывать снова."
-                                           Style="{StaticResource SectionCaptionText}"
-                                           Margin="0,6,0,0"/>
+                                <StackPanel>
+                                    <TextBlock
+										Text="Экран и автозагрузка"
+										Style="{StaticResource SectionTitleText}" />
+                                    <CheckBox
+										x:Name="FullscreenCheck"
+										Content="Полноэкранный режим без рамки"
+										Style="{StaticResource TouchCheckBox}"
+										Margin="0,12,0,8" />
+                                    <CheckBox
+										x:Name="AutostartCheck"
+										Content="Запускать вместе с Windows"
+										Style="{StaticResource TouchCheckBox}"
+										Margin="0,0,0,8" />
+                                    <CheckBox
+										x:Name="AutoTouchKeyboardCheck"
+										Content="Показывать экранную клавиатуру при фокусе в поле ввода"
+										Style="{StaticResource TouchCheckBox}"
+										Margin="0,0,0,0" />
+                                    <TextBlock
+										Text="Выключите, если клавиатура не нужна при работе с мышью; при включении после закрытия OSK она не будет принудительно всплывать снова."
+										Style="{StaticResource SectionCaptionText}"
+										Margin="0,6,0,0" />
+                                </StackPanel>
+                                <StackPanel
+									Orientation="Horizontal"
+									Margin="0,8">
+                                    <TextBlock
+										Text="Вид каталога:"
+										VerticalAlignment="Center"
+										Margin="0,0,10,0"
+										Foreground="{DynamicResource BrushText}" />
+                                    <RadioButton
+										x:Name="CatalogCardsRadio"
+										Content="Карточки"
+										Margin="0,0,10,0"
+										Checked="CatalogViewMode_Changed" />
+                                    <RadioButton
+										x:Name="CatalogTableRadio"
+										Content="Таблица"
+										Checked="CatalogViewMode_Changed" />
+                                </StackPanel>
+                                <StackPanel
+									Margin="0,8,0,0">
+                                    <TextBlock
+										Text="Добавлять в чек:"
+										Foreground="{DynamicResource BrushText}"
+										VerticalAlignment="Center"
+										Margin="0,0,0,6" />
+                                    <StackPanel
+										Orientation="Horizontal">
+                                        <RadioButton
+											x:Name="DoubleClickToCartRadio"
+											Content="Двойной клик"
+											Style="{StaticResource DatePill}"
+											Margin="0,0,8,0"
+											Checked="ClickToCartMode_Changed" />
+                                        <RadioButton
+											x:Name="SingleClickToCartRadio"
+											Content="Один клик"
+											Style="{StaticResource DatePill}"
+											Checked="ClickToCartMode_Changed" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem
+					Header="Оборудование"
+					Margin="42,0,-46,0">
+                    <ScrollViewer
+						VerticalScrollBarVisibility="Auto"
+						Padding="0,12,0,8">
+                        <Border
+							Style="{StaticResource ModernSectionBorder}">
+                            <StackPanel>
+                                <TextBlock
+									Text="Диагностика оборудования"
+									Style="{StaticResource SectionTitleText}"
+									Margin="0,0,0,12" />
+                                <Button
+									Content="Проверить принтер"
+									Style="{StaticResource TouchSecondaryButton}"
+									Padding="10,6"
+									Margin="0,0,0,8"
+									Click="CheckPrinter_Click" />
+                                <Button
+									Content="Проверить весы"
+									Style="{StaticResource TouchSecondaryButton}"
+									Padding="10,6"
+									Margin="0,0,0,8"
+									Click="CheckScale_Click" />
+                                <TextBlock
+									x:Name="HardwareStatusText"
+									TextWrapping="Wrap"
+									Foreground="{StaticResource BrushTextSoft}"
+									FontSize="11"
+									Margin="0,12,0,0" />
                             </StackPanel>
                         </Border>
                     </ScrollViewer>
                 </TabItem>
             </TabControl>
         </Border>
-
-        <TextBlock Grid.Row="2"
-                   Text="Настройки сохраняются в %AppData%\NurMarketKassa\"
-                   FontSize="11"
-                   Foreground="{StaticResource BrushTextSoft}"
-                   TextWrapping="Wrap"
-                   Margin="0,14,0,12"/>
-
-        <StackPanel Grid.Row="3"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right">
-            <Button Content="Отмена"
-                    Click="Cancel_Click"
-                    Style="{StaticResource TouchGhostButton}"
-                    Margin="0,0,8,0"
-                    MinWidth="120"/>
-            <Button Content="Сохранить"
-                    Click="Save_Click"
-                    Style="{StaticResource TouchPrimaryButton}"
-                    MinWidth="140"/>
+        <TextBlock
+			Grid.Row="2"
+			Text="Настройки сохраняются в %AppData%\NurMarketKassa\"
+			FontSize="11"
+			Foreground="{StaticResource BrushTextSoft}"
+			TextWrapping="Wrap"
+			Margin="0,14,0,12" />
+        <StackPanel
+			Grid.Row="3"
+			Orientation="Horizontal"
+			HorizontalAlignment="Right">
+            <Button
+				Content="Отмена"
+				Style="{StaticResource TouchGhostButton}"
+				Margin="0,0,8,0"
+				MinWidth="120"
+				Click="Cancel_Click" />
+            <Button
+				Content="Сохранить"
+				Style="{StaticResource TouchPrimaryButton}"
+				MinWidth="140"
+				Click="Save_Click" />
         </StackPanel>
     </Grid>
 </Window>

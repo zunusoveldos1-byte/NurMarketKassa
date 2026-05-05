@@ -1,58 +1,73 @@
 <Window x:Class="NurMarketKassa.Views.WeighedProductDialog"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Взвесить товар"
-        Width="520"
-        SizeToContent="Height"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        Style="{StaticResource AppWindow}">
-    <Grid Margin="18">
-        <Border Style="{StaticResource ElevatedCardBorder}" CornerRadius="12">
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Title="Взвесить товар"
+	Width="520"
+	SizeToContent="Height"
+	WindowStartupLocation="CenterOwner"
+	ResizeMode="NoResize"
+	Style="{StaticResource AppWindow}"
+	xmlns:views="clr-namespace:NurMarketKassa.Converters">
+    <Grid
+		Margin="18">
+        <Border
+			Style="{StaticResource ElevatedCardBorder}"
+			CornerRadius="12">
             <StackPanel>
-                <TextBlock x:Name="TitleBlock"
-                           Style="{StaticResource DialogTitleText}"
-                           TextWrapping="Wrap"/>
-                <TextBlock x:Name="PriceBlock"
-                           Margin="0,8,0,0"
-                           Style="{StaticResource DialogLabelText}"/>
-                <Border Style="{StaticResource ModernInfoPanel}"
-                        Margin="0,18,0,0"
-                        Background="{StaticResource BrushWindowAlt}">
+                <TextBlock
+					x:Name="TitleBlock"
+					Style="{StaticResource DialogTitleText}"
+					TextWrapping="Wrap" />
+                <TextBlock
+					x:Name="PriceBlock"
+					Margin="0,8,0,0"
+					Style="{StaticResource DialogLabelText}" />
+                <Border
+					Style="{StaticResource ModernInfoPanel}"
+					Margin="0,18,0,0"
+					Background="{StaticResource BrushWindowAlt}">
                     <StackPanel>
-                        <TextBlock Text="На весах сейчас"
-                                   Style="{StaticResource DialogLabelText}"/>
-                        <TextBlock x:Name="LiveScaleText"
-                                   Margin="0,6,0,0"
-                                   Style="{StaticResource MetricValueText}"
-                                   Text="—"/>
+                        <TextBlock
+							Text="На весах сейчас"
+							Style="{StaticResource DialogLabelText}" />
+                        <TextBlock
+							x:Name="LiveScaleText"
+							Margin="0,6,0,0"
+							Style="{StaticResource MetricValueText}"
+							Text="—" />
                     </StackPanel>
                 </Border>
-                <TextBlock Text="Вес, кг"
-                           Margin="0,18,0,4"
-                           Style="{StaticResource DialogLabelText}"/>
-                <TextBox x:Name="WeightBox"
-                         Style="{StaticResource TouchTextBox}"
-                         FontSize="20"
-                         GotFocus="WeightBox_GotFocus"
-                         KeyDown="WeightBox_KeyDown"/>
-                <Button Content="Подставить вес с весов"
-                        Margin="0,12,0,0"
-                        HorizontalAlignment="Left"
-                        Click="FromScale_Click"
-                        Style="{StaticResource TouchSecondaryButton}"
-                        ToolTip="Подставить текущий вес с COM-весов"/>
-                <StackPanel Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            Margin="0,22,0,0">
-                    <Button Content="Отмена"
-                            Style="{StaticResource TouchGhostButton}"
-                            Margin="0,0,10,0"
-                            Click="Cancel_Click"/>
-                    <Button x:Name="OkButton"
-                            Content="В чек"
-                            Style="{StaticResource TouchPrimaryButton}"
-                            Click="Ok_Click"/>
+                <TextBlock
+					Text="Вес, кг"
+					Margin="0,18,0,4"
+					Style="{StaticResource DialogLabelText}" />
+                <TextBox
+					x:Name="WeightBox"
+					Style="{StaticResource TouchTextBox}"
+					FontSize="20"
+					GotFocus="WeightBox_GotFocus"
+					KeyDown="WeightBox_KeyDown" />
+                <Button
+					Content="Подставить вес с весов"
+					Margin="0,12,0,0"
+					HorizontalAlignment="Left"
+					Style="{StaticResource TouchSecondaryButton}"
+					ToolTip="Подставить текущий вес с COM-весов"
+					Click="FromScale_Click" />
+                <StackPanel
+					Orientation="Horizontal"
+					HorizontalAlignment="Right"
+					Margin="0,22,0,0">
+                    <Button
+						Content="Отмена"
+						Style="{StaticResource TouchGhostButton}"
+						Margin="0,0,10,0"
+						Click="Cancel_Click" />
+                    <Button
+						x:Name="OkButton"
+						Content="В чек"
+						Style="{StaticResource TouchPrimaryButton}"
+						Click="Ok_Click" />
                 </StackPanel>
             </StackPanel>
         </Border>

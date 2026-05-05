@@ -2,28 +2,31 @@ using System;
 using System.Windows;
 using System.Windows.Input;
 
-namespace NurMarketKassa.ViewModels;
+#nullable disable
 
-public sealed class LoginViewModel
+namespace NurMarketKassa.ViewModels
 {
-    private readonly Func<MessageBoxResult> _confirmExit;
-    private readonly Action _exitApplication;
-
-    public LoginViewModel(Func<MessageBoxResult> confirmExit, Action exitApplication)
+    public sealed class LoginViewModel
     {
-        _confirmExit = confirmExit ?? throw new ArgumentNullException(nameof(confirmExit));
-        _exitApplication = exitApplication ?? throw new ArgumentNullException(nameof(exitApplication));
-        ExitApplicationCommand = new RelayCommand(ExitApplication);
-    }
+        private readonly Func<MessageBoxResult> _confirmExit;
+        private readonly Action _exitApplication;
 
-    public ICommand ExitApplicationCommand { get; }
+        public LoginViewModel(Func<MessageBoxResult> confirmExit, Action exitApplication)
+        {
+            _confirmExit = confirmExit ?? throw new ArgumentNullException(nameof(confirmExit));
+            _exitApplication = exitApplication ?? throw new ArgumentNullException(nameof(exitApplication));
+            ExitApplicationCommand = new RelayCommand(ExitApplication);
+        }
 
-    private void ExitApplication()
-    {
-        var result = _confirmExit();
-        if (result is not MessageBoxResult.Yes)
-            return;
+        public ICommand ExitApplicationCommand { get; }
 
-        _exitApplication();
+        private void ExitApplication()
+        {
+            var result = _confirmExit();
+            if (result is not MessageBoxResult.Yes)
+                return;
+
+            _exitApplication();
+        }
     }
 }

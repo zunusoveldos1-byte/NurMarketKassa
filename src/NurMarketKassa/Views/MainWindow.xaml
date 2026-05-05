@@ -1,823 +1,2476 @@
 <Window x:Class="NurMarketKassa.Views.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:pos="clr-namespace:NurMarketKassa.Models.Pos"
-        Title="Касса — Nur Market"
-        Icon="pack://application:,,,/Assets/app-logo.png"
-        Height="840" Width="1280"
-        MinHeight="600" MinWidth="900"
-        Style="{StaticResource AppWindow}"
-        Loaded="Window_Loaded"
-        Closing="Window_Closing"
-        PreviewKeyDown="MainWindow_PreviewKeyDown">
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-        <Style TargetType="ListViewItem">
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Margin" Value="0,0,0,5"/>
-            <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-        </Style>
-        <!-- Штучная плитка каталога: без фото -->
-        <DataTemplate x:Key="CatalogProductTileTemplate" DataType="{x:Type pos:CatalogProductTileVm}">
-            <Border Background="{StaticResource BrushPanel}"
-                    BorderBrush="{StaticResource BrushBorder}"
-                    BorderThickness="0.5"
-                    CornerRadius="5"
-                    Padding="8,8,8,10"
-                    Margin="4"
-                    Width="{DynamicResource CatalogTileWidth}"
-                    MinHeight="{DynamicResource CatalogTileMinHeight}">
-                <StackPanel>
-                    <TextBlock Text="{Binding Title}"
-                               FontSize="{DynamicResource CatalogTitleFont}"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource BrushText}"
-                               TextWrapping="Wrap"
-                               MaxHeight="{DynamicResource CatalogTitleMaxH}"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding PriceLine}"
-                               Margin="0,6,0,10"
-                               FontSize="{DynamicResource CatalogPriceFont}"
-                               Foreground="{StaticResource BrushTextSoft}"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0"
-                                Content="Подробнее"
-                                Click="CatalogProductDetail_Click"
-                                Margin="0,0,4,0"
-                                Padding="6,8"
-                                FontSize="11"
-                                Style="{StaticResource TouchGhostButton}"/>
-                        <Button Grid.Column="1"
-                                Content="В чек"
-                                Click="CatalogProduct_Click"
-                                IsEnabled="{Binding ShiftOpenForSale, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Margin="4,0,0,0"
-                                Padding="6,8"
-                                FontSize="11"
-                                Style="{StaticResource TouchPrimaryButton}"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
-        </DataTemplate>
-        <!-- Весовая плитка каталога: с фото -->
-        <DataTemplate x:Key="CatalogProductTileTemplateWeighed" DataType="{x:Type pos:CatalogProductTileVm}">
-            <Border Background="{StaticResource BrushPanel}"
-                    BorderBrush="{StaticResource BrushBorder}"
-                    BorderThickness="0.5"
-                    CornerRadius="5"
-                    Padding="8,8,8,10"
-                    Margin="4"
-                    Width="{DynamicResource CatalogTileWidth}"
-                    MinHeight="{DynamicResource CatalogTileMinHeight}">
-                <StackPanel>
-                    <Border Height="92"
-                            Margin="0,0,0,8"
-                            Background="{StaticResource BrushPanelSoft}"
-                            BorderBrush="{StaticResource BrushBorder}"
-                            BorderThickness="0.5"
-                            CornerRadius="5"
-                            ClipToBounds="True">
-                        <Image Source="{Binding Thumb}"
-                               Stretch="UniformToFill"
-                               RenderOptions.BitmapScalingMode="LowQuality"/>
-                    </Border>
-                    <TextBlock Text="{Binding Title}"
-                               FontSize="{DynamicResource CatalogTitleFont}"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource BrushText}"
-                               TextWrapping="Wrap"
-                               MaxHeight="{DynamicResource CatalogTitleMaxH}"
-                               TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding PriceLine}"
-                               Margin="0,6,0,10"
-                               FontSize="{DynamicResource CatalogPriceFont}"
-                               Foreground="{StaticResource BrushTextSoft}"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0"
-                                Content="Подробнее"
-                                Click="CatalogProductDetail_Click"
-                                Margin="0,0,4,0"
-                                Padding="6,8"
-                                FontSize="11"
-                                Style="{StaticResource TouchGhostButton}"/>
-                        <Button Grid.Column="1"
-                                Content="В чек"
-                                Click="CatalogProduct_Click"
-                                IsEnabled="{Binding ShiftOpenForSale, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Margin="4,0,0,0"
-                                Padding="6,8"
-                                FontSize="11"
-                                Style="{StaticResource TouchPrimaryButton}"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
-        </DataTemplate>
-        <!-- ± в строке корзины (размер задаётся DynamicResource CartUiQtyBtnSize) -->
-        <Style x:Key="CartQtyMiniButton" TargetType="Button" BasedOn="{StaticResource TouchSecondaryButton}">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="MinHeight" Value="32"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-        </Style>
-    </Window.Resources>
-
-    <Grid Margin="14">
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:pos="clr-namespace:NurMarketKassa.Models.Pos"
+	xmlns:local="clr-namespace:NurMarketKassa.Converters"
+	xmlns:sys="clr-namespace:System;assembly=mscorlib"
+    xmlns:conv="clr-namespace:NurMarketKassa.Converters"
+	Title="Касса — Nur Market"
+	Icon="pack://application:,,,/Assets/app-logo.png"
+	Height="840"
+	Width="1280"
+	MinHeight="600"
+	MinWidth="900"
+	Style="{StaticResource AppWindow}"
+	Loaded="Window_Loaded"
+	Closing="Window_Closing"
+	PreviewKeyDown="MainWindow_PreviewKeyDown">
+    <FrameworkElement.Resources>
+        <ResourceDictionary>
+            <conv:LessThanConverter x:Key="LessThanConverter" />
+            
+            <system:Double x:Key="CatalogTitleFont"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">11</system:Double>
+            <system:Double x:Key="CatalogPriceFont"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">10</system:Double>
+            <system:Double x:Key="CatalogTitleMaxH"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">36</system:Double>
+            <system:Double x:Key="CartUiTitleFont"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">10.5</system:Double>
+            <system:Double x:Key="CartUiLineTotalFont"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">10.5</system:Double>
+            <system:Double x:Key="CartUiSubFont"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">8</system:Double>
+            <system:Double x:Key="CartUiSmallBtnFont"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">8</system:Double>
+            <system:Double x:Key="CartUiSmallBtnMinH"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">22</system:Double>
+            <system:Double x:Key="CartUiQtyBtnSize"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">32</system:Double>
+            <system:Double x:Key="CartUiQtyBtnFont"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">12</system:Double>
+            <system:Double x:Key="CartUiSumColMinW"
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">76</system:Double>
+            <Thickness
+				x:Key="CartUiQtyBtnSpacing">14,0,0,0</Thickness>
+            <BooleanToVisibilityConverter
+				x:Key="BoolToVis" />
+            <Style
+				x:Key="{x:Type ListViewItem}"
+				TargetType="{x:Type ListViewItem}">
+                <Setter
+					Property="HorizontalAlignment"
+					Value="Stretch" />
+                <Setter
+					Property="HorizontalContentAlignment"
+					Value="Stretch" />
+                <Setter
+					Property="Padding"
+					Value="0" />
+                <Setter
+					Property="Margin"
+					Value="0,0,0,5" />
+                <Setter
+					Property="MinHeight"
+					Value="0" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+            </Style>
+            <Style
+				x:Key="HamburgerMenuItem"
+				TargetType="{x:Type Button}">
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="HorizontalAlignment"
+					Value="Stretch" />
+                <Setter
+					Property="Height"
+					Value="44" />
+                <Setter
+					Property="Padding"
+					Value="16,0" />
+                <Setter
+					Property="FontSize"
+					Value="14" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type Button}">
+                            <Border
+								Background="{TemplateBinding Control.Background}">
+                                <ContentPresenter
+									HorizontalAlignment="Left"
+									VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										Value="{DynamicResource BrushInputAlt}"
+										Property="Background" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="PrimaryActionButton"
+				TargetType="{x:Type Button}">
+                <Setter
+					Property="Height"
+					Value="36" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushAccent}" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushTextInverted}" />
+                <Setter
+					Property="FontWeight"
+					Value="SemiBold" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type Button}">
+                            <Border
+								x:Name="btn"
+								Background="{TemplateBinding Control.Background}"
+								CornerRadius="8">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center"
+									Margin="15,0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										TargetName="btn"
+										Property="UIElement.Opacity"
+										Value="0.9" />
+                                </Trigger>
+                                <Trigger
+									Property="IsEnabled"
+									Value="False">
+                                    <Setter
+										TargetName="btn"
+										Property="UIElement.Opacity"
+										Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="SecondaryActionButton"
+				TargetType="{x:Type Button}">
+                <Setter
+					Property="Height"
+					Value="36" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushPanelSoft}" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type Button}">
+                            <Border
+								x:Name="border"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="{TemplateBinding Control.BorderThickness}"
+								CornerRadius="8">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center"
+									Margin="12,0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										TargetName="border"
+										Value="{DynamicResource BrushInputAlt}"
+										Property="Border.Background" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="KpiCard"
+				TargetType="{x:Type Border}">
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushInputAlt}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorderStrong}" />
+                <Setter
+					Property="BorderThickness"
+					Value="1" />
+                <Setter
+					Property="Border.CornerRadius"
+					Value="10" />
+                <Setter
+					Property="Border.Padding"
+					Value="16" />
+                <Setter
+					Property="Margin"
+					Value="4" />
+                <Setter
+					Property="UIElement.Effect"
+					Value="{DynamicResource CardShadow}" />
+            </Style>
+            <SolidColorBrush
+				x:Key="HamburgerOverlayBrush"
+				Color="#80000000" />
+            <Style
+				x:Key="CartQtyMiniButton"
+				TargetType="{x:Type Button}"
+				BasedOn="{StaticResource TouchSecondaryButton}">
+                <Setter
+					Property="Width"
+					Value="32" />
+                <Setter
+					Property="Height"
+					Value="32" />
+                <Setter
+					Property="MinHeight"
+					Value="32" />
+                <Setter
+					Property="Padding"
+					Value="0" />
+                <Setter
+					Property="FontSize"
+					Value="12" />
+                <Setter
+					Property="FontWeight"
+					Value="Bold" />
+            </Style>
+            <!--Неизвестный ID соединения: 2-->
+            <Style
+				x:Key="{x:Type ScrollViewer}"
+				TargetType="{x:Type ScrollViewer}">
+                <Setter
+					Property="ScrollViewer.PanningMode"
+					Value="Both" />
+                <Setter
+					Property="CanContentScroll"
+					Value="False" />
+                <Setter
+					Property="HorizontalScrollBarVisibility"
+					Value="Auto" />
+                <Setter
+					Property="VerticalScrollBarVisibility"
+					Value="Auto" />
+            </Style>
+            <Style
+				x:Key="ModernGrid"
+				TargetType="{x:Type DataGrid}">
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="DataGrid.AlternatingRowBackground"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="ItemsControl.AlternationCount"
+					Value="2" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="DataGrid.RowHeight"
+					Value="40" />
+                <Setter
+					Property="DataGrid.GridLinesVisibility"
+					Value="Vertical" />
+                <Setter
+					Property="DataGrid.HorizontalGridLinesBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="DataGrid.VerticalGridLinesBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="Margin"
+					Value="0,0,12,0" />
+                <Setter
+					Property="ScrollViewer.PanningMode"
+					Value="Both" />
+                <Setter
+					Property="DataGrid.ColumnHeaderStyle">
+                    <Setter.Value>
+                        <Style
+							TargetType="{x:Type DataGridColumnHeader}">
+                            <Setter
+								Property="Foreground"
+								Value="{DynamicResource BrushText}" />
+                            <Setter
+								Property="Background"
+								Value="#00FFFFFF" />
+                            <Setter
+								Property="Padding"
+								Value="10,5" />
+                            <Setter
+								Property="FontWeight"
+								Value="SemiBold" />
+                            <Setter
+								Property="BorderThickness"
+								Value="0,0,0,1" />
+                            <Setter
+								Property="BorderBrush"
+								Value="{DynamicResource BrushBorderStrong}" />
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="{x:Type DataGridRow}"
+				TargetType="{x:Type DataGridRow}">
+                <Setter
+					Property="Height"
+					Value="40" />
+                <Setter
+					Property="VerticalContentAlignment"
+					Value="Center" />
+                <Setter
+					Property="FrameworkElement.FocusVisualStyle"
+					Value="{x:Null}" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DataGridRow}">
+                            <Border
+								x:Name="RowBorder"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="0">
+                                <SelectiveScrollingGrid>
+                                    <DataGridCellsPresenter
+										ItemsPanel="{TemplateBinding DataGridRow.ItemsPanel}" />
+                                </SelectiveScrollingGrid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="DataGridRow.IsSelected"
+									Value="True">
+                                    <Setter
+										TargetName="RowBorder"
+										Value="{DynamicResource BrushInputAlt}"
+										Property="Border.Background" />
+                                </Trigger>
+                                <Trigger
+									Property="UIElement.IsMouseOver"
+									Value="True">
+                                    <Setter
+										TargetName="RowBorder"
+										Value="{DynamicResource BrushInputAlt}"
+										Property="Border.Background" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="CenterAlignedCell"
+				TargetType="{x:Type DataGridCell}">
+                <Setter
+					Property="VerticalAlignment"
+					Value="Center" />
+                <Setter
+					Property="HorizontalAlignment"
+					Value="Center" />
+            </Style>
+            <Style
+				x:Key="{x:Type DataGridCell}"
+				TargetType="{x:Type DataGridCell}">
+                <Setter
+					Property="VerticalAlignment"
+					Value="Center" />
+                <Setter
+					Property="Padding"
+					Value="6,4" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="FontSize"
+					Value="14" />
+                <Setter
+					Property="FrameworkElement.FocusVisualStyle"
+					Value="{x:Null}" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DataGridCell}">
+                            <Border
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="0">
+                                <ContentPresenter
+									HorizontalAlignment="{TemplateBinding Control.HorizontalContentAlignment}"
+									VerticalAlignment="{TemplateBinding Control.VerticalContentAlignment}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="DataGridCell.IsSelected"
+									Value="True">
+                                    <Setter
+										Property="Background"
+										Value="#00FFFFFF" />
+                                </Trigger>
+                                <Trigger
+									Property="UIElement.IsFocused"
+									Value="True">
+                                    <Setter
+										Property="Background"
+										Value="#00FFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="ViewToggleButton"
+				TargetType="{x:Type RadioButton}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="Padding"
+					Value="10,5" />
+                <Setter
+					Property="Margin"
+					Value="4,0" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type RadioButton}">
+                            <Border
+								x:Name="toggleBorder"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="1"
+								CornerRadius="6"
+								Padding="{TemplateBinding Control.Padding}">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="ToggleButton.IsChecked"
+									Value="True">
+                                    <Setter
+										TargetName="toggleBorder"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.Background" />
+                                    <Setter
+										TargetName="toggleBorder"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.BorderBrush" />
+                                    <Setter
+										Property="Foreground"
+										Value="#FFFFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="WarehouseViewToggleButton"
+				TargetType="{x:Type RadioButton}">
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="Padding"
+					Value="10,5" />
+                <Setter
+					Property="Margin"
+					Value="4,0" />
+                <Setter
+					Property="FrameworkElement.Cursor"
+					Value="Hand" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type RadioButton}">
+                            <Border
+								x:Name="toggleBorder"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="1"
+								CornerRadius="6"
+								Padding="{TemplateBinding Control.Padding}">
+                                <ContentPresenter
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="ToggleButton.IsChecked"
+									Value="True">
+                                    <Setter
+										TargetName="toggleBorder"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.Background" />
+                                    <Setter
+										TargetName="toggleBorder"
+										Value="{DynamicResource BrushAccent}"
+										Property="Border.BorderBrush" />
+                                    <Setter
+										Property="Foreground"
+										Value="#FFFFFFFF" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </FrameworkElement.Resources>
+    <Grid
+		Margin="14">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition
+				Height="Auto" />
+            <RowDefinition
+				Height="*" />
         </Grid.RowDefinitions>
-
-        <!-- ── ШАПКА (кнопки смены в одной строке с прочими действиями) ───── -->
-        <Border Grid.Row="0"
-                Style="{StaticResource ElevatedCardBorder}"
-                Padding="16,13"
-                CornerRadius="12">
+        <Border
+			Grid.Row="0"
+			Style="{StaticResource ElevatedCardBorder}"
+			Padding="16,13"
+			CornerRadius="12">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition
+						Width="Auto" />
+                    <ColumnDefinition
+						Width="*" />
+                    <ColumnDefinition
+						Width="Auto" />
                 </Grid.ColumnDefinitions>
-
-                <!-- Логотип + имя -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Image Source="pack://application:,,,/Assets/app-logo.png"
-                           Width="34" Height="34" Margin="0,0,10,0"
-                           RenderOptions.BitmapScalingMode="LowQuality"/>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="UserTitleText"
-                                   FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{StaticResource BrushText}"/>
-                        <TextBlock x:Name="BranchText"
-                                   FontSize="11"
-                                   Foreground="{StaticResource BrushTextMuted}"/>
+                <StackPanel
+					Orientation="Horizontal"
+					VerticalAlignment="Center">
+                    <Button
+						x:Name="HamburgerButton"
+						Style="{StaticResource TouchGhostButton}"
+						Width="38"
+						Height="38"
+						Padding="0"
+						Margin="0,0,8,0"
+						ToolTip="Меню"
+						Click="HamburgerMenu_Click">
+                        <TextBlock
+							Text="☰"
+							FontSize="18"
+							Foreground="{DynamicResource BrushText}"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center" />
+                    </Button>
+                    <Image
+						Source="pack://application:,,,/Assets/app-logo.png"
+						Width="34"
+						Height="34"
+						Margin="0,0,10,0"
+						RenderOptions.BitmapScalingMode="LowQuality" />
+                    <StackPanel
+						VerticalAlignment="Center">
+                        <TextBlock
+							x:Name="UserTitleText"
+							FontSize="15"
+							FontWeight="SemiBold"
+							Foreground="{StaticResource BrushText}" />
                     </StackPanel>
                 </StackPanel>
-
-                <!-- Статусы по центру -->
-                <StackPanel Grid.Column="1"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                    <TextBlock x:Name="ProfileStatusText"
-                               HorizontalAlignment="Center"
-                               FontSize="11"
-                               Foreground="{StaticResource BrushTextSoft}"
-                               TextWrapping="Wrap"/>
-                    <TextBlock x:Name="NetworkModeText"
-                               Margin="0,2,0,0"
-                               HorizontalAlignment="Center"
-                               FontSize="11"
-                               Foreground="{StaticResource BrushTextMuted}"
-                               TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                Margin="0,6,0,0">
-                        <Button x:Name="OfflineSaleButton"
-                                Content="Оффлайн"
-                                Click="OfflineCheckout_Click"
-                                Style="{StaticResource HeaderButton}"
-                                Padding="10,6"
-                                Margin="0,0,6,0"
-                                ToolTip="Сохранить чек локально"/>
-                        <Button x:Name="OfflineQueueButton"
-                                Content="Очередь"
-                                Click="OfflineQueueInfo_Click"
-                                Style="{StaticResource HeaderButton}"
-                                Padding="10,6"
-                                ToolTip="Посмотреть состояние офлайн-очереди"/>
+                <StackPanel
+					Grid.Column="1"
+					HorizontalAlignment="Center"
+					VerticalAlignment="Center">
+                    <TextBlock
+						x:Name="ProfileStatusText"
+						HorizontalAlignment="Center"
+						FontSize="11"
+						Foreground="{StaticResource BrushTextSoft}"
+						TextWrapping="Wrap" />
+                    <TextBlock
+						x:Name="NetworkModeText"
+						Margin="0,2,0,0"
+						HorizontalAlignment="Center"
+						FontSize="11"
+						Foreground="{StaticResource BrushTextMuted}"
+						TextWrapping="Wrap" />
+                    <StackPanel
+						Orientation="Horizontal"
+						HorizontalAlignment="Center"
+						Margin="0,6,0,0">
+                        <Button
+							x:Name="OfflineStatusButton"
+							Style="{StaticResource HeaderButton}"
+							Padding="10,6"
+							Margin="0,0,6,0"
+							ToolTip="Состояние офлайн-очереди — нажмите для подробностей"
+							Click="OfflineStatus_Click">
+                            <StackPanel
+								Orientation="Horizontal">
+                                <TextBlock
+									FontFamily="Segoe MDL2 Assets"
+									Text=""
+									FontSize="15"
+									Margin="0,0,6,0" />
+                                <TextBlock
+									x:Name="OfflineStatusLabel"
+									Text="Онлайн" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
-
-                <!-- Кнопки справа -->
-                <StackPanel Grid.Column="2"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <Button x:Name="ThemeToggleButton"
-                            Click="ThemeToggle_Click"
-                            Style="{StaticResource HeaderButton}"
-                            Width="38" Padding="0"
-                            ToolTip="Переключить тему (тёмная / светлая)"
-                            Margin="0,0,6,0">
-                        <TextBlock x:Name="ThemeToggleGlyph"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="15"
-                                   Foreground="{DynamicResource BrushText}"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"/>
+                <StackPanel
+					Grid.Column="2"
+					Orientation="Horizontal"
+					VerticalAlignment="Center">
+                    <Button
+						x:Name="ThemeToggleButton"
+						Style="{StaticResource HeaderButton}"
+						Width="38"
+						Padding="0"
+						ToolTip="Переключить тему (тёмная / светлая)"
+						Margin="0,0,6,0"
+						Click="ThemeToggle_Click">
+                        <TextBlock
+							x:Name="ThemeToggleGlyph"
+							FontFamily="Segoe MDL2 Assets"
+							FontSize="15"
+							Foreground="{DynamicResource BrushText}"
+							VerticalAlignment="Center"
+							HorizontalAlignment="Center" />
                     </Button>
-                    <Button Click="ShowKeyboard_Click"
-                            Style="{StaticResource HeaderButton}"
-                            Width="38" Padding="0"
-                            ToolTip="Экранная клавиатура"
-                            Margin="0,0,6,0">
-                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                   Text="&#xE92F;"
-                                   FontSize="15"
-                                   Foreground="{DynamicResource BrushText}"
-                                   VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"/>
+                    <Button
+						Style="{StaticResource HeaderButton}"
+						Width="38"
+						Padding="0"
+						ToolTip="Экранная клавиатура"
+						Margin="0,0,6,0"
+						Click="ShowKeyboard_Click">
+                        <TextBlock
+							FontFamily="Segoe MDL2 Assets"
+							Text=""
+							FontSize="15"
+							Foreground="{DynamicResource BrushText}"
+							VerticalAlignment="Center"
+							HorizontalAlignment="Center" />
                     </Button>
-                    <Button Content="Настройки"
-                            Click="Settings_Click"
-                            Style="{StaticResource HeaderButton}"
-                            Margin="0,0,6,0"/>
-                    <Button x:Name="PrintSelfCheckButton"
-                            Content="Принтер"
-                            Click="PrintSelfCheck_Click"
-                            Style="{StaticResource HeaderButton}"
-                            Margin="0,0,6,0"/>
-                    <Button Content="Весы"
-                            Click="ScaleTest_Click"
-                            Style="{StaticResource HeaderButton}"
-                            Margin="0,0,6,0"/>
-                    <Border x:Name="ShiftBannerBar"
-                            Background="{StaticResource BrushWarningSoft}"
-                            BorderBrush="{StaticResource BrushWarning}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="4,2"
-                            Margin="0,0,6,0"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <Button x:Name="OpenShiftButton"
-                                    Content="Открыть смену"
-                                    Click="OpenShift_Click"
-                                    Style="{StaticResource HeaderButton}"
-                                    Padding="8,5"
-                                    Margin="0,0,4,0"/>
-                            <Button x:Name="CloseShiftButton"
-                                    Content="Закрыть смену"
-                                    Click="CloseShift_Click"
-                                    IsEnabled="False"
-                                    Style="{StaticResource HeaderButton}"
-                                    Padding="8,5"/>
+                    <Border
+						x:Name="ShiftBannerBar"
+						Background="{StaticResource BrushWarningSoft}"
+						BorderBrush="{StaticResource BrushWarning}"
+						BorderThickness="1"
+						CornerRadius="6"
+						Padding="4,2"
+						Margin="0,0,6,0"
+						VerticalAlignment="Center">
+                        <StackPanel
+							Orientation="Horizontal">
+                            <Button
+								x:Name="OpenShiftButton"
+								Content="Открыть смену"
+								Style="{StaticResource HeaderButton}"
+								Padding="8,5"
+								Margin="0,0,4,0"
+								Command="{Binding ShiftViewModel.OpenShiftCommand}" />
+                            <Button
+								x:Name="CloseShiftButton"
+								Content="Закрыть смену"
+								Style="{StaticResource HeaderButton}"
+								Padding="8,5"
+								Command="{Binding ShiftViewModel.CloseShiftCommand}" />
                         </StackPanel>
                     </Border>
-                    <Button Content="Возврат"
-                            Click="ReturnSale_Click"
-                            Style="{StaticResource HeaderButton}"
-                            Margin="0,0,6,0"
-                            ToolTip="Возврат или отмена продажи по ID из чека / CRM"/>
-                    <Button Content="Выйти"
-                            Click="Logout_Click"
-                            Style="{StaticResource TouchGhostButton}"
-                            Padding="12,8"/>
                 </StackPanel>
             </Grid>
         </Border>
-
-        <!-- ── ОСНОВНОЙ ЭКРАН (каталог | разделитель | чек) ─────────────── -->
-        <Grid Grid.Row="1" Margin="0,8,0,0">
+        <Grid
+			Row="1"
+			Margin="0,8,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2.2*" MinWidth="360"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*" MinWidth="260"/>
+                <ColumnDefinition
+					Width="2.2*"
+					MinWidth="470" />
+                <ColumnDefinition
+					Width="8" />
+                <ColumnDefinition
+					Width="*"
+					MinWidth="450" />
             </Grid.ColumnDefinitions>
-
-            <!-- ── КАТАЛОГ ───────────────────────────────────────────────── -->
-            <Border x:Name="CatalogAreaBorder"
-                    Grid.Column="0"
-                    Style="{StaticResource ElevatedCardBorder}"
-                    Margin="0,0,6,0"
-                    SizeChanged="CatalogArea_SizeChanged">
+            <Border
+				x:Name="CatalogAreaBorder"
+				Grid.Column="0"
+				Style="{StaticResource ElevatedCardBorder}"
+				Margin="0,0,6,0"
+				SizeChanged="CatalogArea_SizeChanged">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition
+							Height="Auto" />
+                        <RowDefinition
+							Height="Auto" />
+                        <RowDefinition
+							Height="*" />
                     </Grid.RowDefinitions>
-
-                    <!-- Строка поиска -->
-                    <Grid Grid.Row="0" Margin="0,0,0,10" Panel.ZIndex="50">
+                    <Grid
+						Row="0"
+						Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition
+								Width="*" />
+                            <ColumnDefinition
+								Width="Auto" />
+                            <ColumnDefinition
+								Width="Auto" />
+                            <ColumnDefinition
+								Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBox x:Name="CatalogSearchBox"
-                                 Grid.Column="0"
-                                 Margin="0,0,8,0"
-                                 Style="{StaticResource TouchTextBox}"
-                                 TextChanged="CatalogSearchBox_TextChanged"/>
-                        <TextBlock x:Name="CatalogStatsText"
-                                   Grid.Column="1"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0"
-                                   FontSize="11"
-                                   Foreground="{StaticResource BrushTextSoft}"/>
-                        <Button x:Name="RefreshCatalogButton"
-                                Grid.Column="2"
-                                Content="Обновить"
-                                Click="RefreshCatalog_Click"
-                                Style="{StaticResource TouchSecondaryButton}"/>
-                    </Grid>
-
-                    <!-- Статус весов -->
-                    <TextBlock Grid.Row="1"
-                               x:Name="ScaleStatusText"
-                               Margin="0,0,0,8"
-                               FontSize="11"
-                               Foreground="{StaticResource BrushTextSoft}"
-                               TextWrapping="Wrap"/>
-
-                    <!-- Вкладки каталога -->
-                    <Grid Grid.Row="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Border Grid.Row="0"
-                                BorderBrush="{StaticResource BrushBorder}"
-                                BorderThickness="0,0,0,1"
-                                Margin="0,0,0,4">
-                        <TabControl x:Name="CatalogTabs"
-                                    Style="{StaticResource PosCatalogTabControl}"
-                                    ItemContainerStyle="{StaticResource PosCatalogTabItem}"
-                                    Foreground="{StaticResource BrushTextMuted}"
-                                    SelectionChanged="CatalogTabs_SelectionChanged">
-                                <TabItem Header="Весовые (кг)" Margin="0,0,-3,0">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                              Padding="0,8,0,0">
-                                    <ItemsControl x:Name="CatalogItemsKg"
-                                                  ItemTemplate="{StaticResource CatalogProductTileTemplateWeighed}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel Orientation="Horizontal"
-                                                           HorizontalAlignment="Center"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                </TabItem>
-                                <TabItem Header="Штучные" Margin="5,0,-8,0">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                              Padding="0,8,0,0">
-                                    <ItemsControl x:Name="CatalogItemsPiece"
-                                                  ItemTemplate="{StaticResource CatalogProductTileTemplate}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel Orientation="Horizontal"
-                                                           HorizontalAlignment="Center"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                </TabItem>
-                            </TabControl>
+                        <Border
+							Background="{DynamicResource BrushInput}"
+							BorderBrush="{DynamicResource BrushBorderStrong}"
+							BorderThickness="1"
+							CornerRadius="8"
+							Padding="4,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition
+										Width="Auto" />
+                                    <ColumnDefinition
+										Width="*" />
+                                    <ColumnDefinition
+										Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+									Text="🔍"
+									FontSize="16"
+									VerticalAlignment="Center"
+									Margin="4,0" />
+                                <TextBox
+									x:Name="CatalogSearchBox"
+									Grid.Column="1"
+									BorderThickness="0"
+									VerticalAlignment="Center"
+									FontSize="14"
+									Foreground="{DynamicResource BrushText}"
+									Background="#00FFFFFF"
+									TextChanged="CatalogSearchBox_TextChanged" />
+                                <Button
+									x:Name="ClearSearchButton"
+									Grid.Column="2"
+									Content="✕"
+									Width="28"
+									Height="28"
+									Padding="0"
+									Background="#00FFFFFF"
+									BorderThickness="0"
+									Foreground="{DynamicResource BrushTextSoft}"
+									Cursor="Hand"
+									Visibility="Collapsed"
+									Click="ClearSearch_Click" />
+                            </Grid>
                         </Border>
-                        <Button x:Name="CatalogMoreButton"
-                                Grid.Row="1"
-                                Content="Показать еще"
-                                Click="CatalogMore_Click"
-                                Style="{StaticResource TouchSecondaryButton}"
-                                HorizontalAlignment="Center"
-                                Margin="0,8,0,0"
-                                Padding="14,7"
-                                Visibility="Collapsed"/>
+                        <Button
+							x:Name="FilterButton"
+							Grid.Column="1"
+							Style="{StaticResource TouchSecondaryButton}"
+							Margin="6,0,0,0"
+							ToolTip="Фильтр товаров"
+							Click="FilterButton_Click">
+                            <Viewbox
+								Width="18"
+								Height="18">
+                                <Path
+									Data="M3,6 L21,6 M6,12 L18,12 M10,18 L14,18"
+									Stroke="{DynamicResource BrushText}"
+									StrokeThickness="2"
+									StrokeStartLineCap="Round"
+									StrokeEndLineCap="Round" />
+                            </Viewbox>
+                        </Button>
+                        <StackPanel
+							Grid.Column="2"
+							Orientation="Horizontal"
+							Margin="6,0,0,0">
+                            <RadioButton
+								x:Name="BtnGrid"
+								Content="Карточка"
+								IsChecked="True"
+								GroupName="CatalogView"
+								Style="{StaticResource ViewToggleButton}" />
+                            <RadioButton
+								x:Name="BtnTable"
+								Content="Список"
+								GroupName="CatalogView"
+								Style="{StaticResource ViewToggleButton}" />
+                        </StackPanel>
+                        <Button
+							x:Name="RefreshCatalogButton"
+							Grid.Column="3"
+							Content="Обновить"
+							Style="{StaticResource TouchSecondaryButton}"
+							Margin="6,0,0,0"
+							Click="RefreshCatalog_Click" />
+                    </Grid>
+                    <TextBlock
+						x:Name="ScaleStatusText"
+						Grid.Row="1"
+						Margin="0,0,0,8"
+						FontSize="11"
+						Foreground="{StaticResource BrushTextSoft}"
+						TextWrapping="Wrap" />
+                    <Grid
+						Row="2">
+                        <ScrollViewer
+							VerticalScrollBarVisibility="Auto"
+							PanningMode="Both"
+							Visibility="{Binding IsChecked, ElementName=BtnGrid, Converter='{StaticResource BoolToVis}'}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition
+										Width="*" />
+                                    <ColumnDefinition
+										Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TabControl
+									x:Name="CatalogTabs"
+									Style="{StaticResource PosCatalogTabControl}"
+									ItemContainerStyle="{StaticResource PosCatalogTabItem}"
+									Foreground="{StaticResource BrushTextMuted}"
+									SelectionChanged="CatalogTabs_SelectionChanged">
+                                    <TabItem
+										Header="Весовые (кг)"
+										Margin="0,0,-3,0">
+                                        <ItemsControl
+											x:Name="CatalogItemsKg">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <UniformGrid
+														Columns="2" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+														Background="{DynamicResource BrushPanel}"
+														BorderBrush="{DynamicResource BrushBorder}"
+														BorderThickness="0.5"
+														CornerRadius="12"
+														Margin="4"
+														Padding="10"
+														MinHeight="120"
+														HorizontalAlignment="Stretch"
+														MouseLeftButtonDown="CatalogProduct_MouseDoubleClick">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition
+																	Height="Auto" />
+                                                                <RowDefinition
+																	Height="Auto" />
+                                                                <RowDefinition
+																	Height="*" />
+                                                                <RowDefinition
+																	Height="Auto" />
+                                                            </Grid.RowDefinitions>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition
+																	Width="*" />
+                                                                <ColumnDefinition
+																	Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock
+																Grid.Row="0"
+																Grid.ColumnSpan="2"
+																FontSize="13"
+																FontWeight="SemiBold"
+																Foreground="{DynamicResource BrushText}"
+																TextWrapping="Wrap"
+																TextTrimming="CharacterEllipsis"
+																MaxHeight="36"
+																Text="{Binding Title}" />
+                                                            <TextBlock
+																Grid.Row="1"
+																Grid.ColumnSpan="2"
+																FontSize="18"
+																FontWeight="Bold"
+																Foreground="{DynamicResource BrushAccent}"
+																Margin="0,4,0,0"
+																Text="{Binding PriceLine}" />
+                                                            <StackPanel
+																Grid.Row="3"
+																Grid.Column="0"
+																Orientation="Horizontal"
+																VerticalAlignment="Bottom">
+                                                                <TextBlock
+																	Foreground="{DynamicResource BrushTextSoft}"
+																	FontSize="10"
+																	Margin="0,0,8,0"
+																	Text="{Binding Barcode, StringFormat=ШК:{0}, TargetNullValue='ШК: —'}" />
+                                                                <TextBlock
+																	Foreground="{DynamicResource BrushTextSoft}"
+																	FontSize="10"
+																	FontWeight="SemiBold">
+																	<Run
+																		Text="Осталось: " /> <Run
+																		Text="{Binding Quantity, Mode=OneWay, StringFormat={}{0:F2}}" /> <Run
+																		Text="{Binding Unit, Mode=OneWay, FallbackValue=кг}" /></TextBlock>
+                                                            </StackPanel>
+                                                            <Button
+																Grid.Row="0"
+																Grid.RowSpan="3"
+																Grid.Column="1"
+																Width="28"
+																Height="28"
+																Padding="0"
+																Background="#00FFFFFF"
+																BorderThickness="0"
+																HorizontalAlignment="Right"
+																VerticalAlignment="Top"
+																Margin="4,0,0,0"
+																Click="ToggleFavorite_Click">
+                                                                <Path
+																	Width="18"
+																	Height="18"
+																	Stretch="Uniform"
+																	Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
+                                                                    <FrameworkElement.Style>
+                                                                        <Style
+																			TargetType="{x:Type Path}">
+                                                                            <Setter
+																				Property="Fill"
+																				Value="#00FFFFFF" />
+                                                                            <Setter
+																				Property="Stroke"
+																				Value="#C0C0C0" />
+                                                                            <Setter
+																				Property="StrokeThickness"
+																				Value="1.5" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger
+																					Value="True"
+																					Binding="{Binding IsFavorite}">
+                                                                                    <Setter
+																						Property="Fill"
+																						Value="#FFD700" />
+                                                                                    <Setter
+																						Property="Stroke"
+																						Value="#F2994A" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </FrameworkElement.Style>
+                                                                </Path>
+                                                            </Button>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </TabItem>
+                                    <TabItem
+										Header="Штучные"
+										Margin="5,0,-8,0">
+                                        <ItemsControl
+											x:Name="CatalogItemsPiece">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <UniformGrid
+														Columns="2" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border
+														Background="{DynamicResource BrushPanel}"
+														BorderBrush="{DynamicResource BrushBorder}"
+														BorderThickness="0.5"
+														CornerRadius="12"
+														Margin="4"
+														Padding="10"
+														MinHeight="120"
+														HorizontalAlignment="Stretch"
+														MouseLeftButtonDown="CatalogProduct_MouseDoubleClick">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition
+																	Height="Auto" />
+                                                                <RowDefinition
+																	Height="Auto" />
+                                                                <RowDefinition
+																	Height="*" />
+                                                                <RowDefinition
+																	Height="Auto" />
+                                                            </Grid.RowDefinitions>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition
+																	Width="*" />
+                                                                <ColumnDefinition
+																	Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock
+																Grid.Row="0"
+																Grid.ColumnSpan="2"
+																FontSize="13"
+																FontWeight="SemiBold"
+																Foreground="{DynamicResource BrushText}"
+																TextWrapping="Wrap"
+																TextTrimming="CharacterEllipsis"
+																MaxHeight="36"
+																Width="180"
+																HorizontalAlignment="Left"
+																Text="{Binding Title}" />
+                                                            <TextBlock
+																Grid.Row="1"
+																Grid.ColumnSpan="2"
+																FontSize="18"
+																FontWeight="Bold"
+																Foreground="{DynamicResource BrushAccent}"
+																Margin="0,4,0,0"
+																Text="{Binding PriceLine}" />
+                                                            <StackPanel
+																Grid.Row="3"
+																Grid.Column="0"
+																Orientation="Horizontal"
+																VerticalAlignment="Bottom">
+                                                                <TextBlock
+																	Foreground="{DynamicResource BrushTextSoft}"
+																	FontSize="10"
+																	Margin="0,0,8,0"
+																	Text="{Binding Barcode, StringFormat=ШК:{0}, TargetNullValue='ШК: —'}" />
+                                                                <TextBlock
+																	Foreground="{DynamicResource BrushTextSoft}"
+																	FontSize="10"
+																	FontWeight="SemiBold">
+																	<Run
+																		Text="Ост: " /> <Run
+																		Text="{Binding Quantity, Mode=OneWay, StringFormat={}{0:F2}}" /> <Run
+																		Text="{Binding Unit, Mode=OneWay, FallbackValue=кг}" /></TextBlock>
+                                                            </StackPanel>
+                                                            <Button
+																Grid.Row="0"
+																Grid.RowSpan="3"
+																Grid.Column="1"
+																Width="28"
+																Height="28"
+																Padding="0"
+																Background="#00FFFFFF"
+																BorderThickness="0"
+																HorizontalAlignment="Right"
+																VerticalAlignment="Top"
+																Margin="4,0,0,0"
+																Click="ToggleFavorite_Click">
+                                                                <Path
+																	Width="18"
+																	Height="18"
+																	Stretch="Uniform"
+																	Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
+                                                                    <FrameworkElement.Style>
+                                                                        <Style
+																			TargetType="{x:Type Path}">
+                                                                            <Setter
+																				Property="Fill"
+																				Value="#00FFFFFF" />
+                                                                            <Setter
+																				Property="Stroke"
+																				Value="#C0C0C0" />
+                                                                            <Setter
+																				Property="StrokeThickness"
+																				Value="1.5" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger
+																					Value="True"
+																					Binding="{Binding IsFavorite}">
+                                                                                    <Setter
+																						Property="Fill"
+																						Value="#FFD700" />
+                                                                                    <Setter
+																						Property="Stroke"
+																						Value="#F2994A" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </FrameworkElement.Style>
+                                                                </Path>
+                                                            </Button>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </TabItem>
+                                </TabControl>
+                                <TextBlock
+									x:Name="CatalogCountText"
+									Grid.Column="1"
+									VerticalAlignment="Center"
+									HorizontalAlignment="Right"
+									FontSize="11"
+									Foreground="{DynamicResource BrushTextSoft}"
+									Margin="0,0,8,0" />
+                            </Grid>
+                        </ScrollViewer>
+                        <DataGrid
+							x:Name="CatalogGrid"
+							AutoGenerateColumns="False"
+							IsReadOnly="True"
+							Style="{StaticResource ModernGrid}"
+							GridLinesVisibility="None"
+							ScrollViewer.PanningMode="Both"
+							Visibility="{Binding IsChecked, ElementName=BtnTable, Converter='{StaticResource BoolToVis}'}"
+							ItemsSource="{Binding CatalogTableSource}"
+							MouseDoubleClick="CatalogGrid_MouseDoubleClick">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn
+									Header="Название"
+									Width="*"
+									MinWidth="160"
+									Binding="{Binding Title}" />
+                                <DataGridTextColumn
+									Header="Цена"
+									Width="110"
+									Binding="{Binding PriceLine}" />
+                                <DataGridTextColumn
+									Header="Остаток"
+									Width="90"
+									CellStyle="{StaticResource CenterAlignedCell}"
+									Binding="{Binding Quantity, StringFormat={}{0:F0}}">
+                                    <DataGridBoundColumn.ElementStyle>
+                                        <Style
+											TargetType="{x:Type TextBlock}">
+                                            <Setter
+												Property="Foreground"
+												Value="#27AE60" />
+                                            <Setter
+												Property="HorizontalAlignment"
+												Value="Center" />
+                                            <Style.Triggers>
+                                                <DataTrigger
+													Value="0"
+													Binding="{Binding Quantity}">
+                                                    <Setter
+														Property="Foreground"
+														Value="#FFFF0000" />
+                                                </DataTrigger>
+                                                <DataTrigger
+													Value="True"
+													Binding="{Binding Path=Quantity, Converter='{StaticResource LessThanConverter}', ConverterParameter=5}">
+                                                    <Setter
+														Property="Foreground"
+														Value="#FFFF0000" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGridBoundColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn
+									Header="Штрихкод"
+									Width="130"
+									Binding="{Binding Barcode}" />
+                                <DataGridCheckBoxColumn
+									Header="Весовой"
+									Width="70"
+									CellStyle="{StaticResource CenterAlignedCell}"
+									Binding="{Binding MustWeigh, Mode=OneWay}" />
+                                <DataGridTemplateColumn
+									Header="★"
+									Width="50"
+									CellStyle="{StaticResource CenterAlignedCell}">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button
+												Width="24"
+												Height="24"
+												Padding="0"
+												Background="#00FFFFFF"
+												BorderThickness="0"
+												HorizontalAlignment="Center"
+												Click="ToggleFavorite_Click">
+                                                <Path
+													Width="14"
+													Height="14"
+													Stretch="Uniform"
+													Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
+                                                    <FrameworkElement.Style>
+                                                        <Style
+															TargetType="{x:Type Path}">
+                                                            <Setter
+																Property="Fill"
+																Value="#00FFFFFF" />
+                                                            <Setter
+																Property="Stroke"
+																Value="#C0C0C0" />
+                                                            <Setter
+																Property="StrokeThickness"
+																Value="1.5" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger
+																	Value="True"
+																	Binding="{Binding IsFavorite}">
+                                                                    <Setter
+																		Property="Fill"
+																		Value="#FFD700" />
+                                                                    <Setter
+																		Property="Stroke"
+																		Value="#F2994A" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </FrameworkElement.Style>
+                                                </Path>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </Grid>
                 </Grid>
             </Border>
-
-            <!-- Разделитель: тянуть влево/вправо -->
-            <GridSplitter Grid.Column="1"
-                          Width="6"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          Background="{StaticResource BrushBorder}"
-                          BorderBrush="{StaticResource BrushBorderStrong}"
-                          BorderThickness="0.5,0"
-                          ShowsPreview="True"
-                          ResizeBehavior="PreviousAndNext"
-                          ResizeDirection="Columns"
-                          Cursor="SizeWE"/>
-
-            <!-- Оверлей поиска -->
-            <Border x:Name="SearchOverlayPanel"
-                    Grid.Column="0"
-                    Panel.ZIndex="10"
-                    Margin="0,60,4,0"
-                    Background="{StaticResource BrushOverlay}"
-                    CornerRadius="8"
-                    Padding="10"
-                    Visibility="Collapsed">
-                <Border Style="{StaticResource ElevatedCardBorder}"
-                        Background="{StaticResource BrushWindowAlt}"
-                        BorderBrush="{StaticResource BrushAccent}">
-                    <DockPanel LastChildFill="True">
-                        <TextBlock DockPanel.Dock="Top"
-                                   x:Name="SearchOverlayTitle"
-                                   Margin="0,0,0,8"
-                                   FontWeight="SemiBold"
-                                   FontSize="13"
-                                   Foreground="{StaticResource BrushText}"/>
-                        <DockPanel LastChildFill="True">
-                            <Button x:Name="SearchMoreButton"
-                                    DockPanel.Dock="Bottom"
-                                    Content="Показать еще"
-                                    Click="SearchMore_Click"
-                                    Style="{StaticResource TouchSecondaryButton}"
-                                    HorizontalAlignment="Center"
-                                    Margin="0,8,0,0"
-                                    Padding="14,7"
-                                    Visibility="Collapsed"/>
-                            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl x:Name="CatalogSearchItems"
-                                          ItemTemplate="{StaticResource CatalogProductTileTemplate}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal"
-                                                   HorizontalAlignment="Center"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
+            <GridSplitter
+				x:Name="CatalogGridSplitter"
+				Grid.Column="1"
+				Width="12"
+				HorizontalAlignment="Stretch"
+				VerticalAlignment="Stretch"
+				Background="{StaticResource BrushBorderStrong}"
+				BorderBrush="{StaticResource BrushBorderStrong}"
+				BorderThickness="0"
+				ShowsPreview="True"
+				ResizeBehavior="PreviousAndNext"
+				ResizeDirection="Columns"
+				Cursor="SizeWE"
+				ToolTip="Изменить ширину панелей">
+                <Control.Template>
+                    <ControlTemplate
+						TargetType="{x:Type GridSplitter}">
+                        <Border
+							Background="{TemplateBinding Control.Background}"
+							BorderBrush="{TemplateBinding Control.BorderBrush}"
+							BorderThickness="{TemplateBinding Control.BorderThickness}">
+                            <Grid
+								HorizontalAlignment="Center"
+								VerticalAlignment="Center">
+                                <TextBlock
+									Text="● ● ●"
+									Foreground="{StaticResource BrushTextMuted}"
+									FontSize="14"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center">
+									<UIElement.RenderTransform>
+										<RotateTransform
+											Angle="90" />
+									</UIElement.RenderTransform>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Control.Template>
+            </GridSplitter>
+            <Border
+				x:Name="SearchOverlayPanel"
+				Grid.Column="0"
+				Panel.ZIndex="10"
+				Margin="0,60,4,0"
+				Background="{StaticResource BrushOverlay}"
+				CornerRadius="8"
+				Padding="10"
+				Visibility="Collapsed">
+                <Border
+					Style="{StaticResource ElevatedCardBorder}"
+					Background="{StaticResource BrushWindowAlt}"
+					BorderBrush="{StaticResource BrushAccent}">
+                    <DockPanel
+						LastChildFill="True">
+                        <TextBlock
+							x:Name="SearchOverlayTitle"
+							DockPanel.Dock="Top"
+							Margin="0,0,0,8"
+							FontWeight="SemiBold"
+							FontSize="13"
+							Foreground="{StaticResource BrushText}" />
+                        <DockPanel
+							LastChildFill="True">
+                            <Button
+								x:Name="SearchMoreButton"
+								DockPanel.Dock="Bottom"
+								Content="Показать еще"
+								Style="{StaticResource TouchSecondaryButton}"
+								HorizontalAlignment="Center"
+								Margin="0,8,0,0"
+								Padding="14,7"
+								Visibility="Collapsed"
+								Click="SearchMore_Click" />
+                            <ScrollViewer
+								VerticalScrollBarVisibility="Auto"
+								PanningMode="Both"
+								CanContentScroll="False">
+                                <ItemsControl
+									x:Name="CatalogSearchItems">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid
+												Columns="2" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!--Неизвестный ID соединения: 38-->
+                                            <Border
+												Background="{DynamicResource BrushPanel}"
+												BorderBrush="{DynamicResource BrushBorder}"
+												BorderThickness="0.5"
+												CornerRadius="12"
+												Margin="6"
+												Padding="12"
+												MinHeight="120"
+												Cursor="Hand"
+												ToolTip="Двойной клик – добавить в чек">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition
+															Height="Auto" />
+                                                        <RowDefinition
+															Height="Auto" />
+                                                        <RowDefinition
+															Height="*" />
+                                                        <RowDefinition
+															Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition
+															Width="*" />
+                                                        <ColumnDefinition
+															Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock
+														Grid.Row="0"
+														Grid.ColumnSpan="2"
+														FontSize="13"
+														FontWeight="SemiBold"
+														Foreground="{DynamicResource BrushText}"
+														TextWrapping="Wrap"
+														TextTrimming="CharacterEllipsis"
+														MaxHeight="36"
+														Text="{Binding Title}" />
+                                                    <TextBlock
+														Grid.Row="1"
+														Grid.ColumnSpan="2"
+														FontSize="18"
+														FontWeight="Bold"
+														Foreground="{DynamicResource BrushAccent}"
+														Margin="0,4,0,0"
+														Text="{Binding PriceLine}" />
+                                                    <StackPanel
+														Grid.Row="3"
+														Grid.Column="0"
+														Orientation="Horizontal"
+														VerticalAlignment="Bottom">
+                                                        <TextBlock
+															Foreground="{DynamicResource BrushTextSoft}"
+															FontSize="10"
+															Margin="0,0,8,0"
+															Text="{Binding Barcode, StringFormat=ШК:{0}, TargetNullValue='ШК: —'}" />
+                                                        <TextBlock
+															Foreground="{DynamicResource BrushTextSoft}"
+															FontSize="10"
+															FontWeight="SemiBold">
+															<Run
+																Text="Ост: " /> <Run
+																Text="{Binding Quantity, Mode=OneWay, StringFormat={}{0:F2}}" /> <Run
+																Text=" " /> <Run
+																Text="{Binding Unit, Mode=OneWay, FallbackValue=кг}" /></TextBlock>
+                                                    </StackPanel>
+                                                    <!--Неизвестный ID соединения: 39-->
+                                                    <Button
+														Grid.Row="0"
+														Grid.RowSpan="3"
+														Grid.Column="1"
+														Width="28"
+														Height="28"
+														Padding="0"
+														Background="#00FFFFFF"
+														BorderThickness="0"
+														HorizontalAlignment="Right"
+														VerticalAlignment="Top"
+														Margin="4,0,0,0">
+                                                        <Path
+															Width="18"
+															Height="18"
+															Stretch="Uniform"
+															Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
+                                                            <FrameworkElement.Style>
+                                                                <Style
+																	TargetType="{x:Type Path}">
+                                                                    <Setter
+																		Property="Fill"
+																		Value="#00FFFFFF" />
+                                                                    <Setter
+																		Property="Stroke"
+																		Value="#C0C0C0" />
+                                                                    <Setter
+																		Property="StrokeThickness"
+																		Value="1.5" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger
+																			Value="True"
+																			Binding="{Binding IsFavorite}">
+                                                                            <Setter
+																				Property="Fill"
+																				Value="#FFD700" />
+                                                                            <Setter
+																				Property="Stroke"
+																				Value="#F2994A" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </FrameworkElement.Style>
+                                                        </Path>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </ScrollViewer>
                         </DockPanel>
                     </DockPanel>
                 </Border>
             </Border>
-
-            <!-- ── ПРАВАЯ ПАНЕЛЬ (ЧЕК) ───────────────────────────────────── -->
-            <Border Grid.Column="2"
-                    Style="{StaticResource ElevatedCardBorder}"
-                    Margin="6,0,0,0"
-                    Padding="10,8">
-                <DockPanel LastChildFill="True">
-
-                    <!-- Текст статуса для подсказки у заголовка (не занимает место) -->
-                    <TextBlock x:Name="CartStateText"
-                               DockPanel.Dock="Top"
-                               Visibility="Collapsed"
-                               FontSize="10"
-                               TextWrapping="Wrap"/>
-
-                    <!-- ① Компактный заголовок (остальное — внизу над итогом) -->
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,4"
-                          ToolTip="{Binding ElementName=CartStateText, Path=Text}">
+            <Border
+				x:Name="RightPanelBorder"
+				Grid.Column="2"
+				Style="{StaticResource ElevatedCardBorder}"
+				Margin="6,0,0,0"
+				Padding="10,8">
+                <DockPanel
+					LastChildFill="True">
+                    <TextBlock
+						x:Name="CartStateText"
+						DockPanel.Dock="Top"
+						Visibility="Collapsed"
+						FontSize="10"
+						TextWrapping="Wrap" />
+                    <Grid
+						DockPanel.Dock="Top"
+						Margin="0,0,0,4"
+						ToolTip="{Binding ElementName=CartStateText, Path=Text}">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition
+								Width="*" />
+                            <ColumnDefinition
+								Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Чек"
-                                       FontSize="14" FontWeight="Bold"
-                                       Foreground="{StaticResource BrushText}"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,8,0"/>
-                            <Border Style="{StaticResource BadgeBorder}"
-                                    Margin="0,0,4,0"
-                                    Padding="8,4"
-                                    VerticalAlignment="Center" Width="55">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="поз: "
-                                               Foreground="{StaticResource BrushTextSoft}"
-                                               FontSize="9" RenderTransformOrigin="0.478,0.675" Height="12"/>
-                                    <TextBlock x:Name="CartItemsCountText"
-                                               Foreground="{StaticResource BrushText}"
-                                               FontWeight="Bold"
-                                               FontSize="12"/>
+                        <StackPanel
+							Orientation="Horizontal"
+							VerticalAlignment="Center">
+                            <TextBlock
+								Text="Чек"
+								FontSize="14"
+								FontWeight="Bold"
+								Foreground="{StaticResource BrushText}"
+								VerticalAlignment="Center"
+								Margin="0,0,8,0" />
+                            <Border
+								Style="{StaticResource BadgeBorder}"
+								Margin="0,0,4,0"
+								Padding="8,4"
+								VerticalAlignment="Center"
+								Width="70">
+                                <StackPanel
+									Orientation="Horizontal">
+                                    <TextBlock
+										Text="поз: "
+										Foreground="{StaticResource BrushTextSoft}"
+										FontSize="10"
+										Height="14" />
+                                    <TextBlock
+										x:Name="CartItemsCountText"
+										Foreground="{StaticResource BrushText}"
+										FontWeight="Bold"
+										FontSize="14" />
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource BadgeBorder}"
-                                    Background="{StaticResource BrushAccentSoft}"
-                                    BorderBrush="{StaticResource BrushAccent}"
-                                    Padding="8,4"
-                                    VerticalAlignment="Center" Width="55">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="откл: "
-                                               Foreground="{StaticResource BrushTextMuted}"
-                                               FontSize="9" Height="12"/>
-                                    <TextBlock x:Name="DeferredCountText"
-                                               Foreground="{StaticResource BrushAccent}"
-                                               FontWeight="Bold"
-                                               FontSize="11"/>
+                            <Border
+								Style="{StaticResource BadgeBorder}"
+								Background="{StaticResource BrushAccentSoft}"
+								BorderBrush="{StaticResource BrushAccent}"
+								Padding="8,4"
+								VerticalAlignment="Center"
+								Width="70">
+                                <StackPanel
+									Orientation="Horizontal">
+                                    <TextBlock
+										Text="откл: "
+										Foreground="{StaticResource BrushTextMuted}"
+										FontSize="10"
+										Height="14" />
+                                    <TextBlock
+										x:Name="DeferredCountText"
+										Foreground="{StaticResource BrushAccent}"
+										FontWeight="Bold"
+										FontSize="14" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
-                        <StackPanel Grid.Column="1"
-                                    Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-                            <Button x:Name="StartSaleButton"
-                                    Content="Новый"
-                                    Click="StartSale_Click"
-                                    Style="{StaticResource TouchGhostButton}"
-                                    Padding="7,5"
-                                    Margin="0,0,4,0"
-                                    FontSize="11"
-                                    ToolTip="Открыть пустой чек вручную"/>
-                            <Button x:Name="RefreshCartButton"
-                                    Content="↻"
-                                    Click="RefreshCart_Click"
-                                    IsEnabled="False"
-                                    Style="{StaticResource TouchSecondaryButton}"
-                                    Padding="7,5"
-                                    FontSize="12"
-                                    ToolTip="Обновить чек"/>
+                        <StackPanel
+							Grid.Column="1"
+							Orientation="Horizontal"
+							VerticalAlignment="Center">
+                            <Button
+								x:Name="StartSaleButton"
+								Content="Новый"
+								Style="{StaticResource TouchGhostButton}"
+								Padding="7,5"
+								Margin="0,0,4,0"
+								FontSize="11"
+								ToolTip="Открыть пустой чек вручную"
+								Click="StartSale_Click" />
+                            <Button
+								x:Name="RefreshCartButton"
+								Content="↻"
+								IsEnabled="False"
+								Style="{StaticResource TouchSecondaryButton}"
+								Padding="7,5"
+								FontSize="12"
+								ToolTip="Обновить чек"
+								Click="RefreshCart_Click" />
                         </StackPanel>
                     </Grid>
-
-                    <!-- Снизу: сначала блок «итого» (край окна), выше — сканер/отложить/скидка -->
-                    <Border DockPanel.Dock="Bottom"
-                            Style="{StaticResource ModernSectionBorder}"
-                            Padding="12,10"
-                            Margin="0,4,0,0">
+                    <Border
+						DockPanel.Dock="Bottom"
+						Style="{StaticResource ModernSectionBorder}"
+						Padding="0"
+						Margin="0,4,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
+                                <RowDefinition
+									Height="Auto" />
+                                <RowDefinition
+									Height="Auto" />
+                                <RowDefinition
+									Height="Auto" />
                             </Grid.RowDefinitions>
-                            <Border Background="{StaticResource BrushWindowAlt}"
-                                    BorderBrush="{StaticResource BrushAccent}"
-                                    BorderThickness="0,0,0,3"
-                                    CornerRadius="8"
-                                    Padding="10,8"
-                                    Margin="0,0,0,2">
+                            <StackPanel
+								x:Name="ToolsPanel"
+								Grid.Row="0"
+								Margin="12,8,12,2"
+								Visibility="Visible">
+                                <Grid
+									Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition
+											Width="*" />
+                                        <ColumnDefinition
+											Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox
+										x:Name="BarcodeBox"
+										Grid.Column="0"
+										Margin="0,0,5,0"
+										Style="{StaticResource TouchTextBox}"
+										MinHeight="34"
+										Padding="8,5"
+										FontSize="13"
+										KeyDown="BarcodeBox_KeyDown" />
+                                    <Button
+										x:Name="ScanBarcodeButton"
+										Grid.Column="1"
+										Content="Добавить"
+										Style="{StaticResource TouchSecondaryButton}"
+										Padding="8,5"
+										MinHeight="34"
+										FontSize="12"
+										Click="ScanBarcode_Click" />
+                                </Grid>
+                                <Grid
+									Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition
+											Width="*" />
+                                        <ColumnDefinition
+											Width="*" />
+                                        <ColumnDefinition
+											Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button
+										x:Name="DeferCartButton"
+										Grid.Column="0"
+										Content="Отложить"
+										Style="{StaticResource TouchSecondaryButton}"
+										Padding="6,5"
+										Margin="0,0,3,0"
+										MinWidth="0"
+										FontSize="11"
+										ToolTip="Сохранить корзину и открыть новую продажу"
+										Click="DeferCart_Click" />
+                                    <Button
+										x:Name="RestoreLatestDeferredButton"
+										Grid.Column="1"
+										Content="Вернуть"
+										Style="{StaticResource TouchSecondaryButton}"
+										Padding="6,5"
+										Margin="0,0,3,0"
+										MinWidth="0"
+										FontSize="11"
+										ToolTip="Вернуть последний отложенный чек"
+										Click="RestoreLatestDeferred_Click" />
+                                    <Button
+										x:Name="OpenDeferredCartsButton"
+										Grid.Column="2"
+										Content="Список…"
+										Style="{StaticResource TouchSecondaryButton}"
+										Padding="6,5"
+										MinWidth="0"
+										FontSize="11"
+										ToolTip="Посмотреть все отложенные корзины"
+										Click="OpenDeferredCarts_Click" />
+                                </Grid>
+                                <Border
+									Style="{StaticResource ModernInfoPanel}"
+									Padding="8,6"
+									Margin="0,0,0,5">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition
+												Width="*" />
+                                            <ColumnDefinition
+												Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock
+												Text="Скидка"
+												FontSize="9"
+												FontWeight="Bold"
+												Foreground="{StaticResource BrushTextMuted}" />
+                                            <TextBlock
+												x:Name="OrderDiscountSummaryText"
+												Margin="0,1,0,0"
+												FontSize="10"
+												Foreground="{StaticResource BrushTextSoft}"
+												TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <Button
+											x:Name="OrderDiscountButton"
+											Grid.Column="1"
+											Content="Изменить"
+											Style="{StaticResource TouchSecondaryButton}"
+											Padding="8,4"
+											Margin="8,0,0,0"
+											MinWidth="0"
+											FontSize="10"
+											VerticalAlignment="Center"
+											ToolTip="Открыть окно настройки скидки"
+											Click="ApplyOrderDiscount_Click" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock
+									x:Name="CartMessageText"
+									TextWrapping="Wrap"
+									FontSize="10"
+									MinHeight="0"
+									Foreground="{StaticResource BrushTextMuted}" />
+                            </StackPanel>
+                            <Border
+								Grid.Row="1"
+								Background="{DynamicResource BrushWindowAlt}"
+								BorderBrush="{DynamicResource BrushAccent}"
+								BorderThickness="0,0,0,3"
+								CornerRadius="8"
+								Padding="10,8"
+								Margin="12,2,12,2">
                                 <Grid>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition
+											Height="Auto" />
+                                        <RowDefinition
+											Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="Итого к оплате"
-                                               FontSize="10"
-                                               FontWeight="SemiBold"
-                                               Foreground="{StaticResource BrushTextSoft}"
-                                               Margin="0,0,0,4"/>
-                                    <StackPanel Grid.Row="1"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Bottom">
-                                        <TextBlock x:Name="CartTotalAmountText"
-                                                   FontSize="28"
-                                                   FontWeight="Bold"
-                                                   LineHeight="32"
-                                                   Foreground="{StaticResource BrushAccentStrong}"
-                                                   Typography.NumeralAlignment="Tabular"/>
-                                        <TextBlock Text=" сом"
-                                                   FontSize="15"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{StaticResource BrushTextMuted}"
-                                                   VerticalAlignment="Bottom"
-                                                   Margin="6,0,0,3"/>
+                                    <StackPanel
+										Orientation="Horizontal"
+										HorizontalAlignment="Right"
+										VerticalAlignment="Center">
+                                        <Button
+											x:Name="ToggleToolsButton"
+											Style="{StaticResource TouchGhostButton}"
+											Width="36"
+											Height="28"
+											Padding="0"
+											Margin="0,0,8,0"
+											ToolTip="Показать/скрыть инструменты"
+											FontSize="16"
+											Foreground="{DynamicResource BrushText}"
+											Content="∧"
+											Click="ToggleToolsPanel_Click" />
+                                        <TextBlock
+											Text="Итого к оплате"
+											FontSize="10"
+											FontWeight="SemiBold"
+											Foreground="{DynamicResource BrushTextSoft}"
+											VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <StackPanel
+										Grid.Row="1"
+										Orientation="Horizontal"
+										VerticalAlignment="Bottom"
+										HorizontalAlignment="Right"
+										Margin="0,4,0,0">
+                                        <TextBlock
+											x:Name="CartTotalAmountText"
+											FontSize="28"
+											FontWeight="Bold"
+											LineHeight="32"
+											Foreground="{DynamicResource BrushAccentStrong}"
+											Typography.NumeralAlignment="Tabular" />
+                                        <TextBlock
+											Text=" сом"
+											FontSize="15"
+											FontWeight="SemiBold"
+											Foreground="{DynamicResource BrushTextMuted}"
+											VerticalAlignment="Bottom"
+											Margin="6,0,0,3" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                            <Button x:Name="CheckoutFooterButton"
-                                    Grid.Row="1"
-                                    Content="Оплатить"
-                                    Click="Checkout_Click"
-                                    Style="{StaticResource TouchPrimaryButton}"
-                                    IsEnabled="False"
-                                    Background="{StaticResource BrushSuccess}"
-                                    Foreground="#111827"
-                                    BorderBrush="{StaticResource BrushSuccess}"
-                                    Margin="0,8,0,0"
-                                    Padding="10,6"
-                                    HorizontalAlignment="Stretch"/>
+                            <Button
+								x:Name="CheckoutFooterButton"
+								Grid.Row="2"
+								Content="Оплатить"
+								Style="{StaticResource TouchPrimaryButton}"
+								IsEnabled="False"
+								Background="{StaticResource BrushSuccess}"
+								Foreground="#111827"
+								BorderBrush="{StaticResource BrushSuccess}"
+								Margin="12,4,12,10"
+								Padding="10,6"
+								HorizontalAlignment="Stretch"
+								Click="Checkout_Click" />
                         </Grid>
                     </Border>
-
-                    <Border DockPanel.Dock="Bottom"
-                            Margin="0,4,0,0"
-                            Style="{StaticResource ModernInfoPanel}"
-                            Padding="8,6">
-                        <Expander x:Name="CartToolsExpander"
-                                  Style="{StaticResource PosExpander}"
-                                  Header="Штрихкод · отложить · скидка"
-                                  IsExpanded="True">
-                            <StackPanel Margin="0,6,0,0">
-                                <Grid Margin="0,0,0,5">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="BarcodeBox"
-                                             Grid.Column="0"
-                                             Margin="0,0,5,0"
-                                             Style="{StaticResource TouchTextBox}"
-                                             MinHeight="34"
-                                             Padding="8,5"
-                                             FontSize="13"
-                                             KeyDown="BarcodeBox_KeyDown"/>
-                                    <Button x:Name="ScanBarcodeButton"
-                                            Grid.Column="1"
-                                            Content="Добавить"
-                                            Click="ScanBarcode_Click"
-                                            Style="{StaticResource TouchSecondaryButton}"
-                                            Padding="8,5"
-                                            MinHeight="34"
-                                            FontSize="12"/>
-                                </Grid>
-                                <Grid Margin="0,0,0,5">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Button x:Name="DeferCartButton"
-                                            Grid.Column="0"
-                                            Content="Отложить"
-                                            Click="DeferCart_Click"
-                                            Style="{StaticResource TouchSecondaryButton}"
-                                            Padding="6,5"
-                                            Margin="0,0,3,0"
-                                            MinWidth="0"
-                                            FontSize="11"
-                                            ToolTip="Сохранить корзину и открыть новую продажу"/>
-                                    <Button x:Name="RestoreLatestDeferredButton"
-                                            Grid.Column="1"
-                                            Content="Вернуть"
-                                            Click="RestoreLatestDeferred_Click"
-                                            Style="{StaticResource TouchSecondaryButton}"
-                                            Padding="6,5"
-                                            Margin="0,0,3,0"
-                                            MinWidth="0"
-                                            FontSize="11"
-                                            ToolTip="Вернуть последний отложенный чек"/>
-                                    <Button x:Name="OpenDeferredCartsButton"
-                                            Grid.Column="2"
-                                            Content="Список…"
-                                            Click="OpenDeferredCarts_Click"
-                                            Style="{StaticResource TouchSecondaryButton}"
-                                            Padding="6,5"
-                                            MinWidth="0"
-                                            FontSize="11"
-                                            ToolTip="Посмотреть все отложенные корзины"/>
-                                </Grid>
-                                <Border Style="{StaticResource ModernInfoPanel}"
-                                        Padding="8,6"
-                                        Margin="0,0,0,5">
-                                    <Grid>
+                    <ListView
+						x:Name="CartListView"
+						HorizontalAlignment="Stretch"
+						HorizontalContentAlignment="Stretch"
+						BorderThickness="0"
+						Background="#00FFFFFF"
+						Foreground="{StaticResource BrushText}"
+						ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+						ScrollViewer.CanContentScroll="True"
+						ScrollViewer.PanningMode="Both"
+						VirtualizingPanel.IsVirtualizing="True"
+						VirtualizingPanel.VirtualizationMode="Recycling"
+						ItemsSource="{Binding CartLines}"
+						SizeChanged="CartListView_SizeChanged">
+                        <ItemsControl.ItemContainerStyle>
+                            <Style
+								TargetType="{x:Type ListViewItem}">
+                                <Setter
+									Property="HorizontalContentAlignment"
+									Value="Stretch" />
+                                <Setter
+									Property="VerticalContentAlignment"
+									Value="Stretch" />
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate
+								DataType="{x:Type pos:CartLineRow}">
+                                <Border
+									Background="{StaticResource BrushWindowAlt}"
+									BorderBrush="{StaticResource BrushBorder}"
+									BorderThickness="0.5"
+									CornerRadius="8"
+									Padding="8,6"
+									HorizontalAlignment="Stretch">
+                                    <Grid
+										HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition
+												Width="*" />
+                                            <ColumnDefinition
+												Width="Auto"
+												MinWidth="{DynamicResource CartUiSumColMinW}" />
+                                            <ColumnDefinition
+												Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock Text="Скидка"
-                                                       FontSize="9"
-                                                       FontWeight="Bold"
-                                                       Foreground="{StaticResource BrushTextMuted}"/>
-                                            <TextBlock x:Name="OrderDiscountSummaryText"
-                                                       Margin="0,1,0,0"
-                                                       FontSize="10"
-                                                       Foreground="{StaticResource BrushTextSoft}"
-                                                       TextWrapping="Wrap"/>
+                                        <StackPanel
+											Grid.Column="0"
+											Margin="0,0,8,0"
+											VerticalAlignment="Center">
+                                            <TextBlock
+												FontSize="{DynamicResource CatalogTitleFont}"
+												FontWeight="SemiBold"
+												Foreground="{StaticResource BrushText}"
+												HorizontalAlignment="Left"
+												TextAlignment="Left"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="NoWrap"
+												MaxWidth="200"
+												Text="{Binding Title, Mode=OneWay}"
+												ToolTip="{Binding Title}" />
+                                            <TextBlock
+												FontSize="14"
+												FontWeight="SemiBold"
+												Foreground="{DynamicResource BrushTextSoft}"
+												HorizontalAlignment="Left"
+												TextTrimming="CharacterEllipsis"
+												TextWrapping="NoWrap"
+												MaxWidth="200"
+												Margin="0,2,0,0"
+												Text="{Binding SubLine}" />
                                         </StackPanel>
-                                        <Button x:Name="OrderDiscountButton"
-                                                Grid.Column="1"
-                                                Content="Изменить"
-                                                Click="ApplyOrderDiscount_Click"
-                                                Style="{StaticResource TouchSecondaryButton}"
-                                                Padding="8,4"
-                                                Margin="8,0,0,0"
-                                                MinWidth="0"
-                                                FontSize="10"
-                                                VerticalAlignment="Center"
-                                                ToolTip="Открыть окно настройки скидки"/>
-                                    </Grid>
-                                </Border>
-                                <TextBlock x:Name="CartMessageText"
-                                           TextWrapping="Wrap"
-                                           FontSize="10"
-                                           MinHeight="0"
-                                           Foreground="{StaticResource BrushTextMuted}"/>
-                            </StackPanel>
-                        </Expander>
-                    </Border>
-
-                    <!-- ⑤ Список позиций корзины -->
-                    <ListView x:Name="CartListView"
-                              ItemsSource="{Binding CartLines}"
-                              HorizontalAlignment="Stretch"
-                              HorizontalContentAlignment="Stretch"
-                              BorderThickness="0"
-                              Background="Transparent"
-                              Foreground="{StaticResource BrushText}"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              VirtualizingStackPanel.IsVirtualizing="True"
-                              VirtualizingStackPanel.VirtualizationMode="Recycling"
-                              SizeChanged="CartListView_SizeChanged">
-                        <ListView.ItemTemplate>
-                            <DataTemplate DataType="{x:Type pos:CartLineRow}">
-                                <Border HorizontalAlignment="Stretch"
-                                        Background="{StaticResource BrushWindowAlt}"
-                                        BorderBrush="{StaticResource BrushBorder}"
-                                        BorderThickness="0.5"
-                                        CornerRadius="8"
-                                        Padding="8,6">
-                                    <Grid HorizontalAlignment="Stretch">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto" MinWidth="{DynamicResource CartUiSumColMinW}"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-
-                                        <!-- Название + подстрока -->
-                                        <StackPanel Grid.Column="0"
-                                                    Margin="0,0,8,0"
-                                                    VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Title}"
-                                                       FontSize="{DynamicResource CartUiTitleFont}"
-                                                       FontWeight="Bold"
-                                                       Foreground="{StaticResource BrushText}"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{Binding SubLine}"
-                                                       Margin="0,2,0,0"
-                                                       FontSize="{DynamicResource CartUiSubFont}"
-                                                       Foreground="{StaticResource BrushTextSoft}"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
-
-                                        <!-- Сумма по строке — по центру колонки и по вертикали всей позиции -->
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding LineTotal}"
-                                                   FontSize="{DynamicResource CartUiLineTotalFont}"
-                                                   FontWeight="Bold"
-                                                   Foreground="{StaticResource BrushAccent}"
-                                                   VerticalAlignment="Center"
-                                                   HorizontalAlignment="Center"
-                                                   TextAlignment="Center"
-                                                   TextWrapping="Wrap"/>
-
-                                        <!-- Взвесить, −, +, Удалить — в один ряд -->
-                                        <StackPanel Grid.Column="2"
-                                                    Orientation="Horizontal"
-                                                    VerticalAlignment="Center"
-                                                    Margin="6,0,0,0">
-                                            <Button Content="Взвесить"
-                                                    Click="CartWeigh_Click"
-                                                    Style="{StaticResource TouchSecondaryButton}"
-                                                    FontSize="{DynamicResource CartUiSmallBtnFont}"
-                                                    Padding="6,2"
-                                                    MinWidth="0"
-                                                    MinHeight="{DynamicResource CartUiSmallBtnMinH}"
-                                                    Margin="{DynamicResource CartUiQtyBtnSpacing}"
-                                                    ToolTip="Указать вес"
-                                                    Visibility="{Binding WeighedLine, Converter={StaticResource BoolToVis}}"/>
-                                            <Button Content="−"
-                                                    Click="CartQtyMinus_Click"
-                                                    Style="{StaticResource CartQtyMiniButton}"
-                                                    Width="{DynamicResource CartUiQtyBtnSize}"
-                                                    Height="{DynamicResource CartUiQtyBtnSize}"
-                                                    MinHeight="{DynamicResource CartUiQtyBtnSize}"
-                                                    Margin="{DynamicResource CartUiQtyBtnSpacing}"
-                                                    FontSize="{DynamicResource CartUiQtyBtnFont}"
-                                                    ToolTip="Уменьшить"/>
-                                            <Button Content="+"
-                                                    Click="CartQtyPlus_Click"
-                                                    Style="{StaticResource CartQtyMiniButton}"
-                                                    Width="{DynamicResource CartUiQtyBtnSize}"
-                                                    Height="{DynamicResource CartUiQtyBtnSize}"
-                                                    MinHeight="{DynamicResource CartUiQtyBtnSize}"
-                                                    Margin="{DynamicResource CartUiQtyBtnSpacing}"
-                                                    FontSize="{DynamicResource CartUiQtyBtnFont}"
-                                                    ToolTip="Увеличить"/>
-                                            <Button Content="Удалить"
-                                                    Click="CartLineDelete_Click"
-                                                    Style="{StaticResource TouchDangerButton}"
-                                                    FontSize="{DynamicResource CartUiSmallBtnFont}"
-                                                    Padding="8,2"
-                                                    MinWidth="0"
-                                                    MinHeight="{DynamicResource CartUiSmallBtnMinH}"
-                                                    ToolTip="Убрать из чека"/>
+                                        <TextBlock
+											Grid.Column="1"
+											FontSize="18"
+											FontWeight="Bold"
+											Foreground="{DynamicResource BrushAccent}"
+											VerticalAlignment="Center"
+											HorizontalAlignment="Center"
+											TextAlignment="Center"
+											TextWrapping="Wrap"
+											Text="{Binding LineTotal}" />
+                                        <StackPanel
+											Grid.Column="2"
+											Orientation="Horizontal"
+											VerticalAlignment="Center"
+											Margin="6,0,0,0">
+                                            <!--Неизвестный ID соединения: 59-->
+                                            <Button
+												Content="Взвесить"
+												Style="{StaticResource TouchSecondaryButton}"
+												FontSize="{DynamicResource CartUiSmallBtnFont}"
+												Padding="6,2"
+												MinWidth="0"
+												MinHeight="{DynamicResource CartUiSmallBtnMinH}"
+												Margin="{DynamicResource CartUiQtyBtnSpacing}"
+												ToolTip="Указать вес"
+												Visibility="{Binding WeighedLine, Converter='{StaticResource BoolToVis}'}" />
+                                            <!--Неизвестный ID соединения: 60-->
+                                            <Button
+												Content="−"
+												Style="{StaticResource CartQtyMiniButton}"
+												Width="{DynamicResource CartUiQtyBtnSize}"
+												Height="{DynamicResource CartUiQtyBtnSize}"
+												MinHeight="{DynamicResource CartUiQtyBtnSize}"
+												Margin="{DynamicResource CartUiQtyBtnSpacing}"
+												FontSize="{DynamicResource CartUiQtyBtnFont}"
+												ToolTip="Уменьшить" />
+                                            <!--Неизвестный ID соединения: 61-->
+                                            <Button
+												Content="+"
+												Style="{StaticResource CartQtyMiniButton}"
+												Width="{DynamicResource CartUiQtyBtnSize}"
+												Height="{DynamicResource CartUiQtyBtnSize}"
+												MinHeight="{DynamicResource CartUiQtyBtnSize}"
+												Margin="{DynamicResource CartUiQtyBtnSpacing}"
+												FontSize="{DynamicResource CartUiQtyBtnFont}"
+												ToolTip="Увеличить" />
+                                            <!--Неизвестный ID соединения: 62-->
+                                            <Button
+												Style="{StaticResource TouchDangerButton}"
+												Width="40"
+												Height="40"
+												Padding="0"
+												ToolTip="Убрать из чека">
+                                                <TextBlock
+													Text=""
+													FontFamily="Segoe MDL2 Assets"
+													FontSize="16"
+													VerticalAlignment="Center"
+													HorizontalAlignment="Center" />
+                                            </Button>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
-                        </ListView.ItemTemplate>
+                        </ItemsControl.ItemTemplate>
                     </ListView>
                 </DockPanel>
             </Border>
-
-            <!-- Toast -->
-            <Border x:Name="ToastPanel"
-                    Grid.Column="0"
-                    Grid.ColumnSpan="3"
-                    Panel.ZIndex="50"
-                    VerticalAlignment="Bottom"
-                    HorizontalAlignment="Center"
-                    Margin="0,0,0,14"
-                    Background="{StaticResource BrushPanelSoft}"
-                    BorderBrush="{StaticResource BrushBorderStrong}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="16,10"
-                    Visibility="Collapsed"
-                    MaxWidth="700">
-                <TextBlock x:Name="ToastText"
-                           Foreground="{StaticResource BrushText}"
-                           TextWrapping="Wrap"
-                           FontSize="13"/>
+            <Border
+				x:Name="ToastPanel"
+				Grid.Column="0"
+				Grid.ColumnSpan="3"
+				Panel.ZIndex="50"
+				VerticalAlignment="Bottom"
+				HorizontalAlignment="Center"
+				Margin="0,0,0,14"
+				Background="{StaticResource BrushPanelSoft}"
+				BorderBrush="{StaticResource BrushBorderStrong}"
+				BorderThickness="1"
+				CornerRadius="8"
+				Padding="16,10"
+				Visibility="Collapsed"
+				MaxWidth="700">
+                <TextBlock
+					x:Name="ToastText"
+					Foreground="{StaticResource BrushText}"
+					TextWrapping="Wrap"
+					FontSize="13" />
+            </Border>
+            <Border
+				Grid.RowSpan="2"
+				Grid.ColumnSpan="3"
+				Background="#40000000"
+				Panel.ZIndex="1000"
+				Visibility="{Binding IsLoading, Converter='{StaticResource BoolToVis}', FallbackValue=Collapsed}">
+                <StackPanel
+					HorizontalAlignment="Center"
+					VerticalAlignment="Center">
+                    <TextBlock
+						Text="Загрузка..."
+						Foreground="#FFFFFFFF"
+						FontSize="18"
+						HorizontalAlignment="Center"
+						Margin="0,0,0,12" />
+                    <ProgressBar
+						IsIndeterminate="True"
+						Width="200"
+						Height="20"
+						Foreground="{DynamicResource BrushAccent}" />
+                </StackPanel>
+            </Border>
+            <Border
+				x:Name="WarehousePanel"
+				Visibility="Collapsed"
+				Background="{DynamicResource BrushPanel}"
+				CornerRadius="12"
+				Padding="16"
+				Margin="0"
+				Grid.Row="1"
+				Grid.Column="0"
+				Grid.ColumnSpan="3">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition
+							Height="Auto" />
+                        <RowDefinition
+							Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border
+						Grid.Row="0"
+						Style="{StaticResource ModernSectionBorder}"
+						Padding="12,10"
+						Margin="0,0,0,8">
+                        <StackPanel
+							Orientation="Horizontal">
+                            <TextBox
+								x:Name="WarehouseSearchBox"
+								Width="260"
+								Style="{StaticResource TouchTextBox}"
+								Margin="0,0,12,0"
+								TextChanged="WarehouseSearchBox_TextChanged" />
+                            <StackPanel
+								Orientation="Horizontal"
+								Margin="8,0,0,0">
+                                <RadioButton
+									x:Name="WarehouseCardsBtn"
+									Content="Карточки"
+									GroupName="WarehouseView"
+									IsChecked="True"
+									Style="{StaticResource WarehouseViewToggleButton}"
+									Checked="WarehouseCardsBtn_Checked" />
+                                <RadioButton
+									x:Name="WarehouseTableBtn"
+									Content="Таблица"
+									GroupName="WarehouseView"
+									Style="{StaticResource WarehouseViewToggleButton}"
+									Checked="WarehouseTableBtn_Checked" />
+                            </StackPanel>
+                            <Button
+								Content="← Назад"
+								Style="{StaticResource TouchSecondaryButton}"
+								Margin="12,0,0,0"
+								Click="WarehouseBack_Click" />
+                        </StackPanel>
+                    </Border>
+                    <ScrollViewer
+						Grid.Row="1"
+						VerticalScrollBarVisibility="Auto"
+						HorizontalScrollBarVisibility="Disabled"
+						PanningMode="Both"
+						CanContentScroll="False">
+                        <Grid>
+                            <ItemsControl
+								x:Name="WarehouseCardsItems"
+								Visibility="{Binding IsChecked, ElementName=WarehouseCardsBtn, Converter='{StaticResource BoolToVis}'}"
+								ItemsSource="{Binding WarehouseItems}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid
+											Columns="3" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border
+											Background="{DynamicResource BrushInputAlt}"
+											BorderBrush="{DynamicResource BrushBorder}"
+											BorderThickness="0.5"
+											CornerRadius="8"
+											Padding="14"
+											Margin="6"
+											Effect="{DynamicResource CardShadow}">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition
+														Height="Auto" />
+                                                    <RowDefinition
+														Height="Auto" />
+                                                    <RowDefinition
+														Height="*" />
+                                                    <RowDefinition
+														Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <StackPanel
+													Grid.Row="0"
+													Orientation="Horizontal"
+													Margin="0,0,0,8">
+                                                    <TextBlock
+														Text="#"
+														FontSize="14"
+														FontWeight="Bold"
+														Foreground="{DynamicResource BrushText}"
+														VerticalAlignment="Center"
+														Margin="0,0,6,0" />
+                                                    <Border
+														Width="36"
+														Height="36"
+														Background="{DynamicResource BrushInput}"
+														CornerRadius="6"
+														Margin="0,0,8,0">
+                                                        <TextBlock
+															Text="📦"
+															HorizontalAlignment="Center"
+															VerticalAlignment="Center"
+															FontSize="18" />
+                                                    </Border>
+                                                    <TextBlock
+														FontSize="15"
+														FontWeight="SemiBold"
+														Foreground="{DynamicResource BrushText}"
+														VerticalAlignment="Center"
+														TextTrimming="CharacterEllipsis"
+														Text="{Binding ProductName}" />
+                                                </StackPanel>
+                                                <StackPanel
+													Grid.Row="1"
+													Orientation="Horizontal"
+													Margin="0,4,0,8">
+                                                    <TextBlock
+														FontSize="11"
+														Foreground="{DynamicResource BrushTextSoft}"
+														Margin="0,0,10,0"
+														Text="{Binding Code, StringFormat='Код: {0}'}" />
+                                                    <TextBlock
+														FontSize="11"
+														Foreground="{DynamicResource BrushTextSoft}"
+														Margin="0,0,10,0"
+														Text="{Binding Article, StringFormat='Арт: {0}'}" />
+                                                    <TextBlock
+														FontSize="11"
+														Foreground="{DynamicResource BrushTextSoft}"
+														Text="{Binding Unit, StringFormat='Ед: {0}'}" />
+                                                </StackPanel>
+                                                <Grid
+													Row="3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition
+															Width="*" />
+                                                        <ColumnDefinition
+															Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel
+														Grid.Column="0">
+                                                        <TextBlock
+															Text="Цена продажи"
+															FontSize="11"
+															Foreground="{DynamicResource BrushTextSoft}" />
+                                                        <TextBlock
+															FontSize="18"
+															FontWeight="Bold"
+															Foreground="{DynamicResource BrushAccent}"
+															Margin="0,2,0,0"
+															Text="{Binding Price, StringFormat='{}{0:N2} сом'}" />
+                                                        <TextBlock
+															FontSize="12"
+															Foreground="{DynamicResource BrushTextMuted}"
+															Margin="0,6,0,0"
+															Text="{Binding StockQuantity, StringFormat='Остаток: {0}'}" />
+                                                    </StackPanel>
+                                                    <StackPanel
+														Grid.Column="1"
+														HorizontalAlignment="Right">
+                                                        <TextBlock
+															Text="Скидка"
+															FontSize="11"
+															Foreground="{DynamicResource BrushTextSoft}"
+															HorizontalAlignment="Right" />
+                                                        <TextBlock
+															FontSize="16"
+															FontWeight="Bold"
+															Foreground="{DynamicResource BrushSuccess}"
+															HorizontalAlignment="Right"
+															Margin="0,2,0,0"
+															Text="{Binding Discount, StringFormat={}{0:P0}}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <DataGrid
+								x:Name="WarehouseGrid"
+								Style="{StaticResource ModernGrid}"
+								AutoGenerateColumns="False"
+								ScrollViewer.CanContentScroll="False"
+								Visibility="{Binding IsChecked, ElementName=WarehouseTableBtn, Converter='{StaticResource BoolToVis}'}"
+								ItemsSource="{Binding WarehouseItems}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn
+										Header="Название"
+										Width="*"
+										MinWidth="140"
+										Binding="{Binding ProductName}" />
+                                    <DataGridTextColumn
+										Header="Код"
+										Width="100"
+										Binding="{Binding Code}" />
+                                    <DataGridTextColumn
+										Header="Артикул"
+										Width="110"
+										Binding="{Binding Article}" />
+                                    <DataGridTextColumn
+										Header="Цена"
+										Width="110"
+										Binding="{Binding Price, StringFormat='{}{0:N2} сом'}" />
+                                    <DataGridTextColumn
+										Header="Скидка"
+										Width="90"
+										Binding="{Binding Discount, StringFormat={}{0:P0}}" />
+                                    <DataGridTextColumn
+										Header="Остаток"
+										Width="90"
+										Binding="{Binding StockQuantity}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+            <Border
+				x:Name="ShiftPanel"
+				Visibility="Collapsed"
+				Background="{DynamicResource BrushPanel}"
+				CornerRadius="12"
+				Padding="16"
+				Margin="0"
+				Grid.Row="1"
+				Grid.Column="0"
+				Grid.ColumnSpan="3">
+                <ScrollViewer
+					VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Button
+							Content="← Назад"
+							Style="{StaticResource TouchSecondaryButton}"
+							HorizontalAlignment="Left"
+							Margin="0,0,0,12"
+							Click="ShiftBack_Click" />
+                        <Border
+							Style="{StaticResource KpiCard}"
+							Padding="12,10"
+							Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock
+									Text="Контроль наличности"
+									FontWeight="SemiBold"
+									Foreground="{DynamicResource BrushText}"
+									Margin="0,0,0,8" />
+                                <WrapPanel>
+                                    <TextBlock
+										Text="Сумма при открытии:"
+										VerticalAlignment="Center"
+										Foreground="{DynamicResource BrushTextSoft}"
+										Margin="0,0,8,0" />
+                                    <TextBox
+										x:Name="ShiftOpeningCashBox"
+										Width="160"
+										Style="{DynamicResource TouchTextBox}"
+										Margin="0,0,8,0" />
+                                    <Button
+										Content="Сохранить"
+										Style="{StaticResource PrimaryActionButton}"
+										Click="ShiftSaveOpeningCash_Click" />
+                                    <Button
+										Style="{StaticResource SecondaryActionButton}"
+										Width="50"
+										Height="36"
+										Padding="0"
+										Margin="8,0,0,0"
+										ToolTip="История контроля наличности"
+										Click="ShiftOpenCashHistory_Click">
+                                        <TextBlock
+											FontFamily="Segoe MDL2 Assets"
+											Text=""
+											FontSize="16"
+											Foreground="{DynamicResource BrushText}"
+											VerticalAlignment="Center"
+											HorizontalAlignment="Center" />
+                                    </Button>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+                        <Border
+							Style="{StaticResource KpiCard}"
+							Padding="12,10">
+                            <StackPanel>
+                                <TextBlock
+									Text="Операции с наличными"
+									FontWeight="SemiBold"
+									Foreground="{DynamicResource BrushText}"
+									Margin="0,0,0,8" />
+                                <StackPanel
+									Orientation="Horizontal">
+                                    <Button
+										Content="Внести"
+										Style="{StaticResource PrimaryActionButton}"
+										Background="#16A34A"
+										Foreground="#FFFFFFFF"
+										Width="120"
+										Margin="0,0,8,0"
+										Click="ShiftCashInButton_Click" />
+                                    <Button
+										Content="Изъять"
+										Style="{StaticResource PrimaryActionButton}"
+										Background="#DC2626"
+										Foreground="#FFFFFFFF"
+										Width="120"
+										Click="ShiftCashOutButton_Click" />
+                                </StackPanel>
+                                <StackPanel
+									x:Name="ShiftCashOperationPanel"
+									Visibility="Collapsed"
+									Margin="0,8,0,0">
+                                    <TextBlock
+										x:Name="ShiftCashOperationTitle"
+										FontWeight="SemiBold"
+										Foreground="{DynamicResource BrushText}"
+										Margin="0,0,0,4" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition
+												Width="140" />
+                                            <ColumnDefinition
+												Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+											Text="Сумма:"
+											VerticalAlignment="Center"
+											Foreground="{DynamicResource BrushText}" />
+                                        <TextBox
+											x:Name="ShiftCashAmountBox"
+											Grid.Column="1"
+											Style="{DynamicResource TouchTextBox}"
+											Margin="8,0,0,0" />
+                                    </Grid>
+                                    <Grid
+										Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition
+												Width="140" />
+                                            <ColumnDefinition
+												Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock
+											Text="Комментарий:"
+											VerticalAlignment="Center"
+											Foreground="{DynamicResource BrushText}" />
+                                        <TextBox
+											x:Name="ShiftCashCommentBox"
+											Grid.Column="1"
+											Style="{DynamicResource TouchTextBox}"
+											Margin="8,0,0,0" />
+                                    </Grid>
+                                    <StackPanel
+										Orientation="Horizontal"
+										HorizontalAlignment="Right"
+										Margin="0,12,0,0">
+                                        <Button
+											Content="Применить"
+											Style="{StaticResource PrimaryActionButton}"
+											Width="100"
+											Click="ShiftCashApplyButton_Click" />
+                                        <Button
+											Content="Отмена"
+											Style="{StaticResource SecondaryActionButton}"
+											Width="100"
+											Margin="8,0,0,0"
+											Click="ShiftCashCancelButton_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            <Border
+				x:Name="HamburgerOverlay"
+				Grid.RowSpan="2"
+				Grid.ColumnSpan="3"
+				Background="#80000000"
+				Visibility="Collapsed"
+				Panel.ZIndex="999"
+				MouseDown="HamburgerOverlay_MouseDown" />
+            <Border
+				x:Name="HamburgerPanel"
+				Grid.RowSpan="2"
+				Grid.ColumnSpan="3"
+				HorizontalAlignment="Left"
+				VerticalAlignment="Stretch"
+				Width="320"
+				Margin="-320,0,0,0"
+				Background="{DynamicResource BrushPanelElevated}"
+				BorderBrush="{DynamicResource BrushBorder}"
+				BorderThickness="0,0,1,0"
+				Panel.ZIndex="1000">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition
+							Height="Auto" />
+                        <RowDefinition
+							Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border
+						Grid.Row="0"
+						Padding="16,14"
+						Background="{DynamicResource BrushPanel}">
+                        <Grid>
+                            <TextBlock
+								Text="Nur Market"
+								FontSize="18"
+								FontWeight="Bold"
+								Foreground="{DynamicResource BrushText}"
+								VerticalAlignment="Center" />
+                            <Button
+								Content="✕"
+								Style="{StaticResource TouchGhostButton}"
+								Width="32"
+								Height="32"
+								Padding="0"
+								HorizontalAlignment="Right"
+								FontSize="18"
+								Foreground="{DynamicResource BrushText}"
+								Background="#00FFFFFF"
+								Click="HamburgerMenuClose_Click" />
+                        </Grid>
+                    </Border>
+                    <StackPanel
+						Grid.Row="1"
+						Margin="0,8,0,0">
+                        <Button
+							Content="🏠  Главная"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="MenuMain_Click" />
+                        <Button
+							Content="📊  Аналитика"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="OpenFinanceWindow_Click" />
+                        <Button
+							Content="📦  Склад"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="MenuWarehouse_Click" />
+                        <Button
+							Content="🔑 Смена"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="MenuShift_Click" />
+                        <Button
+							Content="🔧  Доп услуги"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="MenuServices_Click" />
+                        <Button
+							Content="↩️  Возврат"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="ReturnSale_Click" />
+                        <Separator
+							Margin="12,8"
+							Background="{DynamicResource BrushBorder}" />
+                        <Button
+							Content="🔄  Синхронизация"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="SyncNow_Click" />
+                        <Button
+							Content="⚙️  Настройки"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="Settings_Click" />
+                        <Button
+							Content="🚪  Выйти"
+							Style="{StaticResource HamburgerMenuItem}"
+							Click="Logout_Click" />
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
     </Grid>
