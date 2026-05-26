@@ -1,68 +1,54 @@
 <Window x:Class="NurMarketKassa.Views.OrderDiscountDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Скидка на чек"
-        Width="520" Height="Auto" SizeToContent="Height"
+        Title="Скидка"
+        Width="520"
+        Height="Auto"
+        SizeToContent="Height"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Style="{StaticResource AppWindow}">
     <Grid Margin="18">
         <Border Style="{StaticResource ElevatedCardBorder}" CornerRadius="12">
             <StackPanel>
-                <TextBlock Text="Скидка на чек"
-                           Style="{StaticResource DialogTitleText}"/>
-                <TextBlock Text="Выберите тип скидки и введите значение. Можно применить только процент или только сумму."
-                           Margin="0,8,0,0"
-                           Style="{StaticResource DialogLabelText}"/>
+                <TextBlock Text="Скидка" Style="{StaticResource DialogTitleText}" />
 
-                <Border Style="{StaticResource ModernInfoPanel}"
-                        Margin="0,14,0,0"
-                        Background="{StaticResource BrushWindowAlt}">
-                    <TextBlock x:Name="CurrentDiscountText"
-                               Style="{StaticResource DialogLabelText}"/>
-                </Border>
+                <!-- Название товара при редактировании позиции (по умолчанию скрыто) -->
+                <TextBlock x:Name="ItemTitleLabel" Text="" FontSize="16" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushText}" Margin="0,4,0,12" Visibility="Collapsed"/>
 
-                <TextBlock Text="Тип скидки"
-                           Margin="0,14,0,6"
-                           Style="{StaticResource DialogLabelText}"/>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                    <RadioButton x:Name="RbPercent"
-                                 Content="Процент"
-                                 GroupName="DiscountType"
-                                 IsChecked="True"
-                                 Style="{StaticResource TouchRadioButton}"
-                                 Checked="DiscountType_Changed"/>
-                    <RadioButton x:Name="RbSum"
-                                 Content="Сумма"
-                                 GroupName="DiscountType"
-                                 Style="{StaticResource TouchRadioButton}"
-                                 Checked="DiscountType_Changed"/>
+                <TextBlock Text="Выберите тип скидки, область применения и введите значение."
+                           Margin="0,8,0,0" Style="{StaticResource DialogLabelText}" />
+
+                <!-- Область применения (обёрнута в ScopePanel для управления видимостью) -->
+                <StackPanel x:Name="ScopePanel" Margin="0,14,0,6">
+                    <TextBlock Text="Применить к" Style="{StaticResource DialogLabelText}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <RadioButton x:Name="RbCheck" Content="Весь чек" GroupName="Scope" IsChecked="True"
+                                     Style="{StaticResource TouchRadioButton}" />
+                        <RadioButton x:Name="RbItem" Content="Выбранному товару" GroupName="Scope"
+                                    Style="{StaticResource TouchRadioButton}"
+                                    Visibility="Collapsed" />
+                    </StackPanel>
                 </StackPanel>
 
-                <TextBlock x:Name="ValueLabel"
-                           Style="{StaticResource DialogLabelText}"/>
-                <TextBox x:Name="ValueBox"
-                         Style="{StaticResource TouchTextBox}"
-                         Margin="0,4,0,12"/>
+                <!-- Тип скидки -->
+                <TextBlock Text="Тип скидки" Margin="0,0,0,6" Style="{StaticResource DialogLabelText}" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <RadioButton x:Name="RbPercent" Content="Процент" GroupName="DiscountType" IsChecked="True"
+                                 Style="{StaticResource TouchRadioButton}" Checked="DiscountType_Changed" />
+                    <RadioButton x:Name="RbSum" Content="Сумма" GroupName="DiscountType"
+                                 Style="{StaticResource TouchRadioButton}" Checked="DiscountType_Changed" />
+                </StackPanel>
 
-                <TextBlock x:Name="ErrorText"
-                           Style="{StaticResource DialogErrorText}"
-                           Margin="0,0,0,12"/>
+                <TextBlock x:Name="ValueLabel" Text="Введите процент скидки" Style="{StaticResource DialogLabelText}" />
+                <TextBox x:Name="ValueBox" Style="{StaticResource TouchTextBox}" Margin="0,4,0,12" />
+                <TextBlock x:Name="ErrorText" Style="{StaticResource DialogErrorText}" Margin="0,0,0,12" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Сбросить"
-                            Style="{StaticResource TouchGhostButton}"
-                            Margin="0,0,10,0"
-                            Click="Clear_Click"/>
-                    <Button Content="Отмена"
-                            IsCancel="True"
-                            Style="{StaticResource TouchGhostButton}"
-                            Margin="0,0,10,0"
-                            Click="Cancel_Click"/>
-                    <Button Content="Применить"
-                            IsDefault="True"
-                            Style="{StaticResource TouchPrimaryButton}"
-                            Click="Apply_Click"/>
+                    <Button Content="Сбросить" Style="{StaticResource TouchGhostButton}" Margin="0,0,10,0" Click="Clear_Click" />
+                    <Button Content="Отмена" IsCancel="True" Style="{StaticResource TouchGhostButton}" Margin="0,0,10,0" Click="Cancel_Click" />
+                    <Button Content="Применить" IsDefault="True" Style="{StaticResource TouchPrimaryButton}" Click="Apply_Click" />
                 </StackPanel>
             </StackPanel>
         </Border>

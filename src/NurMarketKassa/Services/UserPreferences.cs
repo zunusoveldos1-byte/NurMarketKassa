@@ -41,14 +41,32 @@ public sealed class UserPreferences
 
     public bool DarkTheme { get; set; } = true;
 
+    public Dictionary<string, string> BankQrPaths { get; set; } = new();
+    public Dictionary<string, string> BankLogoPaths { get; set; } = new();
+
     public bool Autostart { get; set; }
 
     /// <summary>Показывать экранную клавиатуру при фокусе в поле (выкл. — только кнопка «⌨» и явные вызовы).</summary>
     public bool AutoShowTouchKeyboard { get; set; } = true;
 
+    public CatalogViewMode CatalogViewMode { get; set; } = CatalogViewMode.Cards;
+    public bool SingleClickToCart { get; set; }
+    public bool ToolsPanelExpanded { get; set; }
+
     public string LastLoginEmail { get; set; } = "";
 
     public string LastLoginPassword { get; set; } = "";
+    public string? LastFilterCategory { get; set; }
+    public string? LastFilterBrand { get; set; }
+
+    public DateTime? LastFilterDateFrom { get; set; }
+    public DateTime? LastFilterDateTo { get; set; }
+    public string? LastFilterClient { get; set; }
+    public string? LastFilterStatus { get; set; }
+    public string? LastFilterHotkeyGroup { get; set; }
+    public bool LastFilterOnlyWeight { get; set; }
+    public bool LastFilterOnlyInStock { get; set; }
+    public bool LastFilterOnlyFavorite { get; set; }
 
     public static UserPreferences Instance { get; } = new();
 
@@ -110,6 +128,28 @@ public sealed class UserPreferences
                 p.LastLoginEmail = fromFile.LastLoginEmail!;
             if (fromFile.LastLoginPassword is not null)
                 p.LastLoginPassword = fromFile.LastLoginPassword;
+            if (!string.IsNullOrEmpty(fromFile.LastFilterCategory))
+                p.LastFilterCategory = fromFile.LastFilterCategory;
+            if (!string.IsNullOrEmpty(fromFile.LastFilterBrand))
+                p.LastFilterBrand = fromFile.LastFilterBrand;
+            if (fromFile.CatalogViewMode is not null)
+                p.CatalogViewMode = fromFile.CatalogViewMode.Value;
+            if (fromFile.SingleClickToCart is not null)
+                p.SingleClickToCart = fromFile.SingleClickToCart.Value;
+            if (fromFile.ToolsPanelExpanded is not null)
+                p.ToolsPanelExpanded = fromFile.ToolsPanelExpanded.Value;
+            if (fromFile.BankQrPaths != null)
+                p.BankQrPaths = fromFile.BankQrPaths;
+            if (fromFile.BankLogoPaths != null)
+                p.BankLogoPaths = fromFile.BankLogoPaths;
+            if (fromFile.LastFilterDateFrom.HasValue) p.LastFilterDateFrom = fromFile.LastFilterDateFrom;
+            if (fromFile.LastFilterDateTo.HasValue) p.LastFilterDateTo = fromFile.LastFilterDateTo;
+            if (fromFile.LastFilterClient is not null) p.LastFilterClient = fromFile.LastFilterClient;
+            if (fromFile.LastFilterStatus is not null) p.LastFilterStatus = fromFile.LastFilterStatus;
+            if (fromFile.LastFilterHotkeyGroup is not null) p.LastFilterHotkeyGroup = fromFile.LastFilterHotkeyGroup;
+            if (fromFile.LastFilterOnlyWeight.HasValue) p.LastFilterOnlyWeight = fromFile.LastFilterOnlyWeight.Value;
+            if (fromFile.LastFilterOnlyInStock.HasValue) p.LastFilterOnlyInStock = fromFile.LastFilterOnlyInStock.Value;
+            if (fromFile.LastFilterOnlyFavorite.HasValue) p.LastFilterOnlyFavorite = fromFile.LastFilterOnlyFavorite.Value;
         }
         catch
         {
@@ -143,6 +183,21 @@ public sealed class UserPreferences
                 AutoShowTouchKeyboard = AutoShowTouchKeyboard,
                 LastLoginEmail = LastLoginEmail,
                 LastLoginPassword = LastLoginPassword,
+                LastFilterCategory = LastFilterCategory,
+                LastFilterBrand = LastFilterBrand,
+                CatalogViewMode = CatalogViewMode,
+                SingleClickToCart = SingleClickToCart,
+                ToolsPanelExpanded = ToolsPanelExpanded,
+                BankQrPaths = BankQrPaths,
+                BankLogoPaths = BankLogoPaths,
+                LastFilterDateFrom = LastFilterDateFrom,
+                LastFilterDateTo = LastFilterDateTo,
+                LastFilterClient = LastFilterClient,
+                LastFilterStatus = LastFilterStatus,
+                LastFilterHotkeyGroup = LastFilterHotkeyGroup,
+                LastFilterOnlyWeight = LastFilterOnlyWeight,
+                LastFilterOnlyInStock = LastFilterOnlyInStock,
+                LastFilterOnlyFavorite = LastFilterOnlyFavorite,
             };
             File.WriteAllText(FilePath, JsonSerializer.Serialize(dto, JsonOpt));
         }
@@ -192,5 +247,20 @@ public sealed class UserPreferences
         public bool? AutoShowTouchKeyboard { get; set; }
         public string? LastLoginEmail { get; set; }
         public string? LastLoginPassword { get; set; }
+        public string? LastFilterCategory { get; set; }
+        public string? LastFilterBrand { get; set; }
+        public CatalogViewMode? CatalogViewMode { get; set; }
+        public bool? SingleClickToCart { get; set; }
+        public bool? ToolsPanelExpanded { get; set; }
+        public Dictionary<string, string>? BankQrPaths { get; set; }
+        public Dictionary<string, string>? BankLogoPaths { get; set; }
+        public DateTime? LastFilterDateFrom { get; set; }
+        public DateTime? LastFilterDateTo { get; set; }
+        public string? LastFilterClient { get; set; }
+        public string? LastFilterStatus { get; set; }
+        public string? LastFilterHotkeyGroup { get; set; }
+        public bool? LastFilterOnlyWeight { get; set; }
+        public bool? LastFilterOnlyInStock { get; set; }
+        public bool? LastFilterOnlyFavorite { get; set; }
     }
 }

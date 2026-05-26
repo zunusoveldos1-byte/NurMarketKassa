@@ -1,107 +1,91 @@
+using NurMarketKassa.Services;
+using NurMarketKassa.ViewModels;
+using System;
 using System.Globalization;
 using System.Windows;
-using System.Windows.Controls;
-using NurMarketKassa.Services;
 
-namespace NurMarketKassa.Views;
-
-public partial class CheckoutDialog : Window
+namespace NurMarketKassa.Views
 {
-    private readonly double _totalDue;
-
-    public string PaymentMethodKey { get; private set; } = "cash";
-    public string CashReceivedForApi { get; private set; } = "";
-    public bool WantPrintReceipt { get; private set; }
-
-    public CheckoutDialog(double totalDue)
+    public partial class CheckoutDialog : Window
     {
-        _totalDue = totalDue;
-        InitializeComponent();
-        TotalLabel.Text = $"К оплате: {totalDue.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-        CashReceivedBox.Text = totalDue.ToString("0.00", CultureInfo.InvariantCulture);
-        SyncCashFieldVisibility();
-        UpdateChangeDisplay();
-        CashReceivedBox.Focus();
-        CashReceivedBox.SelectAll();
-    }
+        private readonly CheckoutViewModel _viewModel;
+        private readonly double _totalDue;
+        private bool _printReceiptAsked;
 
-    private void PayMethod_Changed(object sender, RoutedEventArgs e) => SyncCashFieldVisibility();
-
-    private void CashReceived_TextChanged(object sender, TextChangedEventArgs e) => UpdateChangeDisplay();
-
-    private void SyncCashFieldVisibility()
-    {
-        // Checked срабатывает во время InitializeComponent раньше, чем назначен CashReceivedBox (ниже в XAML).
-        if (CashReceivedBox is null || RbCash is null)
-            return;
-        var cash = RbCash.IsChecked == true;
-        CashReceivedBox.IsEnabled = cash;
-        CashReceivedBox.Opacity = cash ? 1 : 0.5;
-        UpdateChangeDisplay();
-    }
-
-    private void UpdateChangeDisplay()
-    {
-        if (ChangeDisplayText is null || CashReceivedBox is null || RbCash is null)
-            return;
-
-        if (RbCash.IsChecked != true)
+        public string PaymentMethodKey => _viewModel.PaymentMethod;
+        public string CashReceivedForApi
         {
-            ChangeDisplayText.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        var n = CheckoutValidation.NormalizeDecimal(CashReceivedBox.Text);
-        if (string.IsNullOrEmpty(n) ||
-            !double.TryParse(n, NumberStyles.Any, CultureInfo.InvariantCulture, out var paid))
-        {
-            ChangeDisplayText.Visibility = Visibility.Collapsed;
-            return;
-        }
-
-        if (paid > _totalDue + 1e-9)
-        {
-            var change = paid - _totalDue;
-            ChangeDisplayText.Text =
-                $"Сдача: {change.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-            ChangeDisplayText.Visibility = Visibility.Visible;
-        }
-        else
-            ChangeDisplayText.Visibility = Visibility.Collapsed;
-    }
-
-    private void Pay_Click(object sender, RoutedEventArgs e)
-    {
-        ErrorText.Visibility = Visibility.Collapsed;
-        ErrorText.Text = "";
-
-        PaymentMethodKey = RbTransfer.IsChecked == true ? "transfer" : "cash";
-        WantPrintReceipt = true;
-
-        if (PaymentMethodKey == "cash")
-        {
-            var err = CheckoutValidation.ValidateCashReceived(CashReceivedBox.Text, _totalDue);
-            if (err != null)
+            get
             {
-                ErrorText.Text = err;
-                ErrorText.Visibility = Visibility.Visible;
-                return;
+                if (_viewModel.PaymentMethod == "cash")
+                {
+                    string normalized = CheckoutValidation.NormalizeDecimal(_viewModel.CashReceived);
+                    return string.IsNullOrEmpty(normalized)
+                        ? _totalDue.ToString("0.00", CultureInfo.InvariantCulture)
+                        : normalized;
+                }
+                return "0.00";
             }
-
-            var n = CheckoutValidation.NormalizeDecimal(CashReceivedBox.Text);
-            CashReceivedForApi = string.IsNullOrEmpty(n)
-                ? _totalDue.ToString("0.00", CultureInfo.InvariantCulture)
-                : n;
         }
-        else
-            CashReceivedForApi = "0.00";
+        public bool WantPrintReceipt => _viewModel.IsPrintReceiptEnabled;
 
-        /* DialogResult сам закрывает окно; второй Close() даёт InvalidOperationException и вылет приложения */
-        DialogResult = true;
-    }
+        public CheckoutDialog(double totalDue)
+        {
+            _totalDue = totalDue;
+            InitializeComponent();
+            _viewModel = new CheckoutViewModel(totalDue);
+            DataContext = _viewModel;
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
+            _viewModel.RequestClose += result =>
+            {
+                if (result)
+                {
+                    // Спросить подтверждение оплаты
+                    var confirmResult = MessageBox.Show(
+                        "Подтвердить оплату?",
+                        "Подтверждение",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (confirmResult != MessageBoxResult.Yes)
+                        return;
+
+                    // Спросить про печать чека, если ещё не спросили
+                    if (!_printReceiptAsked)
+                    {
+                        var printResult = MessageBox.Show(
+                            "Хотите напечатать чек?",
+                            "Печать",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question);
+
+                        _viewModel.IsPrintReceiptEnabled = (printResult == MessageBoxResult.Yes);
+                    }
+
+                    DialogResult = true;
+                }
+                else
+                {
+                    DialogResult = false;
+                }
+            };
+
+            // Сразу при открытии спросить про печать
+            AskPrintReceipt();
+        }
+
+        private void AskPrintReceipt()
+        {
+            var printResult = MessageBox.Show(
+                "Хотите напечатать чек?",
+                "Печать чека",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            _viewModel.IsPrintReceiptEnabled = (printResult == MessageBoxResult.Yes);
+            _printReceiptAsked = true;
+        }
+
+        private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
     }
 }

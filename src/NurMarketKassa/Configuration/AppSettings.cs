@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace NurMarketKassa.Configuration;
 
 /// <summary>
-/// Р‘Р°Р·РѕРІС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё. РџРµСЂРµРєСЂС‹С‚РёРµ: РїРµСЂРµРјРµРЅРЅР°СЏ РѕРєСЂСѓР¶РµРЅРёСЏ DESKTOP_MARKET_API_URL (РєР°Рє РІ Python config.py).
+/// Базовые настройки. Перекрытие: переменная окружения DESKTOP_MARKET_API_URL (как в Python config.py).
 /// </summary>
 public sealed class AppSettings
 {

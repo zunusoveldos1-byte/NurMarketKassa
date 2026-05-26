@@ -1,53 +1,43 @@
-using System.Text.Json;
+using System;
 using System.Windows;
-using NurMarketKassa.Models.Pos;
-using NurMarketKassa.Services;
+using NurMarketKassa.ViewModels;
 
-namespace NurMarketKassa.Views;
+#nullable disable
 
-public partial class ProductDetailDialog : Window
+namespace NurMarketKassa.Views
 {
-    public ProductDetailDialog(CatalogProductTileVm product)
+    public partial class ProductDetailWindow : Window
     {
-        InitializeComponent();
-        DataContext = product;
-    }
+        public ProductDetailVm Product { get; }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => Close();
-
-    private async void Window_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not CatalogProductTileVm vm)
-            return;
-
-        try
+        public ProductDetailWindow(ProductDetailVm product)
         {
-            var apiBase = App.Settings.ApiBaseUrl;
-            string? url = vm.ImageUrl;
-            if (string.IsNullOrEmpty(url))
-            {
-                var det = await App.Api.ProductsDetailAsync(vm.Id).ConfigureAwait(true);
-                if (det is { ValueKind: JsonValueKind.Object } el)
-                    url = ProductImageUrl.TryGet(el, apiBase);
-            }
-
-            LoadingText.Visibility = Visibility.Collapsed;
-
-            if (string.IsNullOrEmpty(url))
-            {
-                NoPhotoText.Visibility = Visibility.Visible;
-                return;
-            }
-
-            var svc = new ProductThumbService();
-            await svc.SetThumbAsync(Dispatcher, App.Api, apiBase, url, vm, default).ConfigureAwait(true);
-            if (vm.Thumb == null)
-                NoPhotoText.Visibility = Visibility.Visible;
+            InitializeComponent();
+            Product = product ?? GetFallbackProduct();
+            DataContext = this;
         }
-        catch
+
+        private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+        private static ProductDetailVm GetFallbackProduct()
         {
-            LoadingText.Visibility = Visibility.Collapsed;
-            NoPhotoText.Visibility = Visibility.Visible;
+            return new ProductDetailVm
+            {
+                Id = "demo",
+                ProductName = "Картошка23",
+                Barcode = "123456789",
+                Article = "ART-001",
+                Code = "0001",
+                CreatedAt = new DateTime(2025, 5, 1, 12, 0, 0),
+                Category = "Овощи",
+                Country = "Кыргызстан",
+                ExpiryDate = new DateTime(2025, 12, 31),
+                Group = "Продовольственные",
+                Description = "Свежая картошка, фасовка 1 кг",
+                Price = 45.00M,
+                PurchasePrice = 30.00M,
+                MarkupPercent = 0.50M
+            };
         }
     }
 }

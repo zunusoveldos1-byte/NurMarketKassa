@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using NurMarketKassa.Configuration;
 using NurMarketKassa.Models.Auth;
+using NurMarketKassa.Models;
 
 namespace NurMarketKassa.Services;
 
@@ -62,6 +63,22 @@ public sealed class NurMarketApiClient : IDisposable
         }
 
         return false;
+    }
+
+    /// <summary>GET /main/agents/me/products/ (список товаров агента).</summary>
+    public async Task<List<JsonElement>> GetAgentProductsAsync(CancellationToken ct = default)
+    {
+        HttpResponseMessage httpResponseMessage = await _http.GetAsync(
+            App.Settings.ApiBaseUrl + "/main/agents/me/products/", ct).ConfigureAwait(false);
+        httpResponseMessage.EnsureSuccessStatusCode();
+        using (JsonDocument jsonDocument = JsonDocument.Parse(
+            await httpResponseMessage.Content.ReadAsStringAsync().ConfigureAwait(false)))
+        {
+            if (jsonDocument.RootElement.TryGetProperty("results", out JsonElement results) &&
+                results.ValueKind == JsonValueKind.Array)
+                return results.EnumerateArray().ToList();
+        }
+        return new List<JsonElement>();
     }
 
     public async Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default)
@@ -135,6 +152,69 @@ public sealed class NurMarketApiClient : IDisposable
     /// Универсальный запрос с Bearer и query branch=… (как branch_params() в Python).
     /// </summary>
     /// <param name="requestTimeout">Ограничение времени запроса (например scan 22 с).</param>
+    /// 
+
+    /// <summary>
+    /// Оптимизированный метод для потоковой десериализации без создания промежуточных строк.
+    /// Заменяет RequestAsync в горячих путях (каталог, поиск).
+    /// </summary>
+    public async Task<T?> RequestDataAsync<T>(
+        HttpMethod method,
+        string relativePath,
+        object? jsonBody,
+        IReadOnlyDictionary<string, string>? query,
+        CancellationToken ct = default,
+        TimeSpan? requestTimeout = null)
+    {
+        if (string.IsNullOrEmpty(AccessToken))
+            throw new ApiException(AuthInvalidHintRu, 401);
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        if (requestTimeout.HasValue)
+            linked.CancelAfter(requestTimeout.Value);
+
+        await _httpSlots.WaitAsync(linked.Token).ConfigureAwait(false);
+        try
+        {
+            var uri = BuildUri(relativePath, query);
+            using var req = new HttpRequestMessage(method, uri);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+            if (jsonBody is not null)
+            {
+                var json = JsonSerializer.Serialize(jsonBody, _jsonWrite);
+                req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            }
+
+            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, linked.Token).ConfigureAwait(false);
+
+            // Если 401, пробуем обновить токен и повторить
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && !string.IsNullOrEmpty(RefreshToken))
+            {
+                if (await RefreshAccessUnlockedAsync(linked.Token).ConfigureAwait(false))
+                {
+                    // Повторяем запрос с новым токеном
+                    req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+                    using var retryResp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, linked.Token).ConfigureAwait(false);
+                    retryResp.EnsureSuccessStatusCode();
+                    using var retryStream = await retryResp.Content.ReadAsStreamAsync(linked.Token).ConfigureAwait(false);
+                    return await JsonSerializer.DeserializeAsync<T>(retryStream, _jsonRead, linked.Token).ConfigureAwait(false);
+                }
+                ClearSession();
+                throw new ApiException(AuthInvalidHintRu, 401);
+            }
+
+            resp.EnsureSuccessStatusCode();
+
+            // Потоковая десериализация (без лишних аллокаций)
+            using var stream = await resp.Content.ReadAsStreamAsync(linked.Token).ConfigureAwait(false);
+            return await JsonSerializer.DeserializeAsync<T>(stream, _jsonRead, linked.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            _httpSlots.Release();
+        }
+    }
+
     public async Task<JsonElement> RequestAsync(
         HttpMethod method,
         string relativePath,
@@ -208,6 +288,7 @@ public sealed class NurMarketApiClient : IDisposable
         using var doc = JsonDocument.Parse(text);
         return doc.RootElement.Clone();
     }
+
 
     private async Task<bool> RefreshAccessUnlockedAsync(CancellationToken ct)
     {
@@ -580,41 +661,22 @@ public sealed class NurMarketApiClient : IDisposable
     }
 
     /// <summary>Поиск товаров по названию (как products_search).</summary>
-    public async Task<List<JsonElement>> ProductsSearchAsync(string query, int limit = 40, CancellationToken ct = default)
+    /// <summary>Поиск товаров (быстрый, через потоковый парсинг).</summary>
+    public async Task<List<ProductDto>> ProductsSearchAsync(string query, int limit = 40, CancellationToken ct = default)
     {
         var q = (query ?? "").Trim();
-        if (q.Length == 0)
-            return new List<JsonElement>();
+        if (q.Length == 0) return new List<ProductDto>();
 
-        var candidates = new (string Path, Dictionary<string, string> Qs)[]
-        {
-            ("api/main/products/list/", new Dictionary<string, string> { ["search"] = q, ["page"] = "1" }),
-            ("api/main/products/", new Dictionary<string, string> { ["search"] = q }),
-        };
+        var qs = new Dictionary<string, string> { ["search"] = q, ["page"] = "1" };
+        var response = await RequestDataAsync<ApiListResponse<ProductDto>>(
+            HttpMethod.Get, "api/main/products/list/", null, qs, ct).ConfigureAwait(false);
 
-        ApiException? last = null;
-        foreach (var (path, qs) in candidates)
+        var list = new List<ProductDto>();
+        if (response?.Results != null)
         {
-            try
-            {
-                var data = await RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
-                var items = UnwrapList(data);
-                if (items.Count > limit)
-                    items.RemoveRange(limit, items.Count - limit);
-                return items;
-            }
-            catch (ApiException e)
-            {
-                last = e;
-                if (e.StatusCode == 404)
-                    continue;
-                throw;
-            }
+            list.AddRange(response.Results);
         }
-
-        if (last != null)
-            throw last;
-        return new List<JsonElement>();
+        return list;
     }
 
     /// <summary>Страницы каталога без поиска (как products_catalog). Страница 1 последовательно, 2…N — параллельно.</summary>
@@ -1012,6 +1074,11 @@ public sealed class NurMarketApiClient : IDisposable
         }
 
         return list;
+    }
+
+    public async Task<JsonElement> GetAsync(string relativePath, IReadOnlyDictionary<string, string>? query = null, CancellationToken ct = default)
+    {
+        return await RequestAsync(HttpMethod.Get, relativePath, null, query, ct).ConfigureAwait(false);
     }
 
     private static string? TryProductIdString(JsonElement p)

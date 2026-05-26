@@ -1,0 +1,255 @@
+﻿<Window x:Class="NurMarketKassa.Views.FinanceDateRangeDialog"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="clr-namespace:NurMarketKassa.Converters"
+	Title="Продажи за период"
+	Height="600"
+	Width="900"
+	WindowStartupLocation="CenterOwner"
+	Style="{DynamicResource AppWindow}">
+    <FrameworkElement.Resources>
+        <ResourceDictionary>
+            <local:AmountToColorConverter
+				x:Key="AmountColor" />
+            <local:BoolToVisibilityConverter
+				x:Key="BoolToVis" />
+            <Style
+				x:Key="{x:Type DataGridCell}"
+				TargetType="{x:Type DataGridCell}">
+                <Setter
+					Property="Focusable"
+					Value="False" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="Padding"
+					Value="6,4" />
+                <Setter
+					Property="Foreground"
+					Value="{DynamicResource BrushText}" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DataGridCell}">
+                            <Border
+								Background="{TemplateBinding Control.Background}">
+                                <ContentPresenter
+									HorizontalAlignment="{TemplateBinding Control.HorizontalContentAlignment}"
+									VerticalAlignment="{TemplateBinding Control.VerticalContentAlignment}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="{x:Type DataGridRow}"
+				TargetType="{x:Type DataGridRow}">
+                <Setter
+					Property="FrameworkElement.FocusVisualStyle"
+					Value="{x:Null}" />
+                <Setter
+					Property="Background"
+					Value="{DynamicResource BrushPanel}" />
+                <Setter
+					Property="BorderBrush"
+					Value="{DynamicResource BrushBorder}" />
+                <Setter
+					Property="BorderThickness"
+					Value="0.5" />
+                <Setter
+					Property="Margin"
+					Value="2" />
+                <Setter
+					Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate
+							TargetType="{x:Type DataGridRow}">
+                            <Border
+								x:Name="RowBorder"
+								Background="{TemplateBinding Control.Background}"
+								BorderBrush="{TemplateBinding Control.BorderBrush}"
+								BorderThickness="{TemplateBinding Control.BorderThickness}"
+								CornerRadius="5"
+								Margin="{TemplateBinding FrameworkElement.Margin}">
+                                <SelectiveScrollingGrid>
+                                    <DataGridCellsPresenter
+										ItemsPanel="{TemplateBinding DataGridRow.ItemsPanel}" />
+                                </SelectiveScrollingGrid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger
+									Property="DataGridRow.IsSelected"
+									Value="True">
+                                    <Setter
+										TargetName="RowBorder"
+										Property="Border.Background"
+										Value="{Binding Background, RelativeSource={RelativeSource TemplatedParent}}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style
+				x:Key="ModernGrid"
+				TargetType="{x:Type DataGrid}">
+                <Setter
+					Property="Background"
+					Value="#00FFFFFF" />
+                <Setter
+					Property="BorderThickness"
+					Value="0" />
+                <Setter
+					Property="DataGrid.RowHeight"
+					Value="40" />
+                <Setter
+					Property="DataGrid.GridLinesVisibility"
+					Value="None" />
+                <Setter
+					Property="DataGrid.ColumnHeaderStyle">
+                    <Setter.Value>
+                        <Style
+							TargetType="{x:Type DataGridColumnHeader}">
+                            <Setter
+								Property="Background"
+								Value="#00FFFFFF" />
+                            <Setter
+								Property="Foreground"
+								Value="{DynamicResource BrushTextSoft}" />
+                            <Setter
+								Property="Padding"
+								Value="10,5" />
+                            <Setter
+								Property="FontWeight"
+								Value="SemiBold" />
+                            <Setter
+								Property="BorderThickness"
+								Value="0,0,0,1" />
+                            <Setter
+								Property="BorderBrush"
+								Value="{DynamicResource BrushBorderStrong}" />
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </FrameworkElement.Resources>
+    <Grid
+		Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition
+				Height="Auto" />
+            <RowDefinition
+				Height="*" />
+            <RowDefinition
+				Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel
+			Grid.Row="0"
+			Orientation="Horizontal"
+			Margin="0,0,0,12">
+            <TextBlock
+				Text="От:"
+				VerticalAlignment="Center"
+				Foreground="{DynamicResource BrushText}"
+				Margin="0,0,4,0" />
+            <DatePicker
+				x:Name="FromDatePicker"
+				Width="120"
+				VerticalAlignment="Center" />
+            <TextBlock
+				Text="—"
+				VerticalAlignment="Center"
+				Foreground="{DynamicResource BrushText}"
+				Margin="6,0" />
+            <TextBlock
+				Text="До:"
+				VerticalAlignment="Center"
+				Foreground="{DynamicResource BrushText}"
+				Margin="0,0,4,0" />
+            <DatePicker
+				x:Name="ToDatePicker"
+				Width="120"
+				VerticalAlignment="Center" />
+            <Button
+				Content="Применить"
+				Height="32"
+				Padding="12,4"
+				Margin="12,0,0,0"
+				Background="{DynamicResource BrushAccent}"
+				Foreground="#FFFFFFFF"
+				BorderThickness="0"
+				Cursor="Hand"
+				Click="Apply_Click" />
+        </StackPanel>
+        <Border
+			Grid.Row="1"
+			Background="#00FFFFFF"
+			Padding="0">
+            <DataGrid
+				x:Name="SalesGrid"
+				Style="{StaticResource ModernGrid}"
+				AutoGenerateColumns="False"
+				IsReadOnly="True"
+				MouseDoubleClick="SalesGrid_MouseDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTextColumn
+						Header="Дата"
+						Width="Auto"
+						MinWidth="60"
+						Binding="{Binding CreatedAt, StringFormat=dd.MM}" />
+                    <DataGridTextColumn
+						Header="Время"
+						Width="Auto"
+						MinWidth="60"
+						Binding="{Binding CreatedAt, StringFormat=HH:mm}" />
+                    <DataGridTextColumn
+						Header="Чек"
+						Width="*"
+						MinWidth="120"
+						Binding="{Binding ReceiptNumber}">
+                        <DataGridBoundColumn.ElementStyle>
+                            <Style
+								TargetType="{x:Type TextBlock}">
+                                <Setter
+									Property="TextTrimming"
+									Value="CharacterEllipsis" />
+                                <Setter
+									Property="FrameworkElement.ToolTip"
+									Value="{Binding ReceiptNumber}" />
+                            </Style>
+                        </DataGridBoundColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn
+						Header="Сумма"
+						Width="130"
+						Binding="{Binding TotalAmount, StringFormat='{}{0:N2} сом'}">
+                        <DataGridBoundColumn.ElementStyle>
+                            <Style
+								TargetType="{x:Type TextBlock}">
+                                <Setter
+									Property="Foreground"
+									Value="{Binding TotalAmount, Converter='{StaticResource AmountColor}'}" />
+                                <Setter
+									Property="FontWeight"
+									Value="SemiBold" />
+                            </Style>
+                        </DataGridBoundColumn.ElementStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn
+						Header="Оплата"
+						Width="100"
+						Binding="{Binding PaymentMethod}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+        <TextBlock
+			x:Name="ErrorText"
+			Grid.Row="2"
+			Foreground="{DynamicResource BrushDanger}"
+			TextWrapping="Wrap"
+			Margin="0,8,0,0" />
+    </Grid>
+</Window>

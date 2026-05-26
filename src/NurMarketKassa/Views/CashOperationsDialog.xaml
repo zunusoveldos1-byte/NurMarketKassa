@@ -1,0 +1,433 @@
+﻿<Window x:Class="NurMarketKassa.Views.CashOperationsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Кассовая смена"
+        Height="800" Width="1000"
+        WindowStartupLocation="CenterOwner"
+        Style="{DynamicResource AppWindow}">
+    <FrameworkElement.Resources>
+        <ResourceDictionary>
+            <!-- Стиль радиокнопок типа операции -->
+            <Style x:Key="OperationTypePill" TargetType="{x:Type RadioButton}">
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                <Setter Property="Padding" Value="20,12" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type RadioButton}">
+                            <Border x:Name="pill"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="ToggleButton.IsChecked" Value="True">
+                                    <Setter TargetName="pill" Property="Background"
+                                            Value="{DynamicResource BrushAccent}" />
+                                    <Setter TargetName="pill" Property="BorderBrush"
+                                            Value="{DynamicResource BrushAccent}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource BrushTextInverted}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Кнопки быстрых сумм -->
+            <Style x:Key="QuickAmountButton" TargetType="{x:Type Button}">
+                <Setter Property="MinWidth" Value="80" />
+                <Setter Property="Height" Value="48" />
+                <Setter Property="Margin" Value="4" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Background" Value="{DynamicResource BrushInput}" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border x:Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background"
+                                            Value="{DynamicResource BrushInputAlt}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="PrimaryActionButton" TargetType="{x:Type Button}">
+                <Setter Property="Height" Value="48" />
+                <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushTextInverted}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border x:Name="btn" Background="{TemplateBinding Background}" CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24,0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="btn" Property="Opacity" Value="0.9" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="btn" Property="Opacity" Value="0.5" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Стиль для крупного чекбокса -->
+            <Style x:Key="LargeCheckBox" TargetType="CheckBox">
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                <Setter Property="FontSize" Value="18"/>
+                <Setter Property="MinHeight" Value="56"/>
+                <Setter Property="Padding" Value="16,8"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Grid Background="Transparent" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="CheckBoxBorder" Grid.Column="0"
+                                        Width="28" Height="28" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BrushBorderStrong}"
+                                        BorderThickness="2"
+                                        Background="{DynamicResource BrushInput}"
+                                        VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                <Path x:Name="CheckMark" Grid.Column="0"
+                                      Data="M4,10 L8,14 L14,6"
+                                      Stroke="{DynamicResource BrushAccent}" StrokeThickness="3"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Visibility="Collapsed"
+                                      Width="18" Height="14"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Margin="0,0,14,0"/>
+                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="CheckBoxBorder" Property="Background" Value="{DynamicResource BrushAccent}"/>
+                                    <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+                                    <Setter TargetName="CheckMark" Property="Stroke" Value="White"/>
+                                    <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="CheckBoxBorder" Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+                                    <Setter TargetName="CheckBoxBorder" Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Адаптивный стиль таблицы истории -->
+            <Style x:Key="CashHistoryGridStyle" TargetType="{x:Type DataGrid}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="RowHeight" Value="44" />
+                <Setter Property="GridLinesVisibility" Value="None" />
+                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="CanUserAddRows" Value="False" />
+                <Setter Property="CanUserDeleteRows" Value="False" />
+                <Setter Property="HeadersVisibility" Value="Column" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                <Setter Property="ColumnHeaderStyle">
+                    <Setter.Value>
+                        <Style TargetType="{x:Type DataGridColumnHeader}">
+                            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
+                            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                            <Setter Property="FontSize" Value="15" />
+                            <Setter Property="BorderThickness" Value="0,0,0,1" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}" />
+                            <Setter Property="Padding" Value="10,6" />
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+
+                <Setter Property="CellStyle">
+                    <Setter.Value>
+                        <Style TargetType="{x:Type DataGridCell}">
+                            <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Padding" Value="10,6" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+
+                <Setter Property="RowStyle">
+                    <Setter.Value>
+                        <Style TargetType="{x:Type DataGridRow}">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Type}" Value="Внесение">
+                                    <Setter Property="Background" Value="#E8F5E9" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="Изъятие">
+                                    <Setter Property="Background" Value="#FFEBEE" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="Начальный остаток">
+                                    <Setter Property="Background" Value="#FFF3CD" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="HistoryCellStyle" TargetType="TextBlock">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+            </Style>
+
+            <!-- Кнопки в строках таблицы (изменить/удалить) -->
+            <Style x:Key="TableActionButton" TargetType="{x:Type Button}">
+                <Setter Property="Height" Value="32" />
+                <Setter Property="MinWidth" Value="60" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Margin" Value="2,0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border x:Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.8" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </FrameworkElement.Resources>
+
+    <Grid>
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Статус и баланс -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Статус смены: " Foreground="{DynamicResource BrushTextSoft}" FontSize="14" />
+                    <TextBlock x:Name="ShiftStatusText" FontSize="14" FontWeight="Bold" Text="ЗАКРЫТА"
+                               Foreground="{DynamicResource BrushDanger}" />
+                </StackPanel>
+                <Border Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="12,8" Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Текущий баланс кассы: " Foreground="{DynamicResource BrushTextSoft}" FontSize="14" />
+                        <TextBlock x:Name="CurrentBalanceText" FontSize="14" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushAccent}" Text="0.00 сом" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Управление сменой -->
+            <Border Grid.Row="1" Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="12,10" Margin="0,0,0,10">
+                <StackPanel x:Name="ShiftControlPanel">
+                    <TextBlock Text="Управление сменой" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" FontSize="14" Margin="0,0,0,8" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Grid.Column="0">
+                            <Button x:Name="OpenShiftButton2" Content="Открыть смену"
+                                    Style="{StaticResource PrimaryActionButton}"
+                                    MinWidth="130" Height="42" FontSize="14"
+                                    Margin="0,0,8,0"
+                                    Click="OpenShift_Click" />
+                            <Button x:Name="CloseShiftButton2" Content="Закрыть смену"
+                                    Style="{StaticResource PrimaryActionButton}"
+                                    Background="{DynamicResource BrushDanger}" Foreground="{DynamicResource BrushTextInverted}"
+                                    MinWidth="130" Height="42" FontSize="14"
+                                    Click="CloseShift_Click" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0"
+                                   x:Name="ShiftActionHint" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource BrushTextSoft}" FontSize="13" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Тип операции (Внесение / Изъятие) -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10" x:Name="OperationPanel">
+                <RadioButton x:Name="DepositRadio" Content="Внесение"
+                             Style="{StaticResource OperationTypePill}" IsChecked="True" GroupName="OpType" />
+                <RadioButton x:Name="WithdrawRadio" Content="Изъятие"
+                             Style="{StaticResource OperationTypePill}" Margin="12,0,0,0" GroupName="OpType" />
+            </StackPanel>
+
+            <!-- Сумма и быстрые кнопки -->
+            <Grid Grid.Row="3" Margin="0,0,0,10" x:Name="AmountPanel">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Сумма (сом):" VerticalAlignment="Center"
+                               Foreground="{DynamicResource BrushText}" FontSize="14" Margin="0,0,10,0" />
+                    <TextBox x:Name="AmountBox" Grid.Column="1"
+                             Style="{DynamicResource TouchTextBox}" FontSize="16" MinHeight="42"
+                             PreviewTextInput="AmountBox_PreviewTextInput" />
+                </Grid>
+                <WrapPanel Grid.Row="1" Margin="0,8,0,0" HorizontalAlignment="Left">
+                    <Button Content="+100c" Style="{StaticResource QuickAmountButton}" Click="QuickAmount_Click" Tag="100" />
+                    <Button Content="+200c" Style="{StaticResource QuickAmountButton}" Click="QuickAmount_Click" Tag="200" />
+                    <Button Content="+500c" Style="{StaticResource QuickAmountButton}" Click="QuickAmount_Click" Tag="500" />
+                    <Button Content="+1000c" Style="{StaticResource QuickAmountButton}" Click="QuickAmount_Click" Tag="1000" />
+                    <Button Content="+5000c" Style="{StaticResource QuickAmountButton}" Click="QuickAmount_Click" Tag="5000" />
+                </WrapPanel>
+            </Grid>
+
+            <!-- Комментарий -->
+            <Grid Grid.Row="4" Margin="0,0,0,10" x:Name="CommentPanel">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Комментарий:" VerticalAlignment="Center"
+                           Foreground="{DynamicResource BrushText}" FontSize="14" Margin="0,0,10,0" />
+                <TextBox x:Name="CommentBox" Grid.Column="1"
+                         Style="{DynamicResource TouchTextBox}" MinHeight="42" FontSize="14" TextWrapping="Wrap" />
+            </Grid>
+
+            <!-- Кнопки действий -->
+            <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,10" x:Name="ActionPanel">
+                <Button x:Name="SaveButton" Content="Сохранить операцию"
+                        Style="{DynamicResource TouchPrimaryButton}"
+                        MinWidth="160" Height="42" FontSize="14"
+                        Margin="0,0,10,0" Click="Save_Click" IsDefault="True" />
+                <Button Content="Отменить последнюю" Style="{DynamicResource TouchSecondaryButton}"
+                        Height="42" FontSize="14" Padding="12,0" Click="UndoLast_Click" />
+                <CheckBox x:Name="PrintCheckBox" Content="Печать ордера" VerticalAlignment="Center"
+                          Margin="12,0,0,0" Style="{StaticResource LargeCheckBox}" Width="179" />
+                <Button Content="Закрыть окно" IsCancel="True"
+                        Style="{DynamicResource TouchSecondaryButton}"
+                        MinWidth="120" Height="42" FontSize="14" Margin="10,0,0,0" Width="130" />
+            </StackPanel>
+
+            <!-- История операций с кнопками изменить/удалить -->
+            <Border Grid.Row="6" Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="12" Margin="0,8,0,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="История операций за смену"
+                               FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" FontSize="14" Margin="0,0,0,8" />
+                    <DataGrid x:Name="HistoryGrid"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="False"
+                              Style="{StaticResource CashHistoryGridStyle}"
+                              ItemsSource="{Binding AllOperations}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Время" Binding="{Binding CreatedAt, StringFormat='HH:mm:ss'}" 
+                                                ElementStyle="{StaticResource HistoryCellStyle}" Width="90"/>
+                            <DataGridTextColumn Header="Тип" Binding="{Binding Type}" 
+                                                ElementStyle="{StaticResource HistoryCellStyle}" Width="200"/>
+                            <DataGridTextColumn Header="Сумма" Binding="{Binding Amount, StringFormat='{}{0:N2} сом'}" 
+                                                ElementStyle="{StaticResource HistoryCellStyle}" Width="130"/>
+                            <DataGridTextColumn Header="Комментарий" Binding="{Binding Comment}" 
+                                                ElementStyle="{StaticResource HistoryCellStyle}" Width="*"/>
+                            <DataGridTemplateColumn Header="Действия" Width="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <Button Content="Изменить"
+                                                    Background="{DynamicResource BrushAccent}"
+                                                    Foreground="{DynamicResource BrushTextInverted}"
+                                                    BorderThickness="0"
+                                                    Style="{StaticResource TableActionButton}"
+                                                    Click="EditOperation_Click"
+                                                    Tag="{Binding}" />
+                                            <Button Content="Удалить"
+                                                    Background="{DynamicResource BrushDanger}"
+                                                    Foreground="{DynamicResource BrushTextInverted}"
+                                                    BorderThickness="0"
+                                                    Style="{StaticResource TableActionButton}"
+                                                    Click="DeleteOperation_Click"
+                                                    Tag="{Binding}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+
+            <!-- Ошибка -->
+            <TextBlock x:Name="ErrorText" Grid.Row="7"
+                       Foreground="{DynamicResource BrushDanger}"
+                       FontSize="13"
+                       TextWrapping="Wrap" Margin="0,8,0,0" />
+        </Grid>
+
+        <!-- Кнопка выхода из полноэкранного режима -->
+        <Button x:Name="FullscreenExitButton"
+                Content="✕"
+                Width="50" Height="50"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,10,16,0"
+                Background="Transparent"
+                BorderThickness="0"
+                FontSize="20"
+                Foreground="{DynamicResource BrushText}"
+                Cursor="Hand"
+                Click="FullscreenExit_Click"
+                Visibility="Collapsed" />
+    </Grid>
+</Window>

@@ -1,25 +1,39 @@
+using System;
 using System.Windows;
 
-namespace NurMarketKassa.Views;
-
-public partial class OpenShiftDialog : Window
+namespace NurMarketKassa.Views
 {
-    public string OpeningCash => OpeningCashBox.Text.Trim();
-
-    public OpenShiftDialog()
+    public partial class OpenShiftDialog : Window
     {
-        InitializeComponent();
-        OpeningCashBox.Focus();
-        OpeningCashBox.SelectAll();
-    }
+        /// <summary>Сумма открытия смены (0, если ввод некорректен или пуст).</summary>
+        public decimal OpeningCash =>
+            decimal.TryParse(OpeningCashBox.Text, out var value) ? value : 0;
 
-    private void Ok_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = true;
-    }
+        public OpenShiftDialog()
+        {
+            InitializeComponent();
+            OpeningCashBox.Focus();
+            OpeningCashBox.SelectAll();
+        }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
+        private void Ok_Click(object sender, RoutedEventArgs e)
+        {
+            if (!decimal.TryParse(OpeningCashBox.Text, out _))
+            {
+                MessageBox.Show(
+                    "Введите корректную сумму.",
+                    "Ошибка",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            DialogResult = true;
+        }
+
+        private void Cancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+        }
     }
 }

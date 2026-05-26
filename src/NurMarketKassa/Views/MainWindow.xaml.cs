@@ -1,27 +1,40 @@
+using NurMarketKassa.Configuration;
+using NurMarketKassa.Core;
+using NurMarketKassa.Models;
+using NurMarketKassa.Models.Pos;
+using NurMarketKassa.Services;
+using NurMarketKassa.ViewModels;
+using NurMarketKassa.Views;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using NurMarketKassa.Models.Pos;
-using NurMarketKassa.Services;
+
 
 namespace NurMarketKassa.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, INotifyPropertyChanged
 {
-    private const int CatalogInitialRenderCount = 48;
-    private const int CatalogRenderStep = 36;
+    private const int CatalogInitialRenderCount = 9999;
+    private const int CatalogRenderStep = 9999;
     private const int SearchInitialRenderCount = 40;
     private const int SearchRenderStep = 24;
     private string _barcodeBuf = "";
@@ -49,18 +62,27 @@ public partial class MainWindow : Window
 
     public ObservableCollection<CartLineRow> CartLines { get; } = new();
 
+    public ObservableCollection<MainWindow.WarehouseItemVm> WarehouseItems { get; } = new();
+    public ICollectionView CatalogTableSource =>
+    CollectionViewSource.GetDefaultView(
+        new ObservableCollection<CatalogProductTileVm>(_allTilesKg.Concat(_allTilesPiece)));
+    public ObservableCollection<WarehousePreset> WarehousePresets { get; } = new();
+    public ObservableCollection<string> Categories { get; } = new();
+    public ObservableCollection<string> Brands { get; } = new();
     private readonly List<CatalogProductTileVm> _allTilesKg = new();
     private readonly List<CatalogProductTileVm> _allTilesPiece = new();
     private readonly List<CatalogProductTileVm> _allSearchTiles = new();
-    private readonly ObservableCollection<CatalogProductTileVm> _tilesKg = new();
-    private readonly ObservableCollection<CatalogProductTileVm> _tilesPiece = new();
-    private readonly ObservableCollection<CatalogProductTileVm> _searchTiles = new();
+    private readonly BulkObservableCollection<CatalogProductTileVm> _tilesKg = new();
+    private readonly BulkObservableCollection<CatalogProductTileVm> _tilesPiece = new();
+    private readonly BulkObservableCollection<CatalogProductTileVm> _searchTiles = new();
     private readonly ProductThumbService _catalogThumbService = new();
     private ScaleReaderService? _scaleService;
     private DispatcherTimer? _searchDebounceTimer;
     private DispatcherTimer? _scaleUiTimer;
     private DispatcherTimer? _toastTimer;
+    private FilterCriteria? _currentFilter;
     private string _pendingSearchQuery = "";
+    private string _catalogSearchFilter = "";
     private int _visibleKgCount;
     private int _visiblePieceCount;
     private int _visibleSearchCount;
@@ -69,6 +91,13 @@ public partial class MainWindow : Window
     private bool _logoutNavigateScheduled;
     private readonly CancellationTokenSource _windowCts = new();
     private bool _catalogLoadBusy;
+    private bool _isMenuOpen;
+    private bool _toolsPanelVisible = true;
+    public ShiftViewModel ShiftViewModel { get; private set; }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     private bool HasActiveCartLines => App.Cart.HasCart && App.Cart.CanRefresh && CartLines.Count > 0;
 
     public static readonly DependencyProperty ShiftOpenForSaleProperty = DependencyProperty.Register(
@@ -84,11 +113,34 @@ public partial class MainWindow : Window
         private set => SetValue(ShiftOpenForSaleProperty, value);
     }
 
+    public static readonly DependencyProperty IsLoadingProperty = DependencyProperty.Register(
+    nameof(IsLoading),
+    typeof(bool),
+    typeof(MainWindow),
+    new PropertyMetadata(false));
+
+    public bool IsLoading
+    {
+        get => (bool)GetValue(IsLoadingProperty);
+        set => SetValue(IsLoadingProperty, value);
+    }
+
     public MainWindow()
     {
         InitializeComponent();
         InjectLayoutMetricsDefaults();
         DataContext = this;
+
+        ShiftViewModel = new ShiftViewModel(
+        async () => await OpenShiftAsync(),
+        async () => await CloseShiftAsync(),
+        () => UserTitleText?.Text ?? "Кассир",
+        () => GetCurrentBalance());
+
+        if (FindName("IconText") is TextBlock iconText)
+        {
+            iconText.Text = _toolsPanelVisible ? "∨" : "∧";
+        }
 
         CatalogItemsKg.ItemsSource = _tilesKg;
         CatalogItemsPiece.ItemsSource = _tilesPiece;
@@ -103,7 +155,7 @@ public partial class MainWindow : Window
 
         var api = App.Api;
         UserTitleText.Text = TryUserLabel(api.UserPayload);
-        BranchText.Text = FormatBranchLine(api.ActiveBranchId);
+        //BranchText.Text = FormatBranchLine(api.ActiveBranchId);
         App.OfflineSync.StateChanged += OfflineSync_StateChanged;
         RebindCartUi();
         UpdateShiftBanner();
@@ -113,6 +165,24 @@ public partial class MainWindow : Window
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         var ct = _windowCts.Token;
+
+        // ── 1. Мгновенная загрузка каталога из кэша ──
+        bool cacheLoaded = false;
+        if (CatalogCacheService.Products.Count == 0)
+            cacheLoaded = CatalogCacheService.LoadFromFile();
+
+        if (CatalogCacheService.Products.Count > 0)
+        {
+            RestoreTilesFromCache();          // заполняет _allTiles и отображает
+            UpdateCacheStatus();              // показывает дату кэша
+            if (cacheLoaded)
+                ShowToast("Каталог загружен из локального кэша", false);
+        }
+
+        // ── 2. Фоновое обновление с сервера (без ожидания) ──
+        _ = LoadCatalogAsync(ct);
+
+        // ── 3. Остальная инициализация (как раньше) ──
         try
         {
             await Task.WhenAll(LoadProfileHeaderAsync(ct), RefreshShiftStateAsync(ct)).ConfigureAwait(true);
@@ -142,8 +212,6 @@ public partial class MainWindow : Window
         }
         UpdateScaleStatusLine();
 
-        _ = LoadCatalogAsync(ct);
-
         _ = Dispatcher.BeginInvoke(
             DispatcherPriority.Loaded,
             new Action(() =>
@@ -155,6 +223,74 @@ public partial class MainWindow : Window
             }));
 
         _ = ScheduleStartupUpdateCheckAsync();
+    }
+
+    private void RestoreTilesFromCache()
+    {
+        _allTilesKg.Clear();
+        _allTilesPiece.Clear();
+        _tilesKg.Clear();
+        _tilesPiece.Clear();
+
+        foreach (var vm in CatalogCacheService.Products)
+        {
+            if (vm.MustWeigh)
+                _allTilesKg.Add(vm);
+            else
+                _allTilesPiece.Add(vm);
+        }
+
+        SortByFavorite(); // сортировка избранного
+        RefreshCategoriesAndBrands();
+        _visibleKgCount = Math.Min(CatalogInitialRenderCount, _allTilesKg.Count);
+        _visiblePieceCount = Math.Min(CatalogInitialRenderCount, _allTilesPiece.Count);
+        SyncVisibleTiles(_tilesKg, _allTilesKg, _visibleKgCount);
+        SyncVisibleTiles(_tilesPiece, _allTilesPiece, _visiblePieceCount);
+        OnPropertyChanged("CatalogTableSource");   // обновить привязку для таблицы
+    }
+
+    public void UpdateCacheStatus()
+    {
+        if (CacheStatusText == null) return;
+        var time = CatalogCacheService.LastSyncTime;
+        CacheStatusText.Text = time.HasValue
+            ? $"Кэш: {time.Value:dd.MM.yyyy HH:mm}"
+            : "Кэш: не загружен";
+    }
+
+    private void CatalogGrid_Loaded(object sender, RoutedEventArgs e) => AdjustCatalogGridColumns();
+    private void CatalogGrid_SizeChanged(object sender, SizeChangedEventArgs e) => AdjustCatalogGridColumns();
+
+    private void AdjustCatalogGridColumns()
+    {
+        if (CatalogGrid == null || CatalogGrid.Columns.Count == 0)
+            return;
+
+        double[] proportions = { 5, 1.5, 1, 2, 1, 1 }; // Название:Цена:Остаток:Штрихкод:Весовой:★
+        double totalProportion = proportions.Sum();
+
+        double availableWidth = CatalogGrid.ActualWidth - SystemParameters.VerticalScrollBarWidth - 12;
+        if (availableWidth <= 0)
+            return;
+
+        for (int i = 0; i < proportions.Length && i < CatalogGrid.Columns.Count; i++)
+        {
+            CatalogGrid.Columns[i].Width = availableWidth * (proportions[i] / totalProportion);
+        }
+    }
+
+    private void CatalogListBox_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is not DependencyObject dep) return;
+
+        while (dep != null && dep is not ScrollViewer)
+            dep = VisualTreeHelper.GetParent(dep);
+
+        if (dep is ScrollViewer sv)
+        {
+            sv.ScrollToVerticalOffset(sv.VerticalOffset - e.Delta / 3);
+            e.Handled = true;
+        }
     }
 
     private async Task LoadProfileHeaderAsync(CancellationToken ct)
@@ -174,9 +310,9 @@ public partial class MainWindow : Window
 
             App.Api.ApplyBranchFromProfile(profile);
             UserTitleText.Text = TryUserLabel(profile);
-            var branchId = App.Api.ActiveBranchId ?? TryBranchId(profile);
-            BranchText.Text = FormatBranchLine(branchId);
-            BranchText.ToolTip = string.IsNullOrEmpty(branchId) ? null : branchId;
+            //var branchId = App.Api.ActiveBranchId ?? TryBranchId(profile);
+            //BranchText.Text = FormatBranchLine(branchId);
+            //BranchText.ToolTip = string.IsNullOrEmpty(branchId) ? null : branchId;
             ProfileStatusText.Text = "Профиль загружен.";
             ProfileStatusText.Foreground = UiOk;
         }
@@ -213,6 +349,71 @@ public partial class MainWindow : Window
             /* не мешаем работе кассы */
         }
     }
+
+    public async Task OpenShiftAsync()
+    {
+        var cashboxId = await EnsurePosCashboxIdAsync();
+        if (string.IsNullOrEmpty(cashboxId))
+        {
+            MessageBox.Show(this, "Не удалось определить кассу.", "Смена",
+                MessageBoxButton.OK, MessageBoxImage.Exclamation);
+            return;
+        }
+
+        var dlg = new OpenShiftDialog { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        // decimal -> string
+        string openingCash = dlg.OpeningCash.ToString("0.00", CultureInfo.InvariantCulture);
+        var resp = await App.Api.ConstructionShiftOpenAsync(cashboxId, openingCash,
+            CancellationToken.None);
+        var shiftId = CartDisplayHelper.TryShiftIdFromOpenResponse(resp);
+        if (!string.IsNullOrEmpty(shiftId))
+            App.ActiveShiftId = shiftId;
+        else
+            await RefreshShiftStateAsync();
+        UpdateShiftBanner();
+    }
+
+    public async Task CloseShiftAsync()
+    {
+        if (string.IsNullOrEmpty(App.ActiveShiftId)) return;
+
+        var dlg = new CloseShiftDialog { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        // Используем ClosingCash (decimal?) и форматируем в строку
+        string? closingCash = dlg.ClosingCash?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        await App.Api.ConstructionShiftCloseAsync(App.ActiveShiftId, closingCash,
+            CancellationToken.None);
+        App.ActiveShiftId = null;
+        await RefreshShiftStateAsync();
+        UpdateShiftBanner();
+    }
+
+    private void RefreshCategoriesAndBrands()
+    {
+        var categories = new HashSet<string>();
+        var brands = new HashSet<string>();
+
+        foreach (var vm in _allTilesKg.Concat(_allTilesPiece))
+        {
+            if (!string.IsNullOrWhiteSpace(vm.Category))
+                categories.Add(vm.Category);
+            if (!string.IsNullOrWhiteSpace(vm.Brand))
+                brands.Add(vm.Brand);
+        }
+
+        Categories.Clear();
+        foreach (var c in categories.OrderBy(x => x))
+            Categories.Add(c);
+
+        Brands.Clear();
+        foreach (var b in brands.OrderBy(x => x))
+            Brands.Add(b);
+    }
+
+    public decimal GetCurrentBalance() => 0m;
 
     /// <summary>Начальные значения DynamicResource для плиток каталога и строк корзины.</summary>
     private void InjectLayoutMetricsDefaults()
@@ -276,8 +477,34 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // Обычное закрытие (не принудительное)
         if (!App.ExitWithoutLoginRedirect && !_allowMainWindowClose)
         {
+            // ► Проверка открытой смены
+            if (!string.IsNullOrEmpty(App.ActiveShiftId))
+            {
+                e.Cancel = true;                         // сначала отменяем закрытие
+                var result = MessageBox.Show(
+                    "У вас осталась открытая смена. Закрыть её перед выходом?",
+                    "Смена не закрыта",
+                    MessageBoxButton.YesNoCancel,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Cancel)
+                    return;                               // кассир передумал – ничего не делаем
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        CloseShiftAsync().Wait();         // синхронно ждём завершения закрытия
+                    }
+                    catch { /* ошибка сервера не должна мешать выйти */ }
+                }
+                // Если выбрал «Нет» – просто выходим без закрытия смены
+            }
+
+            // Стандартный переход на окно логина
             e.Cancel = true;
             if (_logoutNavigateScheduled)
                 return;
@@ -296,6 +523,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Очистка ресурсов при окончательном закрытии приложения
         _searchDebounceTimer?.Stop();
         _scaleUiTimer?.Stop();
         _toastTimer?.Stop();
@@ -303,10 +531,7 @@ public partial class MainWindow : Window
         {
             _windowCts.Cancel();
         }
-        catch
-        {
-            /* ignore */
-        }
+        catch { }
 
         _windowCts.Dispose();
         App.OfflineSync.StateChanged -= OfflineSync_StateChanged;
@@ -322,6 +547,7 @@ public partial class MainWindow : Window
         {
             UpdateOfflineModeUi();
             UpdateDeferredCartUi();
+            UpdateOfflineStatusButton();
         });
     }
 
@@ -332,6 +558,23 @@ public partial class MainWindow : Window
         NetworkModeText.Foreground = sync.IsOnline
             ? (sync.IsSyncInProgress ? UiWarn : UiOk)
             : UiWarn;
+    }
+
+    private void UpdateOfflineStatusButton()
+    {
+        if (OfflineStatusLabel == null) return;
+
+        var sync = App.OfflineSync;
+        int pending = OfflinePendingSalesStore.PendingCount + OfflinePendingSalesStore.FailedCount;
+
+        if (sync.IsSyncInProgress)
+            OfflineStatusLabel.Text = $"Синхронизация… {pending}";
+        else if (!sync.IsOnline)
+            OfflineStatusLabel.Text = $"Оффлайн {pending}";
+        else if (pending > 0)
+            OfflineStatusLabel.Text = $"Ожидают {pending}";
+        else
+            OfflineStatusLabel.Text = "Онлайн";
     }
 
     private void UpdateScaleStatusLine()
@@ -414,6 +657,15 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CatalogView_Changed(object sender, RoutedEventArgs e)
+    {
+        // При переключении на таблицу гарантированно задаём ItemsSource,
+        // чтобы DataGrid сразу показал актуальные данные.
+        if (BtnTable?.IsChecked == true)
+            CatalogGrid.ItemsSource = CatalogTableSource;
+        // Для карточек ничего не делаем – ItemsControl обновляется автоматически.
+    }
+
     private void UpdateCartStateUi()
     {
         CartItemsCountText.Text = CartLines.Count.ToString(CultureInfo.InvariantCulture);
@@ -441,14 +693,160 @@ public partial class MainWindow : Window
         var offlineQueue = pendingOffline + failedOffline;
 
         DeferredCountText.Text = count.ToString(CultureInfo.InvariantCulture);
-        OfflineSaleButton.Content = pendingOffline > 0
-            ? $"Оффлайн ({pendingOffline})"
-            : "Оффлайн";
-        OfflineQueueButton.Content = offlineQueue > 0
-            ? $"Очередь ({offlineQueue})"
-            : "Очередь";
+
+        //if (OfflineSaleButton != null)
+        //    OfflineSaleButton.Content = pendingOffline > 0
+        //        ? $"Оффлайн ({pendingOffline})"
+        //        : "Оффлайн";
+
+        //if (OfflineQueueButton != null)
+        //    OfflineQueueButton.Content = offlineQueue > 0
+        //        ? $"Очередь ({offlineQueue})"
+        //        : "Очередь";
+
         if (DeferCartButton != null)
             SetScanBusy(_isUiBusy);
+    }
+
+    // Переключение вида склада: карточки
+    private void WarehouseCardsBtn_Checked(object sender, RoutedEventArgs e)
+    {
+        if (WarehouseCardsItems != null && WarehouseGrid != null)
+        {
+            WarehouseCardsItems.Visibility = Visibility.Visible;
+            WarehouseGrid.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    // Переключение вида склада: таблица
+    private void WarehouseTableBtn_Checked(object sender, RoutedEventArgs e)
+    {
+        if (WarehouseCardsItems != null && WarehouseGrid != null)
+        {
+            WarehouseCardsItems.Visibility = Visibility.Collapsed;
+            WarehouseGrid.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void WarehouseSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var filter = (WarehouseSearchBox.Text ?? "").Trim().ToLower();
+        CollectionViewSource.GetDefaultView(WarehouseItems).Filter = item =>
+        {
+            if (item is not MainWindow.WarehouseItemVm w) return true;
+            if (string.IsNullOrEmpty(filter)) return true;
+            return (w.ProductName?.ToLower().Contains(filter) ?? false) ||
+                   (w.Code?.ToLower().Contains(filter) ?? false) ||
+                   (w.Article?.ToLower().Contains(filter) ?? false);
+        };
+    }
+
+    private void WarehouseBack_Click(object sender, RoutedEventArgs e)
+    {
+        WarehousePanel.Visibility = Visibility.Collapsed;
+        CatalogAreaBorder.Visibility = Visibility.Visible;
+        RightPanelBorder.Visibility = Visibility.Visible;
+        CatalogGridSplitter.Visibility = Visibility.Visible;
+    }
+
+    private void WarehouseCard_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is MainWindow.WarehouseItemVm item)
+        {
+            var product = new ProductDetailVm
+            {
+                Id = item.Id,
+                ProductName = item.ProductName,
+                Barcode = item.Code,
+                Article = item.Article,
+                Code = item.Code,
+                Price = item.Price,
+                PurchasePrice = item.Price * 0.7m,    // примерная закупочная цена
+                MarkupPercent = 0.30m,                // примерная наценка
+                Category = "Основная",
+                Country = "Кыргызстан",
+                Group = "Продовольствие",
+                Description = item.ProductName,
+                CreatedAt = DateTime.Now,
+                ExpiryDate = DateTime.Now.AddMonths(6)
+            };
+
+            var dlg = new ProductDetailWindow(product) { Owner = this };
+            dlg.ShowDialog();
+        }
+    }
+
+    private async Task LoadWarehouseItemsAsync()
+    {
+        WarehouseItems.Clear();
+        foreach (var product in CatalogCacheService.Products)
+        {
+            decimal price = 0;
+            if (product.PriceLine != null)
+            {
+                var s = product.PriceLine.Replace(" сом", "").Replace(" ", "");
+                decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out price);
+            }
+            WarehouseItems.Add(new MainWindow.WarehouseItemVm
+            {
+                Id = product.Id,
+                ProductName = product.Title,
+                Code = product.Barcode ?? "—",
+                Article = product.Barcode ?? "—",
+                Unit = product.Unit ?? (product.MustWeigh ? "кг" : "шт"),
+                Price = price,
+                Discount = 0,
+                StockQuantity = product.Quantity,
+                StockBrush = product.Quantity <= 0
+                    ? new SolidColorBrush(Color.FromRgb(255, 204, 204))
+                    : Brushes.White
+            });
+        }
+
+        try
+        {
+            var agentProducts = await App.Api.GetAgentProductsAsync(CancellationToken.None);
+            if (agentProducts.Count > 0)
+            {
+                var qtyMap = new Dictionary<string, double>();
+                foreach (var el in agentProducts)
+                {
+                    if (el.TryGetProperty("id", out var idEl))
+                    {
+                        string id = idEl.ValueKind == JsonValueKind.Number
+                            ? idEl.GetInt32().ToString()
+                            : (idEl.GetString() ?? "");
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            double qty = 0;
+                            if (el.TryGetProperty("quantity", out var qEl))
+                            {
+                                if (qEl.ValueKind == JsonValueKind.Number)
+                                    qty = qEl.GetDouble();
+                                else if (qEl.ValueKind == JsonValueKind.String)
+                                    double.TryParse(qEl.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out qty);
+                            }
+                            qtyMap[id] = qty;
+                        }
+                    }
+                }
+
+                foreach (var item in WarehouseItems)
+                {
+                    if (qtyMap.TryGetValue(item.Id, out double qty))
+                    {
+                        item.StockQuantity = qty;
+                        item.StockBrush = qty <= 0
+                            ? new SolidColorBrush(Color.FromRgb(255, 204, 204))
+                            : Brushes.White;
+                    }
+                }
+            }
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound) { }
+        catch { /* ignore */ }
+
+        WarehouseEmptyText.Visibility = WarehouseItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private string BuildDeferredCartLabel()
@@ -508,7 +906,7 @@ public partial class MainWindow : Window
             ShowToast($"Отложено: «{entry.Label}».");
 
         if (startNewSale)
-            await ClearCartAfterDeferAsync().ConfigureAwait(true);
+            await ClearCartAfterDeferAsync().ConfigureAwait(true);   // ← теперь без авто-старта
 
         return true;
     }
@@ -517,24 +915,12 @@ public partial class MainWindow : Window
     {
         if (_catalogLoadBusy)
             return;
-
         _catalogLoadBusy = true;
         if (RefreshCatalogButton != null)
             RefreshCatalogButton.IsEnabled = false;
-        var prevStats = CatalogStatsText.Text;
-        CatalogStatsText.Text = "Каталог: загрузка…";
-
         try
         {
-            try
-            {
-                await Task.Delay(120, cancellationToken).ConfigureAwait(true);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
+            await Task.Delay(120, cancellationToken).ConfigureAwait(true);
             var raw = await App.Api
                 .ProductsCatalogAsync(App.Settings.Catalog.QuickCatalogLimit, App.Settings.Catalog.CatalogMaxPages, cancellationToken)
                 .ConfigureAwait(true);
@@ -543,35 +929,51 @@ public partial class MainWindow : Window
             _allTilesPiece.Clear();
             _tilesKg.Clear();
             _tilesPiece.Clear();
+
+            var newProducts = new List<CatalogProductTileVm>();
+
             foreach (var el in raw)
             {
                 var vm = ProductCatalogMapper.TryTile(el, apiBase);
-                if (vm == null)
-                    continue;
+                if (vm == null) continue;
                 if (vm.MustWeigh)
                     _allTilesKg.Add(vm);
                 else
                     _allTilesPiece.Add(vm);
+                newProducts.Add(vm);
             }
+
+            // Обновляем кэш и сохраняем на диск
+            CatalogCacheService.Products.Clear();
+            foreach (var vm in newProducts)
+                CatalogCacheService.Products.Add(vm);
+            CatalogCacheService.SaveToFile();
+
+            // ВАЖНО: сортируем товары перед отображением
+            SortByFavorite();
 
             ShowToast($"Каталог: {_allTilesKg.Count} весовых, {_allTilesPiece.Count} штучных.");
             ResetCatalogViewport();
+            RefreshCategoriesAndBrands();
+            UpdateCacheStatus();
         }
         catch (TaskCanceledException)
         {
-            ShowToast("Каталог: таймаут.", warn: true);
+            if (!TryRestoreFromCache())
+                ShowToast("Каталог: таймаут.", warn: true);
         }
-        catch (OperationCanceledException)
-        {
-            CatalogStatsText.Text = prevStats;
-        }
+        catch (OperationCanceledException) { }
         catch (ApiException ex)
         {
-            ShowToast($"Каталог: {ex.Message}", warn: true);
+            if (!TryRestoreFromCache())
+                ShowToast($"Каталог: {ex.Message}", warn: true);
         }
         catch (HttpRequestException ex)
         {
-            ShowToast(string.IsNullOrWhiteSpace(ex.Message) ? "Каталог: нет сети." : $"Каталог: {ex.Message}", warn: true);
+            if (!TryRestoreFromCache())
+                ShowToast(string.IsNullOrWhiteSpace(ex.Message)
+                    ? "Каталог: нет сети."
+                    : $"Каталог: {ex.Message}", warn: true);
         }
         finally
         {
@@ -580,6 +982,35 @@ public partial class MainWindow : Window
                 RefreshCatalogButton.IsEnabled = true;
             UpdateCatalogPagerUi();
         }
+    }
+
+    // Вспомогательный метод — восстановление из кэша
+    private bool TryRestoreFromCache()
+    {
+        if (!CatalogCacheService.LoadFromFile())
+            return false;
+
+        _allTilesKg.Clear();
+        _allTilesPiece.Clear();
+        _tilesKg.Clear();
+        _tilesPiece.Clear();
+
+        foreach (var vm in CatalogCacheService.Products)
+        {
+            if (vm.MustWeigh)
+                _allTilesKg.Add(vm);
+            else
+                _allTilesPiece.Add(vm);
+        }
+
+        // Восстанавливаем избранное из файла (если ещё не загружено)
+        // CatalogCacheService.FavoriteIds уже загружен при старте
+
+        SortByFavorite();          // <-- обязательно
+        ResetCatalogViewport();
+        UpdateCacheStatus();
+        ShowToast($"Офлайн: каталог из кэша ({CatalogCacheService.Products.Count} шт.)", warn: false);
+        return true;
     }
 
     private void ResetCatalogViewport()
@@ -606,30 +1037,34 @@ public partial class MainWindow : Window
         var selectedTab = GetSelectedCatalogTabIndex();
         SyncVisibleTiles(_tilesKg, selectedTab == 0 ? _allTilesKg : [], _visibleKgCount);
         SyncVisibleTiles(_tilesPiece, selectedTab == 1 ? _allTilesPiece : [], _visiblePieceCount);
+        OnPropertyChanged("CatalogTableSource");
         UpdateCatalogPagerUi();
         WarmVisibleWeighedThumbs();
     }
 
     private void SyncVisibleTiles(
-        ObservableCollection<CatalogProductTileVm> target,
-        IReadOnlyList<CatalogProductTileVm> source,
-        int visibleCount)
+    BulkObservableCollection<CatalogProductTileVm> target,
+    IReadOnlyList<CatalogProductTileVm> source,
+    int visibleCount)
     {
-        target.Clear();
-        foreach (var vm in source.Take(Math.Min(visibleCount, source.Count)))
-            target.Add(vm);
+        int count = Math.Min(visibleCount, source.Count);
+        var pool = System.Buffers.ArrayPool<CatalogProductTileVm>.Shared;
+        CatalogProductTileVm[] buffer = pool.Rent(count);
+        try
+        {
+            for (int i = 0; i < count; i++)
+                buffer[i] = source[i];
+            target.Reset(buffer.Take(count));
+        }
+        finally
+        {
+            pool.Return(buffer, clearArray: true);
+        }
     }
 
     private void UpdateCatalogPagerUi()
     {
-        if (CatalogStatsText == null || CatalogMoreButton == null)
-            return;
-
-        var selectedTab = GetSelectedCatalogTabIndex();
-        var total = selectedTab == 1 ? _allTilesPiece.Count : _allTilesKg.Count;
-        var shown = selectedTab == 1 ? _tilesPiece.Count : _tilesKg.Count;
-        CatalogStatsText.Text = total == 0 ? "Товары: 0" : $"Товары: {shown}/{total}";
-        CatalogMoreButton.Visibility = shown < total ? Visibility.Visible : Visibility.Collapsed;
+        // Временно отключено – требуется XAML
     }
 
     private void CatalogMore_Click(object sender, RoutedEventArgs e)
@@ -644,18 +1079,76 @@ public partial class MainWindow : Window
 
     private void CatalogSearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        _pendingSearchQuery = (CatalogSearchBox.Text ?? "").Trim();
-        _searchDebounceTimer?.Stop();
-        if (_pendingSearchQuery.Length < 2)
+        _catalogSearchFilter = (CatalogSearchBox.Text ?? "").Trim();
+        ClearSearchButton.Visibility = string.IsNullOrEmpty(_catalogSearchFilter)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+
+        SearchOverlayPanel.Visibility = Visibility.Collapsed;
+
+        if (string.IsNullOrEmpty(_catalogSearchFilter))
         {
-            _allSearchTiles.Clear();
-            _searchTiles.Clear();
-            _visibleSearchCount = 0;
-            SearchOverlayPanel.Visibility = Visibility.Collapsed;
-            return;
+            // Возвращаем полный каталог со стандартным viewport
+            ResetCatalogViewport();
+        }
+        else
+        {
+            // Сбрасываем viewport и применяем поисковый фильтр
+            _visibleKgCount = 0;
+            _visiblePieceCount = 0;
+            EnsureActiveCatalogPageVisible(); // установит начальные значения
+            ApplySearchFilterToCatalog();
+        }
+    }
+
+    private void ApplySearchFilterToCatalog()
+    {
+        _tilesKg.Reset(FilterItems(_allTilesKg, _catalogSearchFilter));
+        _tilesPiece.Reset(FilterItems(_allTilesPiece, _catalogSearchFilter));
+        UpdateCatalogCount();
+    }
+
+    private IEnumerable<CatalogProductTileVm> FilterItems(List<CatalogProductTileVm> source, string filter)
+    {
+        if (string.IsNullOrEmpty(filter))
+        {
+            foreach (var vm in source)
+                yield return vm;
+            yield break;
         }
 
-        _searchDebounceTimer?.Start();
+        var filterLower = filter.ToLower();
+        for (int i = 0; i < source.Count; i++)
+        {
+            var vm = source[i];
+            if ((vm.Title?.ToLower().Contains(filterLower) == true) ||
+                (vm.Barcode?.ToLower().Contains(filterLower) == true) ||
+                (vm.Category?.ToLower().Contains(filterLower) == true) ||
+                (vm.Brand?.ToLower().Contains(filterLower) == true))
+            {
+                yield return vm;
+            }
+        }
+    }
+
+    private async void CatalogGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (CatalogGrid.SelectedItem is CatalogProductTileVm vm)
+            await PickProductFromCatalogAsync(vm);
+    }
+
+    private void ToggleToolsPanel_Click(object sender, RoutedEventArgs e)
+    {
+        _toolsPanelVisible = !_toolsPanelVisible;
+        ToolsPanel.Visibility = _toolsPanelVisible ? Visibility.Visible : Visibility.Collapsed;
+        UserPreferences.Instance.ToolsPanelExpanded = _toolsPanelVisible;
+        UserPreferences.Instance.SaveToDisk();
+
+        // Находим TextBlock с иконкой по имени и меняем его текст
+        if (FindName("IconText") is TextBlock iconText)
+        {
+            iconText.Text = _toolsPanelVisible ? "∨" : "∧";
+        }
     }
 
     private async void SearchDebounce_Tick(object? sender, EventArgs e)
@@ -667,15 +1160,15 @@ public partial class MainWindow : Window
 
         try
         {
-            var items = await App.Api
-                .ProductsSearchAsync(q, App.Settings.Catalog.SearchLimit, _windowCts.Token)
-                .ConfigureAwait(true);
+            var items = await App.Api.ProductsSearchAsync(q, App.Settings.Catalog.SearchLimit, _windowCts.Token)
+                                    .ConfigureAwait(true);
             var apiBase = App.Settings.ApiBaseUrl;
             _allSearchTiles.Clear();
             _searchTiles.Clear();
-            foreach (var el in items)
+
+            foreach (var dto in items)
             {
-                var vm = ProductCatalogMapper.TryTile(el, apiBase);
+                var vm = ProductCatalogMapper.TryTile(dto, apiBase);
                 if (vm != null)
                     _allSearchTiles.Add(vm);
             }
@@ -770,7 +1263,24 @@ public partial class MainWindow : Window
         e.Handled = true;
         if (sender is not FrameworkElement fe || fe.DataContext is not CatalogProductTileVm vm)
             return;
-        var dlg = new ProductDetailDialog(vm) { Owner = this };
+        var detailVm = new ProductDetailVm
+        {
+            Id = vm.Id,
+            ProductName = vm.Title,
+            Barcode = vm.Barcode ?? "",
+            Article = vm.Barcode ?? "",
+            Code = vm.Barcode ?? "",
+            Category = vm.Category ?? "Основная",
+            Country = "Кыргызстан",
+            Group = "Продовольственные",
+            Description = vm.Title,
+            Price = decimal.TryParse(vm.PriceLine?.Replace(" сом", ""), out var p) ? p : 0m,
+            PurchasePrice = 0m,
+            MarkupPercent = 0m,
+            CreatedAt = DateTime.Now,
+            ExpiryDate = DateTime.Now.AddMonths(6)
+        };
+        var dlg = new ProductDetailWindow(detailVm) { Owner = this };
         dlg.ShowDialog();
     }
 
@@ -862,7 +1372,52 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShowToast(string message, bool warn = false)
+    // ────────── Гамбургер-меню ──────────
+    private void HamburgerMenu_Click(object sender, RoutedEventArgs e)
+    {
+        _isMenuOpen = !_isMenuOpen;
+        AnimateHamburgerMenu(_isMenuOpen);
+    }
+
+    private void HamburgerMenuClose_Click(object sender, RoutedEventArgs e)
+    {
+        _isMenuOpen = false;
+        AnimateHamburgerMenu(false);
+    }
+
+    private void HamburgerOverlay_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_isMenuOpen)
+        {
+            _isMenuOpen = false;
+            AnimateHamburgerMenu(false);
+        }
+    }
+
+    private void AnimateHamburgerMenu(bool open)
+    {
+        double from = open ? -320 : 0;
+        double to = open ? 0 : -320;
+
+        var animation = new ThicknessAnimation
+        {
+            From = new Thickness(from, 0, 0, 0),
+            To = new Thickness(to, 0, 0, 0),
+            Duration = TimeSpan.FromMilliseconds(250),
+            EasingFunction = new QuadraticEase { EasingMode = open ? EasingMode.EaseOut : EasingMode.EaseIn }
+        };
+
+        if (open) HamburgerOverlay.Visibility = Visibility.Visible;
+
+        animation.Completed += (s, args) =>
+        {
+            if (!open) HamburgerOverlay.Visibility = Visibility.Collapsed;
+        };
+
+        HamburgerPanel.BeginAnimation(MarginProperty, animation);
+    }
+
+    internal void ShowToast(string message, bool warn = false)
     {
         ToastText.Text = message;
         ToastPanel.Background = warn
@@ -893,10 +1448,14 @@ public partial class MainWindow : Window
         if (!await EnsureShiftReadyForOperationsAsync(silent: false).ConfigureAwait(true))
             return;
 
-        var dlg = new OrderDiscountDialog(GetCurrentOrderDiscountPercent(), GetCurrentOrderDiscountSum())
+        // ===== ВОТ СТАРЫЙ ВЫЗОВ ОКНА =====
+        var dlg = new OrderDiscountDialog(
+            GetCurrentOrderDiscountPercent(),
+            GetCurrentOrderDiscountSum())
         {
             Owner = this,
         };
+
         if (dlg.ShowDialog() != true)
             return;
 
@@ -994,6 +1553,149 @@ public partial class MainWindow : Window
         }
     }
 
+    private void MenuMain_Click(object sender, RoutedEventArgs e)
+    {
+        CloseMenu();
+        CatalogAreaBorder.Visibility = Visibility.Visible;
+        RightPanelBorder.Visibility = Visibility.Visible;
+        CatalogGridSplitter.Visibility = Visibility.Visible;
+        WarehousePanel.Visibility = Visibility.Collapsed;
+
+        SearchOverlayPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private void MenuShift_Click(object sender, RoutedEventArgs e)
+    {
+        CloseMenu();
+        var dlg = new CashOperationsDialog
+        {
+            Owner = this,
+            OpenShiftAction = async (openingCash) => await OpenShiftWithCashAsync(openingCash),
+            CloseShiftAction = async (closingCash) => await CloseShiftWithCashAsync(closingCash)
+        };
+        dlg.ShowDialog();
+    }
+
+    public async Task OpenShiftWithCashAsync(decimal openingCash)
+    {
+        var cb = await EnsurePosCashboxIdAsync();
+        if (string.IsNullOrEmpty(cb))
+        {
+            MessageBox.Show("Не удалось определить кассу.", "Смена", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        string opening = openingCash.ToString("0.00", CultureInfo.InvariantCulture);
+        try
+        {
+            var resp = await App.Api.ConstructionShiftOpenAsync(cb, opening);
+            var sid = CartDisplayHelper.TryShiftIdFromOpenResponse(resp);
+            if (!string.IsNullOrEmpty(sid))
+                App.ActiveShiftId = sid;
+            else
+                await RefreshShiftStateAsync();
+            UpdateShiftBanner();
+            ShiftService.IsShiftOpen = true;   // обновим глобальное состояние
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Ошибка открытия смены: " + ex.Message, "Смена", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    public async Task CloseShiftWithCashAsync(decimal? closingCash)
+    {
+        if (string.IsNullOrEmpty(App.ActiveShiftId)) return;
+        string? closing = closingCash?.ToString("0.00", CultureInfo.InvariantCulture);
+        try
+        {
+            await App.Api.ConstructionShiftCloseAsync(App.ActiveShiftId, closing);
+            App.ActiveShiftId = null;
+            await RefreshShiftStateAsync();
+            UpdateShiftBanner();
+            ShiftService.IsShiftOpen = false;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Ошибка закрытия смены: " + ex.Message, "Смена", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+
+    private async void MenuWarehouse_Click(object sender, RoutedEventArgs e)
+    {
+        CloseMenu();
+        IsLoading = true;
+
+        try
+        {
+            // Если кэш каталога пуст – пробуем загрузить
+            if (CatalogCacheService.Products.Count == 0 && !_catalogLoadBusy)
+            {
+                await LoadCatalogAsync(_windowCts.Token).ConfigureAwait(true);
+            }
+
+            // Заполняем склад только если каталог что-то содержит
+            if (CatalogCacheService.Products.Count > 0)
+            {
+                await LoadWarehouseItemsAsync();
+            }
+
+            // Сбрасываем фильтр поиска
+            var view = CollectionViewSource.GetDefaultView(WarehouseItems);
+            view.Filter = null;
+            WarehouseSearchBox.Text = "";
+
+            // Показываем панель склада
+            WarehousePanel.Visibility = Visibility.Visible;
+            CatalogAreaBorder.Visibility = Visibility.Collapsed;
+            RightPanelBorder.Visibility = Visibility.Collapsed;
+            CatalogGridSplitter.Visibility = Visibility.Collapsed;
+            SearchOverlayPanel.Visibility = Visibility.Collapsed;
+
+            // Сообщение, если склад так и остался пустым
+            if (WarehouseItems.Count == 0)
+            {
+                WarehouseEmptyText.Text = "⚠️ Не удалось загрузить данные склада.\nПроверьте подключение к серверу или повторите позже.";
+                WarehouseEmptyText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                WarehouseEmptyText.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Ошибка при открытии склада: {ex.Message}", warn: true);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void MenuServices_Click(object sender, RoutedEventArgs e)
+    {
+        CloseMenu();
+        var servicesWindow = new ServicesWindow { Owner = this };
+        servicesWindow.ShowDialog();
+    }
+
+    private void OpenFinanceWindow_Click(object sender, RoutedEventArgs e)
+    {
+        var finance = new FinanceWindow { Owner = this };
+        finance.ShowDialog();
+    }
+
+    private void CloseMenu()
+    {
+        if (_isMenuOpen)
+        {
+            _isMenuOpen = false;
+            AnimateHamburgerMenu(false);
+        }
+    }
+
     private void PrintSelfCheck_Click(object sender, RoutedEventArgs e)
     {
         var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
@@ -1064,6 +1766,32 @@ public partial class MainWindow : Window
             "Тест весов",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+    }
+
+    private async void SyncNow_Click(object sender, RoutedEventArgs e)
+    {
+        ShowToast("Синхронизация запущена…", false);
+        try
+        {
+            await App.OfflineSync.TriggerSyncNowAsync(CancellationToken.None);
+            int failed = OfflinePendingSalesStore.FailedCount;
+            int pending = OfflinePendingSalesStore.PendingCount;
+            if (failed == 0 && pending == 0)
+                ShowToast("Все чеки синхронизированы.", false);
+            else if (failed > 0)
+                ShowToast($"Ошибок синхронизации: {failed}. Система повторит автоматически.", true);
+            else
+                ShowToast($"Ожидают отправки: {pending}. Попробуйте позже.", false);
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Ошибка синхронизации: " + ex.Message, true);
+        }
+        finally
+        {
+            UpdateOfflineModeUi();
+            UpdateDeferredCartUi();
+        }
     }
 
     private void OfflineQueueInfo_Click(object sender, RoutedEventArgs e)
@@ -1180,44 +1908,20 @@ public partial class MainWindow : Window
         await DeferCurrentCartAsync().ConfigureAwait(true);
     }
 
-    private async Task ClearCartAfterDeferAsync()
+    private Task ClearCartAfterDeferAsync()
     {
         SetScanBusy(true);
         try
         {
-            // UX: сразу убрать текущий чек с экрана после "Отложить",
-            // даже если открытие нового чека на API не получится.
             App.Cart.Clear();
             RebindCartUi();
 
-            // Пробуем автоматически открыть новый чек. Некоторые API могут вернуть тот же чек/непустую корзину.
-            // В таком случае оставляем экран очищенным и просим начать новый чек вручную.
-            try
-            {
-                await TryStartNewSaleAsync().ConfigureAwait(true);
-                RebindCartUi();
-                if (CartLines.Count > 0)
-                {
-                    App.Cart.Clear();
-                    RebindCartUi();
-                    CartMessageText.Text = "Чек отложен. Нажмите «Новый», чтобы открыть новый чек.";
-                    CartMessageText.Foreground = UiWarn;
-                }
-                else
-                {
-                    CartMessageText.Text = "Новый чек открыт — добавьте товары.";
-                    CartMessageText.Foreground = UiOk;
-                }
-            }
-            catch
-            {
-                CartMessageText.Text = "Чек отложен. Нажмите «Новый», чтобы открыть новый чек.";
-                CartMessageText.Foreground = UiWarn;
-            }
+            CartMessageText.Text = "Чек отложен. Нажмите «Новый чек», чтобы открыть новый чек.";
+            CartMessageText.Foreground = UiWarn;
         }
         catch (Exception ex)
         {
-            CartMessageText.Text = "Отложено. Начните продажу вручную: " + ex.Message;
+            CartMessageText.Text = "Чек отложен. Начните продажу вручную: " + ex.Message;
             CartMessageText.Foreground = UiWarn;
             App.Cart.Clear();
             RebindCartUi();
@@ -1226,6 +1930,7 @@ public partial class MainWindow : Window
         {
             SetScanBusy(false);
         }
+        return Task.CompletedTask;
     }
 
     private async void OpenDeferredCarts_Click(object sender, RoutedEventArgs e)
@@ -1260,19 +1965,21 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Удаляем запись сразу, чтобы избежать дублирования при повторных попытках
+        DeferredCartsStore.RemoveIds(new[] { latest.Id });
+        UpdateDeferredCartUi();
+
         SetScanBusy(true);
         try
         {
-            ShowToast($"Возвращаем: «{latest.Label}»…");
-            try
-            {
-                PosLogger.Log($"DEFER restore-latest: id={latest.Id}, label={latest.Label}", "DEFER");
-            }
-            catch
-            {
-                /* ignore */
-            }
-            await RestoreDeferredCartsAsync([latest], DeferredRestoreMode.ReplaceCurrentCart).ConfigureAwait(true);
+            await RestoreDeferredCartsAsync(new[] { latest }, DeferredRestoreMode.ReplaceCurrentCart).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            // Если восстановление не удалось – возвращаем запись обратно
+            DeferredCartsStore.Add(latest);
+            UpdateDeferredCartUi();
+            ShowToast("Ошибка при возврате чека: " + ex.Message, warn: true);
         }
         finally
         {
@@ -1280,110 +1987,149 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task RestoreDeferredCartsAsync(
-        IReadOnlyList<DeferredCartEntry> entries,
-        DeferredRestoreMode restoreMode)
+    private async Task RestoreDeferredCartsAsync(IReadOnlyList<DeferredCartEntry> entries, DeferredRestoreMode restoreMode)
     {
-        if (App.Api is null || entries.Count == 0)
+        if (App.Api == null || entries.Count == 0)
             return;
 
+        // ---------- Режим "Заменить текущий чек" ----------
         if (restoreMode == DeferredRestoreMode.ReplaceCurrentCart)
         {
             if (HasActiveCartLines)
             {
-                var answer = MessageBox.Show(
-                    this,
-                    "В текущем чеке уже есть товары.\n\nОтложить текущий чек и открыть выбранный отдельно?",
-                    "Отложенные чеки",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                if (answer != MessageBoxResult.Yes)
+                if (MessageBox.Show(this,
+                        "В текущем чеке уже есть товары.\n\nОтложить текущий чек и открыть выбранный отдельно?",
+                        "Отложенные чеки", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                     return;
 
-                var deferred = await DeferCurrentCartAsync(startNewSale: false, showToast: false).ConfigureAwait(true);
-                if (!deferred)
+                if (!await DeferCurrentCartAsync(false, false).ConfigureAwait(true))
                     return;
             }
 
-            if (!await EnsureShiftReadyForOperationsAsync(silent: false).ConfigureAwait(true))
+            if (!await EnsureShiftReadyForOperationsAsync(false, CancellationToken.None).ConfigureAwait(true))
                 return;
 
+            ForceClearCartDisplay();
             try
             {
-                await TryStartNewSaleAsync().ConfigureAwait(true);
-                RebindCartUi();
+                await TryStartNewSaleAsync(CancellationToken.None).ConfigureAwait(true);
+
+                // Получаем актуальный cartId после старта новой корзины
+                string? cartId = App.Cart.CartId;
+                if (string.IsNullOrEmpty(cartId))
+                {
+                    MessageBox.Show("Не удалось определить корзину после старта продажи.",
+                        "Отложенные", MessageBoxButton.OK, MessageBoxImage.Hand);
+                    return;
+                }
+
+                // Удаляем всё, что могло остаться в новой корзине
+                var items = CartDisplayHelper.EnumerateItems(App.Cart.Root).ToList();
+                foreach (var it in items)
+                {
+                    var id = CartDisplayHelper.TryItemId(it);
+                    if (!string.IsNullOrEmpty(id))
+                        await App.Api.PosCartItemDeleteAsync(cartId, id, CancellationToken.None);
+                }
+                await ReloadCartFromServerAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    "Не удалось открыть новую продажу: " + ex.Message,
-                    "Отложенные",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                MessageBox.Show("Не удалось открыть новую продажу: " + ex.Message,
+                    "Отложенные", MessageBoxButton.OK, MessageBoxImage.Hand);
                 return;
             }
         }
+        // ---------- Корзина отсутствует (обычный режим) ----------
         else if (!App.Cart.HasCart || !App.Cart.CanRefresh)
         {
-            if (!await EnsureShiftReadyForOperationsAsync(silent: false).ConfigureAwait(true))
+            if (!await EnsureShiftReadyForOperationsAsync(false, CancellationToken.None).ConfigureAwait(true))
                 return;
 
+            ForceClearCartDisplay();
             try
             {
-                await TryStartNewSaleAsync().ConfigureAwait(true);
-                RebindCartUi();
+                await TryStartNewSaleAsync(CancellationToken.None).ConfigureAwait(true);
+
+                string? cartId = App.Cart.CartId;
+                if (string.IsNullOrEmpty(cartId))
+                {
+                    MessageBox.Show("Не удалось определить корзину после старта продажи.",
+                        "Отложенные", MessageBoxButton.OK, MessageBoxImage.Hand);
+                    return;
+                }
+
+                var items = CartDisplayHelper.EnumerateItems(App.Cart.Root).ToList();
+                foreach (var it in items)
+                {
+                    var id = CartDisplayHelper.TryItemId(it);
+                    if (!string.IsNullOrEmpty(id))
+                        await App.Api.PosCartItemDeleteAsync(cartId, id, CancellationToken.None);
+                }
+                await ReloadCartFromServerAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    "Не удалось открыть новую продажу: " + ex.Message,
-                    "Отложенные",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                MessageBox.Show("Не удалось открыть новую продажу: " + ex.Message,
+                    "Отложенные", MessageBoxButton.OK, MessageBoxImage.Hand);
                 return;
             }
         }
 
+        // ---------- Восстановление позиций ----------
+        // Гарантируем наличие cartId перед восстановлением
+        string? restoreCartId = App.Cart.CartId;
+        if (string.IsNullOrEmpty(restoreCartId))
+        {
+            MessageBox.Show("Идентификатор корзины не определён.", "Отложенные", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        List<string> restoredIds = new List<string>();
         try
         {
             foreach (var hold in entries)
             {
-                var restored = false;
-                for (var attempt = 0; attempt < 2 && !restored; attempt++)
+                bool success = false;
+                for (int attempt = 0; attempt < 2 && !success; attempt++)
                 {
                     try
                     {
-                        using var doc = JsonDocument.Parse(
-                            string.IsNullOrWhiteSpace(hold.CartJson) ? "{}" : hold.CartJson);
-                        foreach (var it in CartDisplayHelper.EnumerateItems(doc.RootElement))
+                        using (var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(hold.CartJson) ? "{}" : hold.CartJson))
                         {
-                            var pid = CartDisplayHelper.TryProductId(it);
-                            if (string.IsNullOrEmpty(pid))
-                                continue;
-                            var weighed = CartDisplayHelper.LineMustWeigh(it);
-                            var qty = CartDisplayHelper.LineQuantity(it);
-                            var qtyStr = FormatQuantityForApi(qty, weighed);
-                            var up = CartDisplayHelper.UnitPrice(it);
-                            var upStr = CartDisplayHelper.FormatMoney(up);
-                            var disc = CartDisplayHelper.OptionalDiscountTotalParam(it);
-                            var resp = await App.Api
-                                .PosAddItemAsync(App.Cart.CartId!, pid, qtyStr, upStr, disc)
-                                .ConfigureAwait(true);
-                            if (!CartResponseHelper.TryUpdateCartSession(resp, App.Cart))
-                                await ReloadCartFromServerAsync().ConfigureAwait(true);
-                        }
+                            foreach (var it in CartDisplayHelper.EnumerateItems(doc.RootElement))
+                            {
+                                var pid = CartDisplayHelper.TryProductId(it);
+                                if (string.IsNullOrEmpty(pid))
+                                    continue;
 
-                        restored = true;
+                                bool weighed = CartDisplayHelper.LineMustWeigh(it);
+                                string qty = FormatQuantityForApi(CartDisplayHelper.LineQuantity(it), weighed);
+                                string up = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it));
+                                string? disc = CartDisplayHelper.OptionalDiscountTotalParam(it);
+
+                                var resp = await App.Api.PosAddItemAsync(restoreCartId, pid, qty, up, disc, CancellationToken.None)
+                                    .ConfigureAwait(true);
+                                if (!CartResponseHelper.TryUpdateCartSession(resp, App.Cart))
+                                    await ReloadCartFromServerAsync().ConfigureAwait(true);
+                            }
+                        }
+                        success = true;
                     }
                     catch (ApiException) when (attempt == 0 && restoreMode == DeferredRestoreMode.ReplaceCurrentCart)
                     {
-                        // Если восстановление "как отдельный чек" сорвалось на середине,
-                        // проще откатиться на новый пустой чек и попробовать 1 повтор,
-                        // чтобы не получить смешанный/частичный чек.
+                        // Откатываемся на новую пустую корзину и пробуем ещё раз
                         try
                         {
-                            await TryStartNewSaleAsync().ConfigureAwait(true);
+                            await TryStartNewSaleAsync(CancellationToken.None).ConfigureAwait(true);
                             RebindCartUi();
+                            // обновляем cartId после пересоздания корзины
+                            restoreCartId = App.Cart.CartId;
+                            if (string.IsNullOrEmpty(restoreCartId))
+                            {
+                                MessageBox.Show("Не удалось пересоздать корзину.", "Отложенные", MessageBoxButton.OK, MessageBoxImage.Error);
+                                return;
+                            }
                         }
                         catch
                         {
@@ -1392,31 +2138,46 @@ public partial class MainWindow : Window
                     }
                 }
 
-                // Удаляем сразу после успешного восстановления, чтобы повторное открытие
-                // не приводило к дублям при частичных сбоях/перезапуске приложения.
-                DeferredCartsStore.RemoveIds([hold.Id]);
+                if (!success)
+                {
+                    MessageBox.Show("Не удалось восстановить чек «" + hold.Label + "».",
+                        "Отложенные", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                }
+                else
+                {
+                    restoredIds.Add(hold.Id);
+                }
             }
 
+            // Финальная перезагрузка корзины с сервера
+            await ReloadCartFromServerAsync().ConfigureAwait(true);
             RebindCartUi();
-            UpdateDeferredCartUi();
-            ShowToast($"Загружено отложенных корзин: {entries.Count}.");
+
+            // Удаляем успешно восстановленные записи
+            if (restoredIds.Count > 0)
+            {
+                DeferredCartsStore.RemoveIds(restoredIds);
+                UpdateDeferredCartUi();
+            }
+
+            ShowToast($"Загружено отложенных корзин: {restoredIds.Count}.");
         }
         catch (ApiException ex)
         {
-            MessageBox.Show(ex.Message, "Отложенные", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Отложенные", MessageBoxButton.OK, MessageBoxImage.Hand);
         }
         catch (HttpRequestException ex)
         {
-            MessageBox.Show(
-                string.IsNullOrWhiteSpace(ex.Message) ? "Нет сети." : ex.Message,
-                "Отложенные",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            MessageBox.Show(string.IsNullOrWhiteSpace(ex.Message) ? "Нет сети." : ex.Message,
+                "Отложенные", MessageBoxButton.OK, MessageBoxImage.Hand);
         }
     }
 
     private void SyncDiscountFieldsFromCart()
     {
+        // ❌ УДАЛИТЬ ЭТУ СТРОКУ
+        // if (OrderDiscountSummaryText == null) return;
+
         if (!App.Cart.HasCart || App.Cart.Root.ValueKind != JsonValueKind.Object)
         {
             OrderDiscountSummaryText.Text = "Скидка не задана.";
@@ -1426,9 +2187,9 @@ public partial class MainWindow : Window
         var pct = GetCurrentOrderDiscountPercent();
         var sum = GetCurrentOrderDiscountSum();
         OrderDiscountSummaryText.Text = !string.IsNullOrEmpty(pct)
-            ? $"Сейчас: {pct}%"
+            ? $"Скидка: {pct}%"
             : !string.IsNullOrEmpty(sum)
-                ? $"Сейчас: {sum} сом"
+                ? $"Скидка: {sum} сом"
                 : "Скидка не задана.";
     }
 
@@ -1476,6 +2237,71 @@ public partial class MainWindow : Window
         return "";
     }
 
+    private async Task FinalizeReceiptAsync(string paymentMethod, string cashReceived, bool wantPrintReceipt)
+    {
+        bool sent = false;
+        try
+        {
+            var body = new Dictionary<string, string>
+            {
+                ["payment_method"] = paymentMethod ?? "",
+                ["print_receipt"] = wantPrintReceipt ? "true" : "false",
+                ["cash_received"] = cashReceived ?? ""
+            };
+            CheckoutResponseHelper.FormatSuccess(
+                await App.Api.PosCheckoutAsync(App.Cart.CartId!, body, CancellationToken.None)
+                    .ConfigureAwait(true));
+            sent = true;
+        }
+        catch
+        {
+            // оплата онлайн не прошла, уходим в офлайн-очередь
+        }
+
+        if (!sent)
+        {
+            var entry = new OfflineSaleEntry
+            {
+                Id = Guid.NewGuid().ToString(),
+                PaymentMethod = paymentMethod ?? "",
+                CashReceived = cashReceived,
+                CartJson = App.Cart.Root.GetRawText(),
+                CartId = App.Cart.CartId,
+                ShiftId = App.ActiveShiftId,
+                BranchId = App.Api.ActiveBranchId,
+                CashboxId = App.PosCashboxId,
+                Status = "pending_sync",
+                CreatedAt = DateTimeOffset.Now
+            };
+            OfflinePendingSalesStore.Append(entry);
+            PosLogger.Log("Офлайн-чек сохранён, ID: " + entry.Id, "OFFLINE");
+            CartMessageText.Text = "Чек сохранён локально. Будет отправлен при появлении сети.";
+            CartMessageText.Foreground = UiWarn;
+        }
+
+        if (wantPrintReceipt && UserPreferences.Instance.ReceiptEnabled)
+        {
+            var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
+            if (cfg.Enabled && !string.IsNullOrWhiteSpace(cfg.DevicePath))
+            {
+                try
+                {
+                    var txt = CartReceiptTextBuilder.BuildSimpleReceipt(
+                        App.Cart.Root.GetRawText(),
+                        paymentMethodKey: paymentMethod ?? "—",
+                        cashReceived: cashReceived);
+                    EscPosTextReceiptPrinter.Print(cfg, txt);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log("Ошибка печати: " + ex.Message, "PRINTER");
+                }
+            }
+        }
+
+        _ = Task.Run(() => App.OfflineSync.TriggerSyncNowAsync(CancellationToken.None));
+    }
+
     private async Task RefreshShiftStateAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -1515,125 +2341,66 @@ public partial class MainWindow : Window
         return false;
     }
 
+    private async void ClearOrderDiscountFromHeader_Click(object sender, RoutedEventArgs e)
+    {
+        await ClearOrderDiscountAsync();
+    }
     private void UpdateShiftBanner()
     {
-        string tip;
-        if (!string.IsNullOrEmpty(App.ActiveShiftId))
-        {
-            ShiftBannerBar.Background = ThemeBrush("BrushShiftOpenBg", FallbackShiftOpenBg);
-            ShiftBannerBar.BorderBrush = ThemeBrush("BrushShiftOpenBorder", FallbackShiftOpenBorder);
-            var desk = App.PosCashboxDisplayName ?? App.PosCashboxId ?? "—";
-            tip = $"Смена открыта. Касса: {desk}.";
-            CloseShiftButton.IsEnabled = true;
-        }
-        else
-        {
-            ShiftBannerBar.Background = ThemeBrush("BrushShiftWarnBg", FallbackShiftWarnBg);
-            ShiftBannerBar.BorderBrush = ThemeBrush("BrushShiftWarnBorder", FallbackShiftWarnBorder);
-            tip =
-                "Смена не открыта на этой кассе — нажмите «Открыть смену» (иначе открытие нового чека может вернуть ошибку).";
-            CloseShiftButton.IsEnabled = false;
-        }
+        bool shiftOpen = !string.IsNullOrEmpty(App.ActiveShiftId);
+        ShiftOpenForSale = shiftOpen;
 
-        ShiftBannerBar.ToolTip = tip;
-        ShiftOpenForSale = !string.IsNullOrEmpty(App.ActiveShiftId);
-        SetScanBusy(_isUiBusy);
+        if (OpenShiftButton != null)
+            OpenShiftButton.IsEnabled = !shiftOpen;
+
+        if (CloseShiftButton != null)
+            CloseShiftButton.IsEnabled = shiftOpen;
     }
 
     private async void OpenShift_Click(object sender, RoutedEventArgs e)
     {
-        OpenShiftButton.IsEnabled = false;
-        CloseShiftButton.IsEnabled = false;
-        try
+        var dlg = new OpenShiftDialog { Owner = this };
+        if (dlg.ShowDialog() == true)
         {
-            var cb = await EnsurePosCashboxIdAsync().ConfigureAwait(true);
-            if (string.IsNullOrEmpty(cb))
-            {
-                MessageBox.Show(
-                    "Не удалось определить кассу (список касс пуст или недоступен).",
-                    "Смена",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
-            }
-
-            var dlg = new OpenShiftDialog { Owner = this };
-            if (dlg.ShowDialog() != true)
-                return;
-
-            var opening = string.IsNullOrWhiteSpace(dlg.OpeningCash) ? "0.00" : dlg.OpeningCash;
-            var resp = await App.Api.ConstructionShiftOpenAsync(cb, opening).ConfigureAwait(true);
-            var sid = CartDisplayHelper.TryShiftIdFromOpenResponse(resp);
-            if (!string.IsNullOrEmpty(sid))
-                App.ActiveShiftId = sid;
-            else
-                await RefreshShiftStateAsync().ConfigureAwait(true);
-
-            UpdateShiftBanner();
-            MessageBox.Show("Смена открыта.", "Смена", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (ApiException ex)
-        {
-            MessageBox.Show(ex.Message, "Смена", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        catch (HttpRequestException ex)
-        {
-            MessageBox.Show(
-                string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message,
-                "Смена",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-        catch (TaskCanceledException)
-        {
-            MessageBox.Show("Таймаут запроса.", "Смена", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            OpenShiftButton.IsEnabled = true;
-            CloseShiftButton.IsEnabled = !string.IsNullOrEmpty(App.ActiveShiftId);
+            await OpenShiftWithCashAsync(dlg.OpeningCash);
         }
     }
 
     private async void CloseShift_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(App.ActiveShiftId))
-            return;
+        if (string.IsNullOrEmpty(App.ActiveShiftId)) return;
 
         var dlg = new CloseShiftDialog { Owner = this };
-        if (dlg.ShowDialog() != true)
-            return;
+        if (dlg.ShowDialog() == true)
+        {
+            await CloseShiftWithCashAsync(dlg.ClosingCash);
+        }
+    }
 
-        OpenShiftButton.IsEnabled = false;
-        CloseShiftButton.IsEnabled = false;
-        try
+    private void WarehouseGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (WarehouseGrid.SelectedItem is MainWindow.WarehouseItemVm item)
         {
-            await App.Api.ConstructionShiftCloseAsync(App.ActiveShiftId, dlg.ClosingCashOrNull).ConfigureAwait(true);
-            App.ActiveShiftId = null;
-            await RefreshShiftStateAsync().ConfigureAwait(true);
-            MessageBox.Show("Смена закрыта.", "Смена", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (ApiException ex)
-        {
-            MessageBox.Show(ex.Message, "Смена", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        catch (HttpRequestException ex)
-        {
-            MessageBox.Show(
-                string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message,
-                "Смена",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-        }
-        catch (TaskCanceledException)
-        {
-            MessageBox.Show("Таймаут запроса.", "Смена", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            OpenShiftButton.IsEnabled = true;
-            CloseShiftButton.IsEnabled = !string.IsNullOrEmpty(App.ActiveShiftId);
-            UpdateShiftBanner();
+            var product = new ProductDetailVm
+            {
+                Id = item.Id,
+                ProductName = item.ProductName,
+                Barcode = item.Code,
+                Article = item.Article,
+                Code = item.Code,
+                Price = item.Price,
+                PurchasePrice = item.Price * 0.7m,    // примерная закупочная цена
+                MarkupPercent = 0.30m,                // примерная наценка
+                Category = "Основная",
+                Country = "Кыргызстан",
+                Group = "Продовольствие",
+                Description = item.ProductName,
+                CreatedAt = DateTime.Now,
+                ExpiryDate = DateTime.Now.AddMonths(6)
+            };
+
+            var dlg = new ProductDetailWindow(product) { Owner = this };
+            dlg.ShowDialog();
         }
     }
 
@@ -1655,11 +2422,12 @@ public partial class MainWindow : Window
 
     private async void StartSale_Click(object sender, RoutedEventArgs e)
     {
+        // 1. Если в чеке уже есть товары – спрашиваем разрешение
         if (HasActiveCartLines)
         {
             var answer = MessageBox.Show(
                 this,
-                "В текущем чеке уже есть товары.\n\nОткрыть новый пустой чек?",
+                "В текущем чеке есть товары. Очистить список и открыть новый чек?",
                 "Новый чек",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -1667,52 +2435,82 @@ public partial class MainWindow : Window
                 return;
         }
 
+        // 2. Проверяем, что смена открыта
         if (!await EnsureShiftReadyForOperationsAsync(silent: false).ConfigureAwait(true))
             return;
 
-        CartMessageText.Text = "";
+        // 3. Принудительно очищаем UI и локальную корзину
+        ForceClearCartDisplay();
+        CartMessageText.Text = "Создаётся новый чек…";
+        CartMessageText.Foreground = UiMuted;
         StartSaleButton.IsEnabled = false;
-        RefreshCartButton.IsEnabled = false;
-        CheckoutFooterButton.IsEnabled = false;
-        ScanBarcodeButton.IsEnabled = false;
-        BarcodeBox.IsEnabled = false;
+
         try
         {
+            // 4. Создаём новую продажу на сервере
             await TryStartNewSaleAsync().ConfigureAwait(true);
+
+            // 5. Удаляем всё, что сервер мог вернуть в «пустой» корзине
+            var items = CartDisplayHelper.EnumerateItems(App.Cart.Root).ToList();
+            foreach (var it in items)
+            {
+                var id = CartDisplayHelper.TryItemId(it);
+                if (!string.IsNullOrEmpty(id))
+                    await App.Api.PosCartItemDeleteAsync(App.Cart.CartId!, id, CancellationToken.None);
+            }
+            await ReloadCartFromServerAsync().ConfigureAwait(true);
+
+            // 6. Обновляем UI
             RebindCartUi();
             CartMessageText.Text = "Новый чек открыт.";
             CartMessageText.Foreground = UiOk;
+            ShowToast("Готов к продаже", false);
         }
-        catch (ApiException ex)
+        catch (Exception ex)
         {
-            CartMessageText.Text = ex.Message;
+            CartMessageText.Text = ex is ApiException ? ex.Message : "Ошибка связи с сервером.";
             CartMessageText.Foreground = UiWarn;
-        }
-        catch (HttpRequestException ex)
-        {
-            CartMessageText.Text = string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message;
-            CartMessageText.Foreground = UiWarn;
-        }
-        catch (TaskCanceledException)
-        {
-            CartMessageText.Text = "Таймаут запроса.";
-            CartMessageText.Foreground = UiWarn;
+            ShowToast("Не удалось открыть новый чек", true);
         }
         finally
         {
             StartSaleButton.IsEnabled = true;
-            RefreshCartButton.IsEnabled = App.Cart.CanRefresh;
-            CheckoutFooterButton.IsEnabled = App.Cart.CanRefresh && CartLines.Count > 0;
-            ScanBarcodeButton.IsEnabled = App.Cart.CanRefresh;
-            BarcodeBox.IsEnabled = App.Cart.CanRefresh;
         }
     }
 
     private async Task TryStartNewSaleAsync(CancellationToken cancellationToken = default)
     {
+        // 1. Запрашиваем новую продажу
         var cb = await EnsurePosCashboxIdAsync(cancellationToken).ConfigureAwait(true);
-        var cart = await App.Api.PosSalesStartAsync(string.IsNullOrWhiteSpace(cb) ? null : cb, cancellationToken).ConfigureAwait(true);
+        var cart = await App.Api.PosSalesStartAsync(
+            string.IsNullOrWhiteSpace(cb) ? null : cb, cancellationToken).ConfigureAwait(true);
         App.Cart.SetCart(cart);
+
+        // 2. Дополнительная страховка: если сервер всё равно вернул непустую корзину – 
+        //    удаляем все позиции принудительно
+        if (App.Cart.HasCart)
+        {
+            string? cartId = App.Cart.CartId;
+            if (!string.IsNullOrEmpty(cartId))
+            {
+                var items = CartDisplayHelper.EnumerateItems(App.Cart.Root).ToList();
+                if (items.Count > 0)
+                {
+                    foreach (var it in items)
+                    {
+                        var id = CartDisplayHelper.TryItemId(it);
+                        if (!string.IsNullOrEmpty(id))
+                            await App.Api.PosCartItemDeleteAsync(cartId, id, CancellationToken.None);
+                    }
+                    var fresh = await App.Api.PosCartGetAsync(cartId).ConfigureAwait(true);
+                    App.Cart.SetCart(fresh);
+                }
+            }
+        }
+
+        // 3. **НОВОЕ**: финальная перезагрузка корзины с сервера,
+        // чтобы гарантировать актуальное состояние
+        await ReloadCartFromServerAsync().ConfigureAwait(true);
     }
 
     /// <summary>После успешной оплаты: сброс локальной корзины и автоматическое открытие нового чека.</summary>
@@ -1911,6 +2709,7 @@ public partial class MainWindow : Window
         }
     }
 
+
     private async Task Checkout_ClickCoreAsync()
     {
         PosLogger.Log("Начало процесса оплаты", "PAYMENT");
@@ -1929,7 +2728,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!await EnsureShiftReadyForOperationsAsync(silent: false).ConfigureAwait(true))
+        if (!await EnsureShiftReadyForOperationsAsync(false).ConfigureAwait(true))
             return;
 
         var total = CartDisplayHelper.TotalDue(App.Cart.Root);
@@ -1948,67 +2747,22 @@ public partial class MainWindow : Window
             $"Диалог оплаты OK: method={paymentMethod}, cash_received={cashReceived}, print_receipt={wantPrintReceipt}, total={total}",
             "PAYMENT");
 
-        var body = new Dictionary<string, string>
-        {
-            ["payment_method"] = paymentMethod ?? "",
-            ["print_receipt"] = wantPrintReceipt ? "true" : "false",
-            ["cash_received"] = cashReceived ?? "",
-        };
-
         CartMessageText.Text = "";
         SetScanBusy(true);
         try
         {
-            PosLogger.Log($"POST checkout cart_id={App.Cart.CartId}", "PAYMENT");
-            var res = await App.Api.PosCheckoutAsync(App.Cart.CartId!, body).ConfigureAwait(true);
-            PosLogger.Log("POST checkout: HTTP OK, разбор ответа", "PAYMENT");
-            try
-            {
-                var msg = CheckoutResponseHelper.FormatSuccess(res);
-                var printNote = await TryPrintReceiptAfterCheckoutAsync(res, wantPrintReceipt).ConfigureAwait(true);
-                if (!string.IsNullOrEmpty(printNote))
-                    msg += Environment.NewLine + printNote;
-                else if (wantPrintReceipt && UserPreferences.Instance.ReceiptEnabled)
-                    msg += Environment.NewLine + "Чек отправлен на принтер.";
-                var saleRestartErr = await TryRestartSaleSessionAfterCheckoutAsync().ConfigureAwait(true);
-                if (saleRestartErr != null)
-                {
-                    msg += Environment.NewLine + Environment.NewLine +
-                           "Новая продажа не открыта автоматически: " + saleRestartErr + Environment.NewLine +
-                           "Нажмите «Новый чек».";
-                    CartMessageText.Text = "Нажмите «Новый чек», чтобы продолжить.";
-                    CartMessageText.Foreground = UiWarn;
-                }
-                else
-                {
-                    CartMessageText.Text = "Новый чек открыт — добавьте товары.";
-                    CartMessageText.Foreground = UiOk;
-                }
+            await FinalizeReceiptAsync(paymentMethod, cashReceived, wantPrintReceipt).ConfigureAwait(true);
 
-                MessageBox.Show(msg, "Оплата", MessageBoxButton.OK, MessageBoxImage.Information);
-                PosLogger.Log("Оплата: успешно завершена (новая продажа после чека)", "PAYMENT");
-            }
-            catch (Exception inner)
+            var restartErr = await TryRestartSaleSessionAfterCheckoutAsync().ConfigureAwait(true);
+            if (restartErr != null)
             {
-                PosLogger.Log(
-                    $"Оплата: ошибка после успешного ответа сервера: {inner.Message} | {inner.StackTrace}",
-                    "ERROR");
-                MessageBox.Show(
-                    "Оплата прошла, но при печати или обновлении экрана произошла ошибка.\n\n" + inner.Message,
-                    "Оплата",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                var saleRestartErr = await TryRestartSaleSessionAfterCheckoutAsync().ConfigureAwait(true);
-                if (saleRestartErr != null)
-                {
-                    CartMessageText.Text = "Нажмите «Новый чек», чтобы продолжить.";
-                    CartMessageText.Foreground = UiWarn;
-                }
-                else
-                {
-                    CartMessageText.Text = "Новый чек открыт — добавьте товары.";
-                    CartMessageText.Foreground = UiOk;
-                }
+                CartMessageText.Text = "Нажмите «Новый чек», чтобы продолжить.";
+                CartMessageText.Foreground = UiWarn;
+            }
+            else
+            {
+                CartMessageText.Text = "Новый чек открыт — добавьте товары.";
+                CartMessageText.Foreground = UiOk;
             }
 
             await RefreshShiftStateAsync().ConfigureAwait(true);
@@ -2026,11 +2780,8 @@ public partial class MainWindow : Window
         catch (JsonException ex)
         {
             PosLogger.Log($"Оплата JsonException: {ex.Message}", "ERROR");
-            MessageBox.Show(
-                "Сервер вернул ответ, который не удалось разобрать как JSON (оплата могла пройти или нет).\n\n" + ex.Message,
-                "Оплата",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            MessageBox.Show("Сервер вернул ответ, который не удалось разобрать как JSON (оплата могла пройти или нет).\n\n" + ex.Message,
+                "Оплата", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         catch (OperationCanceledException)
         {
@@ -2041,16 +2792,75 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Оплата Exception: {ex.Message} | {ex.StackTrace}", "ERROR");
-            MessageBox.Show(
-                "Неожиданная ошибка при оплате:\n\n" + ex.Message,
-                "Оплата",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            MessageBox.Show("Неожиданная ошибка при оплате:\n\n" + ex.Message, "Оплата", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
             SetScanBusy(false);
         }
+    }
+
+    private void ForceClearCartDisplay()
+    {
+        CartLines.Clear();
+        CartTotalAmountText.Text = "0.00";
+        CartItemsCountText.Text = "0";
+        CheckoutFooterButton.IsEnabled = false;
+        CartMessageText.Text = "";
+        CartMessageText.Foreground = UiMuted;
+        App.Cart.Clear();
+        OrderDiscountSummaryText.Text = "Скидка не задана.";
+    }
+
+    private void ClearSearch_Click(object sender, RoutedEventArgs e)
+    {
+        CatalogSearchBox.Text = "";
+    }
+
+    private void OnCatalogCacheChanged(object sender, NotifyCollectionChangedEventArgs e)
+    {
+        // При любом изменении кэша полностью перестраиваем каталог.
+        UpdateCatalogDisplay();
+    }
+
+    private void UpdateCatalogDisplay()
+    {
+        var products = CatalogCacheService.Products;
+        // Разделяем на весовые и штучные
+        var kg = products.Where(p => p.MustWeigh).ToList();
+        var piece = products.Where(p => !p.MustWeigh).ToList();
+
+        // Очищаем основные списки
+        _allTilesKg.Clear();
+        _allTilesKg.AddRange(kg);
+        _allTilesPiece.Clear();
+        _allTilesPiece.AddRange(piece);
+
+        // Перестраиваем отображаемые коллекции с учётом текущего viewport'а
+        // Сначала очищаем
+        _tilesKg.Clear();
+        _tilesPiece.Clear();
+
+        // Применяем фильтр, если он есть
+        var filteredKg = _currentFilter != null
+            ? _allTilesKg.Where(vm => FilterPredicate(vm)).ToList()
+            : _allTilesKg;
+        var filteredPiece = _currentFilter != null
+            ? _allTilesPiece.Where(vm => FilterPredicate(vm)).ToList()
+            : _allTilesPiece;
+
+        // Обновляем отображаемые плитки с учётом viewport'а (но ResetCatalogViewport обнулит счетчики, поэтому мы аккуратно перезаполним)
+        // Используем EnsureActiveCatalogPageVisible для вычисления видимого количества
+        _visibleKgCount = Math.Min(_visibleKgCount == 0 ? CatalogInitialRenderCount : _visibleKgCount, filteredKg.Count);
+        _visiblePieceCount = Math.Min(_visiblePieceCount == 0 ? CatalogInitialRenderCount : _visiblePieceCount, filteredPiece.Count);
+
+        SyncVisibleTiles(_tilesKg, filteredKg, _visibleKgCount);
+        SyncVisibleTiles(_tilesPiece, filteredPiece, _visiblePieceCount);
+
+        // Сортировка избранного, обновление счётчиков и уведомление
+        SortByFavorite();
+        UpdateCatalogCount();
+        OnPropertyChanged("CatalogTableSource");
     }
 
     private async Task HandleAutomaticOfflineCheckoutAsync(
@@ -2099,6 +2909,52 @@ public partial class MainWindow : Window
             "Оффлайн-оплата",
             MessageBoxButton.OK,
             MessageBoxImage.Warning);
+    }
+
+    private void OfflineStatus_Click(object sender, RoutedEventArgs e)
+    {
+        int pending = OfflinePendingSalesStore.PendingCount;
+        int failed = OfflinePendingSalesStore.FailedCount;
+        string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                                   "NurMarketKassa", "offline_sales_pending.json");
+        MessageBox.Show(
+            $"Ожидают синхронизации: {pending}\nОшибок синхронизации: {failed}\n\nФайл данных:\n{path}",
+            "Оффлайн-продажи", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void FilterButton_Click(object sender, RoutedEventArgs e)
+    {
+        var filterWindow = new FilterWindow(App.Api, Categories, Brands)
+        {
+            Owner = this
+        };
+
+        if (filterWindow.ShowDialog() == true)
+        {
+            // Сброс фильтра
+            if (filterWindow.Result == null && filterWindow.FilteredTiles == null)
+            {
+                _currentFilter = null;
+                UpdateCatalogDisplay();   // показывает всё
+                return;
+            }
+
+            // Если сервер вернул плитки – используем их как основу
+            if (filterWindow.FilteredTiles != null && filterWindow.FilteredTiles.Count > 0)
+            {
+                _allTilesKg.Clear();
+                _allTilesPiece.Clear();
+                foreach (var tile in filterWindow.FilteredTiles)
+                {
+                    if (tile.MustWeigh) _allTilesKg.Add(tile);
+                    else _allTilesPiece.Add(tile);
+                }
+            }
+
+            // Применяем локальную фильтрацию по критериям
+            if (filterWindow.Result != null)
+                ApplyFilterToCatalog(filterWindow.Result);
+        }
     }
 
     private async void RefreshCart_Click(object sender, RoutedEventArgs e)
@@ -2162,6 +3018,118 @@ public partial class MainWindow : Window
         _ = RunScanAsync(BarcodeBox.Text);
     }
 
+    private void ToggleFavorite_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.DataContext is CatalogProductTileVm vm)
+        {
+            vm.IsFavorite = !vm.IsFavorite;
+
+            if (vm.IsFavorite)
+                CatalogCacheService.FavoriteIds.Add(vm.Id);
+            else
+                CatalogCacheService.FavoriteIds.Remove(vm.Id);
+            CatalogCacheService.SaveFavoriteIds();
+
+            SortByFavorite();           // теперь только сортировка _allTiles*
+            ApplyCatalogViewport();     // перестраивает _tiles* из отсортированных списков
+        }
+    }
+
+    private void ApplyFilterToCatalog(FilterCriteria criteria)
+    {
+        _currentFilter = criteria;
+        SortByFavorite();
+
+        var filteredKg = new List<CatalogProductTileVm>();
+        var filteredPiece = new List<CatalogProductTileVm>();
+
+        foreach (var vm in _allTilesKg)
+            if (FilterPredicate(vm)) filteredKg.Add(vm);
+        foreach (var vm in _allTilesPiece)
+            if (FilterPredicate(vm)) filteredPiece.Add(vm);
+
+        _tilesKg.Reset(filteredKg);
+        _tilesPiece.Reset(filteredPiece);
+
+        UpdateCatalogCount();
+        OnPropertyChanged("CatalogTableSource");
+    }
+
+    private bool FilterPredicate(object obj)
+    {
+        if (obj is not CatalogProductTileVm vm) return false;
+        if (_currentFilter == null) return true;
+
+        if (_currentFilter.DateFrom.HasValue && vm.CreatedAt < _currentFilter.DateFrom.Value) return false;
+        if (_currentFilter.DateTo.HasValue && vm.CreatedAt > _currentFilter.DateTo.Value) return false;
+
+        if (!string.IsNullOrEmpty(_currentFilter.Category) &&
+            !string.Equals(vm.Category ?? "", _currentFilter.Category, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (!string.IsNullOrEmpty(_currentFilter.Brand) &&
+            !string.Equals(vm.Brand ?? "", _currentFilter.Brand, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (!string.IsNullOrEmpty(_currentFilter.Client) &&
+            !string.Equals(vm.ClientName ?? "", _currentFilter.Client, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (!string.IsNullOrEmpty(_currentFilter.Status) &&
+            !string.Equals(vm.Status ?? "", _currentFilter.Status, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (!string.IsNullOrEmpty(_currentFilter.HotkeyGroup) &&
+            !string.Equals(vm.HotkeyGroup ?? "", _currentFilter.HotkeyGroup, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (_currentFilter.OnlyWeight && !vm.MustWeigh) return false;
+        if (_currentFilter.OnlyInStock && vm.Quantity <= 0) return false;
+        if (_currentFilter.OnlyFavorite && !vm.IsFavorite) return false;
+
+        return true;
+    }
+
+    private void SortByFavorite()
+    {
+        // Сортируем: сначала избранные, потом по алфавиту
+        Comparison<CatalogProductTileVm> comparison = (a, b) =>
+        {
+            int favCompare = b.IsFavorite.CompareTo(a.IsFavorite);
+            if (favCompare != 0) return favCompare;
+            return string.Compare(a.Title, b.Title, StringComparison.CurrentCultureIgnoreCase);
+        };
+
+        _allTilesKg.Sort(comparison);
+        _allTilesPiece.Sort(comparison);
+
+        // Обновляем отображаемые коллекции
+        _tilesKg.Clear();
+        foreach (var t in _allTilesKg) _tilesKg.Add(t);
+        _tilesPiece.Clear();
+        foreach (var t in _allTilesPiece) _tilesPiece.Add(t);
+
+        OnPropertyChanged("CatalogTableSource");
+    }
+
+    private void UpdateCatalogCount()
+    {
+        // Обновляем заголовки вкладок с информацией о количестве
+        if (CatalogTabs != null && CatalogTabs.Items.Count >= 2)
+        {
+            var kgHeader = $"Весовые (кг)  {_tilesKg.Count}/{_allTilesKg.Count}";
+            var pieceHeader = $"Штучные  {_tilesPiece.Count}/{_allTilesPiece.Count}";
+
+            if (CatalogTabs.Items[0] is TabItem tabKg)
+                tabKg.Header = kgHeader;
+            if (CatalogTabs.Items[1] is TabItem tabPiece)
+                tabPiece.Header = pieceHeader;
+        }
+    }
+
+    private async void CatalogProduct_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is CatalogProductTileVm vm)
+        {
+            if (UserPreferences.Instance.SingleClickToCart || e.ClickCount == 2)
+                await PickProductFromCatalogAsync(vm);
+        }
+    }
     private async void ScanBarcode_Click(object sender, RoutedEventArgs e) => await RunScanAsync(BarcodeBox.Text);
 
     private async Task RunScanAsync(string? rawCode)
@@ -2184,8 +3152,17 @@ public partial class MainWindow : Window
                 try
                 {
                     var resp = await App.Api.PosScanAsync(App.Cart.CartId!, code).ConfigureAwait(true);
+                    // Всегда обновляем локальную корзину из ответа ИЛИ перезагружаем с сервера
                     if (!CartResponseHelper.TryUpdateCartSession(resp, App.Cart))
+                    {
                         await ReloadCartFromServerAsync().ConfigureAwait(true);
+                    }
+                    else
+                    {
+                        // Дополнительная страховка: принудительно перезагружаем корзину,
+                        // чтобы гарантировать наличие всех позиций
+                        await ReloadCartFromServerAsync().ConfigureAwait(true);
+                    }
                     RebindCartUi();
                     CartMessageText.Text = "Товар добавлен.";
                     CartMessageText.Foreground = UiOk;
@@ -2240,6 +3217,73 @@ public partial class MainWindow : Window
         }
     }
 
+    private async Task ApplyLineDiscountAsync(string itemId, string? mode, string? value)
+    {
+        if (!App.Cart.CanRefresh || string.IsNullOrEmpty(itemId))
+            return;
+
+        SetScanBusy(true);
+        try
+        {
+            var body = new Dictionary<string, string>();
+            if (mode == null)
+            {
+                body["discount_percent"] = "0";
+                body["discount_total"] = "0";
+            }
+            else if (mode == "percent")
+            {
+                body["discount_percent"] = value!;
+            }
+            else
+            {
+                body["discount_total"] = value!;
+            }
+
+            var resp = await App.Api.PosCartItemPatchAsync(App.Cart.CartId!, itemId, body);
+            if (!CartResponseHelper.TryUpdateCartSession(resp, App.Cart))
+                await ReloadCartFromServerAsync();
+            RebindCartUi();
+            CartMessageText.Text = "Скидка на товар обновлена.";
+            CartMessageText.Foreground = UiOk;
+        }
+        catch (ApiException ex)
+        {
+            CartMessageText.Text = ex.Message;
+            CartMessageText.Foreground = UiWarn;
+        }
+        catch (HttpRequestException ex)
+        {
+            CartMessageText.Text = string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message;
+            CartMessageText.Foreground = UiWarn;
+        }
+        finally
+        {
+            SetScanBusy(false);
+        }
+    }
+
+    private async void CartLineDiscount_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not CartLineRow row)
+            return;
+
+        // Открываем диалог с предустановками для товара
+        var dlg = new OrderDiscountDialog("", "") { Owner = this };
+        dlg.SetItemMode(row.Title, row.DiscountType, row.DiscountValue);
+        if (dlg.ShowDialog() != true)
+            return;
+
+        if (dlg.ClearRequested)
+        {
+            await ApplyLineDiscountAsync(row.ItemId, null, null); // сброс
+        }
+        else
+        {
+            await ApplyLineDiscountAsync(row.ItemId, dlg.DiscountMode, dlg.DiscountValue);
+        }
+    }
+
     private void SetScanBusy(bool busy)
     {
         _isUiBusy = busy;
@@ -2266,10 +3310,10 @@ public partial class MainWindow : Window
             RestoreLatestDeferredButton.IsEnabled = !busy && deferredCount > 0;
         if (OpenDeferredCartsButton != null)
             OpenDeferredCartsButton.IsEnabled = !busy && deferredCount > 0;
-        if (OfflineSaleButton != null)
-            OfflineSaleButton.IsEnabled = !busy && can && hasLines == true;
-        if (OfflineQueueButton != null)
-            OfflineQueueButton.IsEnabled = !busy && offlineQueue > 0;
+        //if (OfflineSaleButton != null)
+        //    OfflineSaleButton.IsEnabled = !busy && can && hasLines == true;
+        //if (OfflineQueueButton != null)
+        //    OfflineQueueButton.IsEnabled = !busy && offlineQueue > 0;
     }
 
     private async void CartQtyMinus_Click(object sender, RoutedEventArgs e)
@@ -2309,7 +3353,8 @@ public partial class MainWindow : Window
             _scaleService,
             initialKg: initial,
             okButtonText: "Применить",
-            windowTitle: "Изменить вес") { Owner = this };
+            windowTitle: "Изменить вес")
+        { Owner = this };
 
         if (dlg.ShowDialog() != true || string.IsNullOrEmpty(dlg.QuantityNormalized))
             return;
@@ -2478,6 +3523,31 @@ public partial class MainWindow : Window
             var sub = $"{FormatQtySubline(qtyVal, weighed)} {unit} × {CartDisplayHelper.FormatMoney(up)} сом";
             var priceKg = weighed ? $"{CartDisplayHelper.FormatMoney(up)} сом" : "";
 
+            // --- НОВЫЙ БЛОК: Чтение скидки из JSON ---
+            // Чтение скидки с позиции (discount_percent / discount_total)
+            string? discType = null;
+            decimal? discVal = null;
+
+            if (it.TryGetProperty("discount_percent", out var pctEl) && pctEl.ValueKind == JsonValueKind.Number)
+            {
+                double pct = pctEl.GetDouble();
+                if (pct != 0)
+                {
+                    discType = "percent";
+                    discVal = (decimal)pct;
+                }
+            }
+            else if (it.TryGetProperty("discount_total", out var sumEl) && sumEl.ValueKind == JsonValueKind.Number)
+            {
+                double sum = sumEl.GetDouble();
+                if (sum != 0)
+                {
+                    discType = "sum";
+                    discVal = (decimal)sum;
+                }
+            }
+            // ------------------------------------------
+
             CartLines.Add(new CartLineRow
             {
                 ItemId = iid,
@@ -2487,6 +3557,8 @@ public partial class MainWindow : Window
                 SubLine = sub,
                 LineTotal = CartDisplayHelper.LineTotal(it),
                 PricePerKgHint = priceKg,
+                DiscountType = discType,      // ← Важно!
+                DiscountValue = discVal       // ← Важно!
             });
         }
 
@@ -2637,7 +3709,30 @@ public partial class MainWindow : Window
         return "Пользователь";
     }
 
-    private void Logout_Click(object sender, RoutedEventArgs e) => NavigateToLogin();
+    private async void Logout_Click(object sender, RoutedEventArgs e)
+    {
+        // Если смена активна – предупредим кассира
+        if (!string.IsNullOrEmpty(App.ActiveShiftId))
+        {
+            var result = MessageBox.Show(
+                "У вас осталась открытая смена. Закрыть её перед выходом?",
+                "Смена не закрыта",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            if (result == MessageBoxResult.Cancel)
+                return;                           // отмена выхода
+
+            if (result == MessageBoxResult.Yes)
+            {
+                // Пытаемся закрыть смену
+                await CloseShiftAsync();          // существующий метод в MainWindow
+            }
+        }
+
+        // Продолжаем выход из системы
+        NavigateToLogin();
+    }
 
     private void NavigateToLogin()
     {
@@ -2658,5 +3753,81 @@ public partial class MainWindow : Window
         {
             _allowMainWindowClose = false;
         }
+    }
+
+    // ────────── Управление наличными (панель смены) ──────────
+
+    private static readonly string CashHistoryFilePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "NurMarketKassa", "cash_history.json");
+
+    // Показать панель «Внесение»
+
+
+    // Применить операцию (внесение / изъятие)
+
+
+    // Отмена операции
+
+
+    // Сохранить начальный остаток (сумму при открытии смены)
+
+
+    // История операций с наличными
+
+
+    // ────────── Вспомогательные методы для работы с файлом ──────────
+    private static List<FinanceWindow.CashSessionEntry> LoadCashHistoryFromDisk()
+    {
+        try
+        {
+            if (File.Exists(CashHistoryFilePath))
+            {
+                string json = File.ReadAllText(CashHistoryFilePath);
+                return JsonSerializer.Deserialize<List<FinanceWindow.CashSessionEntry>>(json) ?? new List<FinanceWindow.CashSessionEntry>();
+            }
+        }
+        catch { /* игнорируем ошибки чтения */ }
+        return new List<FinanceWindow.CashSessionEntry>();
+    }
+
+    private static void SaveCashHistoryToDisk(IEnumerable<FinanceWindow.CashSessionEntry> entries)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(CashHistoryFilePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = false });
+            File.WriteAllText(CashHistoryFilePath, json);
+        }
+        catch { /* игнорируем ошибки записи */ }
+    }
+
+    public class WarehouseItemVm : INotifyPropertyChanged
+    {
+        private string _id = "";
+        private string _productName = "";
+        private string _code = "";
+        private string _article = "";
+        private string _unit = "";
+        private decimal _price;
+        private decimal _discount;
+        private double _stockQuantity;
+        private Brush _stockBrush = Brushes.White;
+
+        public string Id { get => _id; set { _id = value; OnPropertyChanged(); } }
+        public string ProductName { get => _productName; set { _productName = value; OnPropertyChanged(); } }
+        public string Code { get => _code; set { _code = value; OnPropertyChanged(); } }
+        public string Article { get => _article; set { _article = value; OnPropertyChanged(); } }
+        public string Unit { get => _unit; set { _unit = value; OnPropertyChanged(); } }
+        public decimal Price { get => _price; set { _price = value; OnPropertyChanged(); } }
+        public decimal Discount { get => _discount; set { _discount = value; OnPropertyChanged(); } }
+        public double StockQuantity { get => _stockQuantity; set { _stockQuantity = value; OnPropertyChanged(); } }
+        public Brush StockBrush { get => _stockBrush; set { _stockBrush = value; OnPropertyChanged(); } }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
