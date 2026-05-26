@@ -1,49 +1,40 @@
-<Window
-	x:Class="NurMarketKassa.Views.CloseShiftDialog"
-	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	Title="Закрыть смену"
-	Height="320"
-	Width="470"
-	ResizeMode="NoResize"
-	WindowStartupLocation="CenterOwner"
-	Style="{StaticResource AppWindow}"
-	xmlns:views="clr-namespace:NurMarketKassa.Converters">
-    <Grid
-		Margin="18">
-        <Border
-			Style="{StaticResource ElevatedCardBorder}"
-			CornerRadius="12">
+<Window x:Class="NurMarketKassa.Views.CloseShiftDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Закрыть смену"
+        Height="350" Width="520"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Style="{StaticResource AppWindow}">
+    <Grid Margin="24">
+        <Border Style="{StaticResource ElevatedCardBorder}" CornerRadius="12" Padding="20">
             <StackPanel>
-                <TextBlock
-					Text="Закрыть смену"
-					Style="{StaticResource DialogTitleText}" />
-                <TextBlock
-					Text="Укажите остаток наличных. Поле можно оставить пустым, если сумма не нужна."
-					Margin="0,8,0,0"
-					Style="{StaticResource DialogLabelText}" />
-                <TextBlock
-					Text="Остаток в кассе"
-					Margin="0,18,0,4"
-					Style="{StaticResource DialogLabelText}" />
-                <TextBox
-					x:Name="ClosingCashBox"
-					Style="{StaticResource TouchTextBox}"
-					Margin="0,0,0,22" />
-                <StackPanel
-					Orientation="Horizontal"
-					HorizontalAlignment="Right">
-                    <Button
-						Content="Отмена"
-						IsCancel="True"
-						Style="{StaticResource TouchGhostButton}"
-						Margin="0,0,10,0"
-						Click="Cancel_Click" />
-                    <Button
-						Content="Закрыть смену"
-						IsDefault="True"
-						Style="{StaticResource TouchSecondaryButton}"
-						Click="Ok_Click" />
+                <TextBlock Text="Закрыть смену"
+                           Style="{StaticResource DialogTitleText}"
+                           Margin="0,0,0,12"/>
+                <TextBlock Text="Укажите остаток наличных. Поле можно оставить пустым, если сумма не нужна."
+                           Style="{StaticResource DialogLabelText}"
+                           Margin="0,0,0,16"/>
+                <TextBlock Text="Остаток в кассе"
+                           Foreground="{DynamicResource BrushTextSoft}"
+                           FontSize="13" FontWeight="SemiBold"
+                           Margin="0,0,0,6"/>
+                <TextBox x:Name="ClosingCashBox"
+                         Style="{StaticResource TouchTextBox}"
+                         Height="40" FontSize="16"
+                         Margin="0,0,0,24"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Отмена"
+                            IsCancel="True"
+                            Style="{StaticResource TouchSecondaryButton}"
+                            Width="100" Height="38"
+                            Margin="0,0,12,0"
+                            Click="Cancel_Click"/>
+                    <Button Content="Закрыть смену"
+                            IsDefault="True"
+                            Style="{StaticResource TouchPrimaryButton}"
+                            Width="139" Height="38"
+                            Click="Ok_Click"/>
                 </StackPanel>
             </StackPanel>
         </Border>

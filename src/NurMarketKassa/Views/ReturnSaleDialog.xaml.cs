@@ -67,6 +67,51 @@ namespace NurMarketKassa.Views
             Lines.CollectionChanged += (_, _) => UpdateReceiptChrome();
             Loaded += OnFirstLoaded;
             UpdateReceiptChrome();
+
+            ApplyLayout();
+        }
+
+        private void ApplyLayout()
+        {
+            if (UserPreferences.Instance.Fullscreen)
+            {
+                // 1. Переводим окно в полноэкранный режим
+                WindowStyle = WindowStyle.None;
+                WindowState = WindowState.Maximized;
+
+                // 2. Перестраиваем ContentGrid на две колонки
+                ContentGrid.ColumnDefinitions.Clear();
+                ContentGrid.RowDefinitions.Clear();
+                ContentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                ContentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+                ContentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.2, GridUnitType.Star) });
+                ContentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+                Grid.SetRow(ChecksBlock, 0);
+                Grid.SetColumn(ChecksBlock, 0);
+
+                Grid.SetRow(DetailsBlock, 0);
+                Grid.SetColumn(DetailsBlock, 2);
+            }
+            else
+            {
+                // 1. Возвращаем окно в обычный режим
+                WindowStyle = WindowStyle.SingleBorderWindow;
+                WindowState = WindowState.Normal;
+
+                // 2. Перестраиваем ContentGrid на две строки (вертикально)
+                ContentGrid.ColumnDefinitions.Clear();
+                ContentGrid.RowDefinitions.Clear();
+                ContentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                ContentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(3, GridUnitType.Star) });
+                ContentGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(2, GridUnitType.Star) });
+
+                Grid.SetRow(ChecksBlock, 0);
+                Grid.SetColumn(ChecksBlock, 0);
+
+                Grid.SetRow(DetailsBlock, 1);
+                Grid.SetColumn(DetailsBlock, 0);
+            }
         }
 
         private async void OnFirstLoaded(object sender, RoutedEventArgs e)
@@ -127,9 +172,35 @@ namespace NurMarketKassa.Views
                     var saleId = PosSaleRowFormatter.TrySaleId(row);
                     if (!string.IsNullOrEmpty(saleId) && _salesSeenIds.Add(saleId))
                     {
+                        // Извлечение даты (поддержка распространённых имён и форматов)
+                        DateTime saleDate = DateTime.MinValue;
+                        if (TryGetDateTime(row, "date", out saleDate)) { }
+                        else if (TryGetDateTime(row, "created_at", out saleDate)) { }
+                        else if (TryGetDateTime(row, "sale_date", out saleDate)) { }
+                        else if (TryGetDateTime(row, "order_date", out saleDate)) { }
+
+                        // Извлечение суммы (множество возможных полей)
+                        // Извлечение суммы
+                        decimal totalAmount = 0;
+                        if (!TryGetDecimal(row, "total", out totalAmount) &&
+                            !TryGetDecimal(row, "grand_total", out totalAmount) &&
+                            !TryGetDecimal(row, "total_amount", out totalAmount) &&
+                            !TryGetDecimal(row, "amount", out totalAmount) &&
+                            !TryGetDecimal(row, "total_sum", out totalAmount) &&
+                            !TryGetDecimal(row, "sum", out totalAmount) &&
+                            !TryGetDecimal(row, "price", out totalAmount) &&
+                            !TryGetDecimal(row, "total_price", out totalAmount) &&
+                            !TryGetDecimal(row, "final_total", out totalAmount) &&
+                            !TryGetDecimal(row, "order_total", out totalAmount))
+                        {
+                            // сумма не найдена, totalAmount останется 0
+                        }
+
                         Sales.Add(new ReturnSaleListItemVm
                         {
                             SaleId = saleId,
+                            SaleDate = saleDate,
+                            TotalAmount = totalAmount,
                             Summary = PosSaleRowFormatter.SummaryLine(row)
                         });
                         added++;
@@ -173,11 +244,45 @@ namespace NurMarketKassa.Views
             }
         }
 
+        // Вспомогательные методы (добавьте в класс ReturnSaleDialog)
+        private static bool TryGetDateTime(JsonElement element, string propertyName, out DateTime result)
+        {
+            result = DateTime.MinValue;
+            if (element.TryGetProperty(propertyName, out var prop))
+            {
+                if (prop.ValueKind == JsonValueKind.String)
+                    return DateTime.TryParse(prop.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out result);
+                else if (prop.ValueKind == JsonValueKind.Null)
+                    return false;
+            }
+            return false;
+        }
+
+        private static bool TryGetDecimal(JsonElement element, string propertyName, out decimal result)
+        {
+            result = 0;
+            if (element.TryGetProperty(propertyName, out var prop))
+            {
+                if (prop.ValueKind == JsonValueKind.Number)
+                {
+                    result = prop.GetDecimal();
+                    return true;
+                }
+                else if (prop.ValueKind == JsonValueKind.String &&
+                         decimal.TryParse(prop.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out result))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private async void SelectSale_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not Button button || button.Tag is not string saleId || string.IsNullOrWhiteSpace(saleId))
                 return;
-            await OpenSaleByIdAsync(saleId.Trim()).ConfigureAwait(true);
+
+            await OpenSaleByIdAsync(saleId.Trim());
         }
 
         private async void LoadById_Click(object sender, RoutedEventArgs e)
@@ -202,6 +307,7 @@ namespace NurMarketKassa.Views
                 UpdateReceiptChrome();
                 if (Lines.Count == 0)
                     ShowErr("В ответе сервера нет позиций с идентификатором строки для возврата.");
+                // IsSaleSelected = true;   ← удаляем эту строку
             }
             catch (ApiException ex)
             {
@@ -400,6 +506,52 @@ namespace NurMarketKassa.Views
             catch (HttpRequestException ex) { MessageBox.Show(this, string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message, "Возврат", MessageBoxButton.OK, MessageBoxImage.Error); }
             catch (TaskCanceledException) { MessageBox.Show(this, "Превышено время ожидания.", "Возврат", MessageBoxButton.OK, MessageBoxImage.Exclamation); }
             finally { IsBusy = false; }
+        }
+
+        private void Header_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is GridViewColumnHeader header && header.Content is string headerText)
+            {
+                string sortProperty = headerText switch
+                {
+                    "Номер чека" => "SaleId",
+                    "Дата" => "SaleDate",
+                    "Сумма" => "TotalAmount",
+                    _ => null
+                };
+                if (sortProperty == null) return;
+
+                var view = SalesView;
+                using (view.DeferRefresh())
+                {
+                    view.SortDescriptions.Clear();
+                    view.SortDescriptions.Add(new SortDescription(sortProperty, ListSortDirection.Ascending));
+                }
+            }
+        }
+
+        private void SalesListView_Loaded(object sender, RoutedEventArgs e) => AdjustColumnWidths();
+        private void SalesListView_SizeChanged(object sender, SizeChangedEventArgs e) => AdjustColumnWidths();
+
+        private void AdjustColumnWidths()
+        {
+            if (SalesListView.View is not GridView gridView) return;
+
+            // Фиксированная ширина колонки с кнопкой
+            const double buttonColumnWidth = 120;
+            // Пропорции для трёх текстовых колонок: Номер : Дата : Сумма = 2 : 1 : 1
+            double totalProportion = 4; // 2+1+1
+            double availableWidth = SalesListView.ActualWidth - buttonColumnWidth - SystemParameters.VerticalScrollBarWidth - 8; // небольшой запас
+
+            if (availableWidth <= 0) return;
+
+            // Предполагаем, что колонки идут в порядке: Номер, Дата, Сумма
+            if (gridView.Columns.Count >= 3)
+            {
+                gridView.Columns[0].Width = availableWidth * (2.0 / totalProportion); // Номер чека
+                gridView.Columns[1].Width = availableWidth * (1.0 / totalProportion); // Дата
+                gridView.Columns[2].Width = availableWidth * (1.0 / totalProportion); // Сумма
+            }
         }
 
         private void ShowErr(string msg)

@@ -1,13 +1,8 @@
-﻿using System.Text.Json.Serialization;
-
-#nullable enable
-namespace NurMarketKassa.Models;
-
-public class UpdateManifest
+﻿namespace NurMarketKassa.Models
 {
-    [JsonPropertyName("latest_version")]
-    public string LatestVersion { get; set; } = "";
-
-    [JsonPropertyName("download_url")]
-    public string DownloadUrl { get; set; } = "";
+    public class UpdateManifest
+    {
+        public string LatestVersion { get; set; } = "";
+        public string DownloadUrl { get; set; } = "";
+    }
 }

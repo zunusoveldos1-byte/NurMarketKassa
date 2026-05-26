@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.Services;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -14,8 +15,9 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using NurMarketKassa.Services;
 
 #nullable disable
 
@@ -32,13 +34,12 @@ namespace NurMarketKassa.Views
         private readonly CollectionViewSource _historyViewSource = new();
         private DateTime _historyFrom = DateTime.Today;
         private DateTime _historyTo = DateTime.Today;
-        private string _searchFilter = "";
         private bool _isLoading;
-        private string _errorMessage;
-        private CancellationTokenSource _searchCts;
+        private string _errorMessage; 
         private CancellationTokenSource _loadCts;
         private DispatcherTimer _clockTimer;
         private string _currentUserId;
+        private bool _isHamburgerOpen;
 
         private static readonly string CashHistoryFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -46,6 +47,7 @@ namespace NurMarketKassa.Views
             "cash_history.json");
 
         // ── публичные свойства ──
+        public ObservableCollection<TopItem> TopItems { get; } = new();
         public ObservableCollection<CashSessionEntry> CashSessions => _cashSessions;
         public ICollectionView SalesView => _salesViewSource.View;
         public ICollectionView RefundsView => CollectionViewSource.GetDefaultView(_refunds);
@@ -94,6 +96,23 @@ namespace NurMarketKassa.Views
             _clockTimer.Start();
         }
 
+        private void FilterSales(object sender, FilterEventArgs e)
+        {
+            e.Accepted = true;
+        }
+
+        private void FilterHistory(object sender, FilterEventArgs e)
+        {
+            e.Accepted = true;
+        }
+
+        public class TopItem
+        {
+            public string ProductName { get; set; }
+            public decimal Revenue { get; set; }
+            public int Quantity { get; set; }
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             _clockTimer?.Stop();
@@ -108,24 +127,202 @@ namespace NurMarketKassa.Views
             CustomDatePanel.Visibility = Visibility.Collapsed;
             await LoadDataAsync(_historyFrom, _historyTo);
         }
+        
 
-        private void Window_ManipulationBoundaryFeedback(object sender, ManipulationBoundaryFeedbackEventArgs e) =>
-            e.Handled = true;
+        private void Window_ManipulationBoundaryFeedback(object sender, ManipulationBoundaryFeedbackEventArgs e)
+        {
+            e.Handled = true; // Подавляем "подпрыгивание" окна при сенсорном скролле
+        }
+
+        private void DataGrid_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (sender is DataGrid grid)
+            {
+                var scrollViewer = FindVisualChild<ScrollViewer>(grid);
+                if (scrollViewer != null)
+                {
+                    scrollViewer.ScrollToVerticalOffset(scrollViewer.VerticalOffset - e.Delta / 3);
+                    e.Handled = true;
+                }
+            }
+        }
+
+        //private void MainScrollViewer_ManipulationStarting(object sender, ManipulationStartingEventArgs e)
+        //{
+        //    _targetScrollViewer = null;
+            
+
+        //    // Определяем, на каком элементе начался жест
+        //    var source = e.OriginalSource as DependencyObject;
+
+        //    // Ищем DataGrid под пальцем
+        //    var grid = FindVisualParent<DataGrid>(source);
+        //    if (grid != null)
+        //    {
+        //        // Если один палец – будем скроллить таблицу
+        //        if (e.Manipulators.Count() == 1)
+        //        {
+        //            _targetScrollViewer = FindVisualChild<ScrollViewer>(grid);
+        //        }
+        //        else // два или больше пальцев – скроллим страницу
+        //        {
+        //            _targetScrollViewer = MainScrollViewer;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        // Жест вне таблицы – всегда скроллим страницу
+        //        _targetScrollViewer = MainScrollViewer;
+        //    }
+
+        //    // Разрешаем только вертикальное перемещение
+        //    if (_targetScrollViewer != null)
+        //    {
+        //        e.Mode = ManipulationModes.TranslateY;
+        //        e.Handled = true;
+        //    }
+        //}
+
+        //private void MainScrollViewer_ManipulationDelta(object sender, ManipulationDeltaEventArgs e)
+        //{
+        //    if (_targetScrollViewer == null) return;
+
+        //    var deltaY = e.DeltaManipulation.Translation.Y;
+        //    _targetScrollViewer.ScrollToVerticalOffset(
+        //        _targetScrollViewer.VerticalOffset - deltaY);
+        //    e.Handled = true;
+        //}
+
+        //private void MainScrollViewer_ManipulationCompleted(object sender, ManipulationCompletedEventArgs e)
+        //{
+        //    _targetScrollViewer = null;
+        //}
+
+        // Вспомогательные методы
+        private static T FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T typedChild) return typedChild;
+                var result = FindVisualChild<T>(child);
+                if (result != null) return result;
+            }
+            return null;
+        }
+
+        private static T FindVisualParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T typed) return typed;
+                child = VisualTreeHelper.GetParent(child);
+            }
+            return null;
+        }
+
+        private void HamburgerMenu_Click(object sender, RoutedEventArgs e)
+        {
+            _isHamburgerOpen = !_isHamburgerOpen;
+            AnimateHamburgerMenu(_isHamburgerOpen);
+        }
+
+        private void HamburgerOverlay_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_isHamburgerOpen)
+            {
+                _isHamburgerOpen = false;
+                AnimateHamburgerMenu(false);
+            }
+        }
+
+        private void HamburgerMenuClose_Click(object sender, RoutedEventArgs e)
+        {
+            _isHamburgerOpen = false;
+            AnimateHamburgerMenu(false);
+        }
+
+        private void ShowUnderConstruction()
+        {
+            MainContent.Visibility = Visibility.Collapsed;
+            UnderConstructionPanel.Visibility = Visibility.Visible;
+        }
+
+        private void HideUnderConstruction()
+        {
+            UnderConstructionPanel.Visibility = Visibility.Collapsed;
+            MainContent.Visibility = Visibility.Visible;
+        }
+
+        private void UnderConstructionBack_Click(object sender, RoutedEventArgs e)
+        {
+            HideUnderConstruction();
+        }
+
+        private void AnimateHamburgerMenu(bool open)
+        {
+            double from = open ? -320 : 0;
+            double to = open ? 0 : -320;
+
+            var animation = new ThicknessAnimation
+            {
+                From = new Thickness(from, 0, 0, 0),
+                To = new Thickness(to, 0, 0, 0),
+                Duration = TimeSpan.FromMilliseconds(250),
+                EasingFunction = new QuadraticEase { EasingMode = open ? EasingMode.EaseOut : EasingMode.EaseIn }
+            };
+
+            if (open) HamburgerOverlay.Visibility = Visibility.Visible;
+
+            animation.Completed += (s, args) =>
+            {
+                if (!open) HamburgerOverlay.Visibility = Visibility.Collapsed;
+            };
+
+            HamburgerPanel.BeginAnimation(MarginProperty, animation);
+        }
+
+        // Закрываем меню при выборе пункта
+        private void CloseHamburgerMenu()
+        {
+            if (_isHamburgerOpen)
+            {
+                _isHamburgerOpen = false;
+                AnimateHamburgerMenu(false);
+            }
+        }
 
         private void NavigateToSale_Click(object sender, RoutedEventArgs e)
         {
-            if (Owner is MainWindow main)
-            {
-                main.WindowState = WindowState.Normal;
-                main.Activate();
-            }
+            CloseHamburgerMenu();
+            var salesWindow = new SalesWindow { Owner = this };
+            salesWindow.ShowDialog();
             Close();
         }
 
-        private void NavigateToStock_Click(object sender, RoutedEventArgs e) { }
-        private void ManageShift_Click(object sender, RoutedEventArgs e) { }
-        private void NavigateToProducts_Click(object sender, RoutedEventArgs e) { }
-        private void Exit_Click(object sender, RoutedEventArgs e) => Close();
+        private void NavigateToStock_Click(object sender, RoutedEventArgs e)
+        {
+            CloseHamburgerMenu();
+            ShowUnderConstruction();
+        }
+
+        private void ManageShift_Click(object sender, RoutedEventArgs e)
+        {
+            CloseHamburgerMenu();
+            ShowUnderConstruction();
+        }
+
+        private void NavigateToProducts_Click(object sender, RoutedEventArgs e)
+        {
+            CloseHamburgerMenu();
+            ShowUnderConstruction();
+        }
+
+        private void Exit_Click(object sender, RoutedEventArgs e)
+        {
+            CloseHamburgerMenu();
+            Close();
+        }
 
         private async Task LoadDataAsync(DateTime from, DateTime to)
         {
@@ -149,6 +346,7 @@ namespace NurMarketKassa.Views
                 UpdateCollections(sales, refunds);
                 UpdateStats(sales, refunds);
                 UpdateHistory(sales, refunds);
+                await LoadTopItemsAsync(sales, token);
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)
@@ -159,6 +357,40 @@ namespace NurMarketKassa.Views
             {
                 IsLoading = false;
             }
+        }
+
+        private async Task LoadTopItemsAsync(List<SaleItem> sales, CancellationToken token)
+        {
+            var dict = new Dictionary<string, (decimal revenue, int qty)>();
+            foreach (var sale in sales)
+            {
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    var json = await App.Api.PosSaleGetAsync(sale.Id, CancellationToken.None);
+                    // парсим элементы чека
+                    if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var line in items.EnumerateArray())
+                        {
+                            string name = line.TryGetProperty("product_name", out var n) ? n.GetString() ?? "?" : "?";
+                            decimal price = line.TryGetProperty("price", out var p) ? p.GetDecimal() : 0;
+                            decimal qty = line.TryGetProperty("quantity", out var q) ? q.GetDecimal() : 0;
+                            decimal total = price * qty;
+                            if (dict.ContainsKey(name))
+                                dict[name] = (dict[name].revenue + total, dict[name].qty + (int)qty);
+                            else
+                                dict[name] = (total, (int)qty);
+                        }
+                    }
+                }
+                catch { /* пропускаем ошибки загрузки чека */ }
+            }
+
+            var top10 = dict.OrderByDescending(kv => kv.Value.revenue).Take(10);
+            TopItems.Clear();
+            foreach (var kv in top10)
+                TopItems.Add(new TopItem { ProductName = kv.Key, Revenue = kv.Value.revenue, Quantity = kv.Value.qty });
         }
 
         private async Task<List<SaleItem>> FetchSalesPageAsync(int page, int pageSize, CancellationToken token)
@@ -249,12 +481,29 @@ namespace NurMarketKassa.Views
             decimal net = totalSales - totalRefunds;
             decimal avg = totalCount > 0 ? net / totalCount : 0m;
 
+            // ── Базовые показатели ──
             TotalSalesText.Text = $"{totalSales:N2} сом";
             TotalRefundsText.Text = $"{totalRefunds:N2} сом";
             CashText.Text = $"{cashSales:N2} сом";
             NonCashText.Text = $"{nonCash:N2} сом";
             AvgReceiptText.Text = $"{avg:N2} сом";
             ReceiptCountText.Text = totalCount.ToString();
+
+            // ── Новые показатели ──
+            // Чистая прибыль и маржа (пока условно: себестоимость = 60% выручки)
+            decimal costOfGoods = totalSales * 0.6m;
+            decimal netProfit = totalSales - costOfGoods;
+            if (NetProfitText != null)
+                NetProfitText.Text = $"{netProfit:N2} сом";
+
+            if (MarginPercentText != null)
+            {
+                decimal margin = totalSales > 0 ? (netProfit / totalSales * 100) : 0;
+                MarginPercentText.Text = $"{margin:F1}%";
+            }
+
+            // Максимальный, минимальный чек и долг временно скрыты —
+            // их можно вернуть, добавив соответствующие TextBlock в XAML
         }
 
         private void UpdateHistory(List<SaleItem> sales, List<SaleItem> refunds)
@@ -267,9 +516,9 @@ namespace NurMarketKassa.Views
                     Id = s.Id,
                     CreatedAt = s.CreatedAt,
                     Type = "Продажа",
-                    ReceiptNumber = s.ReceiptNumber,
+                    ReceiptNumber = s.ReceiptNumber ?? s.Id ?? "—",
                     TotalAmount = s.TotalAmount,
-                    PaymentMethod = s.PaymentMethod
+                    PaymentMethod = s.PaymentMethod ?? "—"
                 });
             }
             foreach (var r in refunds)
@@ -279,11 +528,13 @@ namespace NurMarketKassa.Views
                     Id = r.Id,
                     CreatedAt = r.CreatedAt,
                     Type = "Возврат",
-                    ReceiptNumber = r.ReceiptNumber,
+                    ReceiptNumber = r.ReceiptNumber ?? r.Id ?? "—",
                     TotalAmount = -Math.Abs(r.TotalAmount),
                     PaymentMethod = "—"
                 });
             }
+            // Обновляем представление, чтобы фильтр применился заново
+            _historyViewSource.View.Refresh();
         }
 
         // Детали чека (popup)
@@ -328,6 +579,12 @@ namespace NurMarketKassa.Views
 
         private void ShowReceiptDetailsPopup(string receiptNumber, List<string> items)
         {
+            if (ReceiptDetailsPopup == null || PopupTitle == null || PopupItemsControl == null)
+            {
+                // Элементы ещё не загружены — ничего не делаем
+                return;
+            }
+
             PopupTitle.Text = "Чек " + receiptNumber;
             PopupItemsControl.ItemsSource = items;
             ReceiptDetailsPopup.IsOpen = true;
@@ -335,37 +592,6 @@ namespace NurMarketKassa.Views
 
         private void CloseReceiptDetails_Click(object sender, RoutedEventArgs e) =>
             ReceiptDetailsPopup.IsOpen = false;
-
-        // Фильтрация
-        private void FilterSales(object sender, FilterEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(_searchFilter))
-                e.Accepted = true;
-            else
-                e.Accepted = (e.Item is SaleItem s) && s.ReceiptNumber.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private void FilterHistory(object sender, FilterEventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(_searchFilter))
-                e.Accepted = true;
-            else
-                e.Accepted = (e.Item is HistoryItem h) && h.ReceiptNumber.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private async void SearchReceiptBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            _searchFilter = SearchReceiptBox.Text;
-            _searchCts?.Cancel();
-            _searchCts = new CancellationTokenSource();
-            try
-            {
-                await Task.Delay(300, _searchCts.Token);
-                SalesView.Refresh();
-                HistoryView.Refresh();
-            }
-            catch (TaskCanceledException) { }
-        }
 
         private async void SalesGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {

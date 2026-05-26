@@ -4,6 +4,7 @@ using NurMarketKassa.Services.Hardware;
 using System;
 using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -26,7 +27,6 @@ namespace NurMarketKassa
 
         static App()
         {
-            // Регистрируем обработчик фокуса для Touch Keyboard
             EventManager.RegisterClassHandler(
                 typeof(UIElement),
                 UIElement.PreviewGotKeyboardFocusEvent,
@@ -44,17 +44,58 @@ namespace NurMarketKassa
 
         protected override void OnStartup(StartupEventArgs e)
         {
-            // Игнорируем Velopack (заменено заглушкой)
-            try
-            {
-                // Если нужна реальная поддержка автообновлений – установите Velopack и раскомментируйте:
-                // VelopackApp.Build().Run();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка обновления: {ex.Message}");
-            }
+            // Инициализация служб
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            Settings = AppSettings.Load();
+            UserPreferences.LoadFromDiskAndMergeDefaults(Settings);
+            ApplyTheme(UserPreferences.Instance.DarkTheme);
+            AutostartHelper.SyncFromPreference(UserPreferences.Instance.Autostart);
 
+            _http = new HttpClient { Timeout = TimeSpan.FromSeconds(55) };
+            Api = new NurMarketApiClient(_http, Settings);
+            OfflineSync = new OfflineSalesSyncService(Api);
+
+            // Фоновая проверка обновлений
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    string? manifestUrl = Settings?.Updates?.ManifestUrl;
+                    if (string.IsNullOrWhiteSpace(manifestUrl))
+                        manifestUrl = Environment.GetEnvironmentVariable("DESKTOP_MARKET_UPDATE_MANIFEST_URL");
+
+                    if (!string.IsNullOrWhiteSpace(manifestUrl))
+                    {
+                        var updateService = new UpdateService(manifestUrl);
+                        var manifest = await updateService.CheckAsync();
+                        if (manifest != null)
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                if (MessageBox.Show($"Доступна новая версия: {manifest.LatestVersion}. Установить?",
+                                    "Обновление", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                                {
+                                    _ = updateService.DownloadAndRunAsync(manifest.DownloadUrl)
+                                        .ContinueWith(t =>
+                                        {
+                                            if (t.Result)
+                                            {
+                                                Task.Delay(500).Wait();
+                                                Environment.Exit(0);
+                                            }
+                                        }, TaskScheduler.Default);
+                                }
+                            });
+                        }
+                    }
+                }
+                catch
+                {
+                    // игнорируем
+                }
+            });
+
+            // Обработчик ошибок UI
             DispatcherUnhandledException += (_, args) =>
             {
                 PosLogger.Log(
@@ -68,33 +109,22 @@ namespace NurMarketKassa
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
                 }
-                catch
-                {
-                    /* ignore */
-                }
+                catch { }
                 args.Handled = true;
             };
 
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            Settings = AppSettings.Load();
-            UserPreferences.LoadFromDiskAndMergeDefaults(Settings);
-            ApplyTheme(UserPreferences.Instance.DarkTheme);
-            AutostartHelper.SyncFromPreference(UserPreferences.Instance.Autostart);
-            _http = new HttpClient { Timeout = TimeSpan.FromSeconds(55) };
-            Api = new NurMarketApiClient(_http, Settings);
-            OfflineSync = new OfflineSalesSyncService(Api);
-
+            // Автосинхронизация офлайн-чеков
             System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, args) =>
             {
                 if (args.IsAvailable)
-                {
                     Dispatcher.InvokeAsync(() => OfflineSync.TriggerSyncNowAsync());
-                }
             };
 
             base.OnStartup(e);
+
             var login = new Views.LoginWindow();
             login.Show();
+
             _ = Dispatcher.BeginInvoke(() => OfflineSync.Start(), System.Windows.Threading.DispatcherPriority.Background);
             _agentService = new ScalePrinterAgentService();
             _agentService.Start();

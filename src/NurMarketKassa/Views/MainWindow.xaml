@@ -18,11 +18,14 @@
     <FrameworkElement.Resources>
         <ResourceDictionary>
             <conv:LessThanConverter x:Key="LessThanConverter" />
-            
+            <conv:StringTruncationConverter x:Key="StringTruncationConverter" />
+
+            <system:Double x:Key="CatalogTileMinHeight"
+                xmlns:system="clr-namespace:System;assembly=System.Runtime">118</system:Double>
             <system:Double x:Key="CatalogTitleFont"
                xmlns:system="clr-namespace:System;assembly=System.Runtime">11</system:Double>
             <system:Double x:Key="CatalogPriceFont"
-               xmlns:system="clr-namespace:System;assembly=System.Runtime">10</system:Double>
+               xmlns:system="clr-namespace:System;assembly=System.Runtime">13</system:Double>
             <system:Double x:Key="CatalogTitleMaxH"
                xmlns:system="clr-namespace:System;assembly=System.Runtime">36</system:Double>
             <system:Double x:Key="CartUiTitleFont"
@@ -45,28 +48,38 @@
 				x:Key="CartUiQtyBtnSpacing">14,0,0,0</Thickness>
             <BooleanToVisibilityConverter
 				x:Key="BoolToVis" />
-            <Style
-				x:Key="{x:Type ListViewItem}"
-				TargetType="{x:Type ListViewItem}">
-                <Setter
-					Property="HorizontalAlignment"
-					Value="Stretch" />
-                <Setter
-					Property="HorizontalContentAlignment"
-					Value="Stretch" />
-                <Setter
-					Property="Padding"
-					Value="0" />
-                <Setter
-					Property="Margin"
-					Value="0,0,0,5" />
-                <Setter
-					Property="MinHeight"
-					Value="0" />
-                <Setter
-					Property="Background"
-					Value="#00FFFFFF" />
+
+            <Style TargetType="ListViewItem">
+                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}">
+                                <!-- Явное выравнивание – убирает ошибку FindAncestor -->
+                                <ContentPresenter HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+                    </Trigger>
+                </Style.Triggers>
             </Style>
+
             <Style
 				x:Key="HamburgerMenuItem"
 				TargetType="{x:Type Button}">
@@ -118,6 +131,40 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+
+            <!-- Стили для Открыть смену и закрыть смену -->
+            <Style x:Key="ShiftButton" TargetType="{x:Type Button}">
+                <Setter Property="Height" Value="40"/>
+                <!-- вернули высоту -->
+                <Setter Property="MinWidth" Value="120"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Foreground" Value="#1F2937"/>
+                <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border x:Name="bg" Background="{TemplateBinding Background}"
+                        CornerRadius="8" Padding="14,6">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <!-- Hover – небольшая прозрачность -->
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bg" Property="Opacity" Value="0.9"/>
+                                </Trigger>
+                                <!-- Когда кнопка неактивна (IsEnabled=false) → тусклый серый цвет -->
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Foreground" Value="#9CA3AF"/>
+                                    <Setter TargetName="bg" Property="Background" Value="#E5E7EB"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style
 				x:Key="PrimaryActionButton"
 				TargetType="{x:Type Button}">
@@ -220,6 +267,9 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+
+            
+
             <Style
 				x:Key="KpiCard"
 				TargetType="{x:Type Border}">
@@ -348,57 +398,51 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-            <Style
-				x:Key="{x:Type DataGridRow}"
-				TargetType="{x:Type DataGridRow}">
-                <Setter
-					Property="Height"
-					Value="40" />
-                <Setter
-					Property="VerticalContentAlignment"
-					Value="Center" />
-                <Setter
-					Property="FrameworkElement.FocusVisualStyle"
-					Value="{x:Null}" />
-                <Setter
-					Property="Background"
-					Value="#00FFFFFF" />
-                <Setter
-					Property="Template">
+            <Style x:Key="{x:Type DataGridRow}" TargetType="{x:Type DataGridRow}">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                <Setter Property="Template">
                     <Setter.Value>
-                        <ControlTemplate
-							TargetType="{x:Type DataGridRow}">
-                            <Border
-								x:Name="RowBorder"
-								Background="{TemplateBinding Control.Background}"
-								BorderBrush="{TemplateBinding Control.BorderBrush}"
-								BorderThickness="0">
+                        <ControlTemplate TargetType="{x:Type DataGridRow}">
+                            <Border x:Name="RowBorder"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        SnapsToDevicePixels="True">
                                 <SelectiveScrollingGrid>
-                                    <DataGridCellsPresenter
-										ItemsPanel="{TemplateBinding DataGridRow.ItemsPanel}" />
+                                    <DataGridCellsPresenter ItemsPanel="{TemplateBinding ItemsPanel}"
+                                                SnapsToDevicePixels="True"/>
                                 </SelectiveScrollingGrid>
                             </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger
-									Property="DataGridRow.IsSelected"
-									Value="True">
-                                    <Setter
-										TargetName="RowBorder"
-										Value="{DynamicResource BrushInputAlt}"
-										Property="Border.Background" />
-                                </Trigger>
-                                <Trigger
-									Property="UIElement.IsMouseOver"
-									Value="True">
-                                    <Setter
-										TargetName="RowBorder"
-										Value="{DynamicResource BrushInputAlt}"
-										Property="Border.Background" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+                <Style.Triggers>
+                    <!-- Выделенная строка (таблица в фокусе) -->
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True"/>
+                            <Condition Binding="{Binding IsSelectionActive, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" Value="True"/>
+                        </MultiDataTrigger.Conditions>
+                        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                    </MultiDataTrigger>
+                    <!-- Выделенная строка (таблица НЕ в фокусе) -->
+                    <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True"/>
+                            <Condition Binding="{Binding IsSelectionActive, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" Value="False"/>
+                        </MultiDataTrigger.Conditions>
+                        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                    </MultiDataTrigger>
+                    <!-- Ховер (наведение) -->
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+                    </Trigger>
+                </Style.Triggers>
             </Style>
             <Style
 				x:Key="CenterAlignedCell"
@@ -718,47 +762,40 @@
 							VerticalAlignment="Center"
 							HorizontalAlignment="Center" />
                     </Button>
-                    <Border
-						x:Name="ShiftBannerBar"
-						Background="{StaticResource BrushWarningSoft}"
-						BorderBrush="{StaticResource BrushWarning}"
-						BorderThickness="1"
-						CornerRadius="6"
-						Padding="4,2"
-						Margin="0,0,6,0"
-						VerticalAlignment="Center">
-                        <StackPanel
-							Orientation="Horizontal">
-                            <Button
-								x:Name="OpenShiftButton"
-								Content="Открыть смену"
-								Style="{StaticResource HeaderButton}"
-								Padding="8,5"
-								Margin="0,0,4,0"
-								Command="{Binding ShiftViewModel.OpenShiftCommand}" />
-                            <Button
-								x:Name="CloseShiftButton"
-								Content="Закрыть смену"
-								Style="{StaticResource HeaderButton}"
-								Padding="8,5"
-								Command="{Binding ShiftViewModel.CloseShiftCommand}" />
+                    <Button x:Name="OpenShiftButton"
+        Style="{StaticResource ShiftButton}"
+        Margin="0,0,4,0"
+        Click="OpenShift_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔓" FontSize="14" Margin="0,0,6,0"/>
+                            <TextBlock Text="Открыть смену"/>
                         </StackPanel>
-                    </Border>
+                    </Button>
+
+                    <Button x:Name="CloseShiftButton"
+        Style="{StaticResource ShiftButton}"
+        Click="CloseShift_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔒" FontSize="14" Margin="0,0,6,0"/>
+                            <TextBlock Text="Закрыть смену"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
         <Grid
 			Row="1"
 			Margin="0,8,0,0">
+            <!-- Для размеров передвижения ползунка-->
             <Grid.ColumnDefinitions>
                 <ColumnDefinition
 					Width="2.2*"
-					MinWidth="470" />
+					MinWidth="600" />
                 <ColumnDefinition
-					Width="8" />
+					Width="Auto" />
                 <ColumnDefinition
 					Width="*"
-					MinWidth="450" />
+					MinWidth="550" />
             </Grid.ColumnDefinitions>
             <Border
 				x:Name="CatalogAreaBorder"
@@ -859,12 +896,14 @@
 								Content="Карточка"
 								IsChecked="True"
 								GroupName="CatalogView"
-								Style="{StaticResource ViewToggleButton}" />
+								Style="{StaticResource ViewToggleButton}"
+								Checked="CatalogView_Changed" />
                             <RadioButton
 								x:Name="BtnTable"
 								Content="Список"
 								GroupName="CatalogView"
-								Style="{StaticResource ViewToggleButton}" />
+								Style="{StaticResource ViewToggleButton}"
+								Checked="CatalogView_Changed" />
                         </StackPanel>
                         <Button
 							x:Name="RefreshCatalogButton"
@@ -874,13 +913,17 @@
 							Margin="6,0,0,0"
 							Click="RefreshCatalog_Click" />
                     </Grid>
-                    <TextBlock
-						x:Name="ScaleStatusText"
-						Grid.Row="1"
-						Margin="0,0,0,8"
-						FontSize="11"
-						Foreground="{StaticResource BrushTextSoft}"
-						TextWrapping="Wrap" />
+                    <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                        <TextBlock x:Name="ScaleStatusText"
+               FontSize="11"
+               Foreground="{StaticResource BrushTextSoft}"
+               TextWrapping="Wrap" />
+                        <TextBlock x:Name="CacheStatusText"
+               Margin="0,2,0,0"
+               FontSize="10"
+               Foreground="{DynamicResource BrushTextSoft}"
+               Text="Кэш: не загружен" />
+                    </StackPanel>
                     <Grid
 						Row="2">
                         <ScrollViewer
@@ -900,265 +943,263 @@
 									ItemContainerStyle="{StaticResource PosCatalogTabItem}"
 									Foreground="{StaticResource BrushTextMuted}"
 									SelectionChanged="CatalogTabs_SelectionChanged">
-                                    <TabItem
-										Header="Весовые (кг)"
-										Margin="0,0,-3,0">
-                                        <ItemsControl
-											x:Name="CatalogItemsKg">
-                                            <ItemsControl.ItemsPanel>
+                                    <TabItem Header="Весовые (кг)" Margin="0,0,-3,0">
+                                        <ListView x:Name="CatalogItemsKg"
+              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+              VirtualizingPanel.IsVirtualizing="True"
+              VirtualizingPanel.VirtualizationMode="Recycling"
+              BorderThickness="0"
+              Background="Transparent"
+              PreviewMouseWheel="CatalogListBox_PreviewMouseWheel">
+                                            <ListView.ItemContainerStyle>
+                                                <Style TargetType="ListViewItem">
+                                                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                    <Setter Property="Margin" Value="0"/>
+                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ListViewItem">
+                                                                <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                                                                    <ContentPresenter HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ListView.ItemContainerStyle>
+                                            <ListView.ItemsPanel>
                                                 <ItemsPanelTemplate>
-                                                    <UniformGrid
-														Columns="2" />
+                                                    <UniformGrid Columns="2" />
                                                 </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
+                                            </ListView.ItemsPanel>
+                                            <ListView.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border
-														Background="{DynamicResource BrushPanel}"
-														BorderBrush="{DynamicResource BrushBorder}"
-														BorderThickness="0.5"
-														CornerRadius="12"
-														Margin="4"
-														Padding="10"
-														MinHeight="120"
-														HorizontalAlignment="Stretch"
-														MouseLeftButtonDown="CatalogProduct_MouseDoubleClick">
+                                                    <Border Background="{DynamicResource BrushPanel}"
+                                                        BorderBrush="{DynamicResource BrushBorder}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="12" Margin="4" Padding="10"
+                                                        HorizontalAlignment="Stretch"
+                                                        MouseLeftButtonDown="CatalogProduct_MouseDoubleClick">
                                                         <Grid>
                                                             <Grid.RowDefinitions>
-                                                                <RowDefinition
-																	Height="Auto" />
-                                                                <RowDefinition
-																	Height="Auto" />
-                                                                <RowDefinition
-																	Height="*" />
-                                                                <RowDefinition
-																	Height="Auto" />
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="*"/>
+                                                                <RowDefinition Height="Auto"/>
                                                             </Grid.RowDefinitions>
                                                             <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition
-																	Width="*" />
-                                                                <ColumnDefinition
-																	Width="Auto" />
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock
-																Grid.Row="0"
-																Grid.ColumnSpan="2"
-																FontSize="13"
-																FontWeight="SemiBold"
-																Foreground="{DynamicResource BrushText}"
-																TextWrapping="Wrap"
-																TextTrimming="CharacterEllipsis"
-																MaxHeight="36"
-																Text="{Binding Title}" />
-                                                            <TextBlock
-																Grid.Row="1"
-																Grid.ColumnSpan="2"
-																FontSize="18"
-																FontWeight="Bold"
-																Foreground="{DynamicResource BrushAccent}"
-																Margin="0,4,0,0"
-																Text="{Binding PriceLine}" />
-                                                            <StackPanel
-																Grid.Row="3"
-																Grid.Column="0"
-																Orientation="Horizontal"
-																VerticalAlignment="Bottom">
-                                                                <TextBlock
-																	Foreground="{DynamicResource BrushTextSoft}"
-																	FontSize="10"
-																	Margin="0,0,8,0"
-																	Text="{Binding Barcode, StringFormat=ШК:{0}, TargetNullValue='ШК: —'}" />
-                                                                <TextBlock
-																	Foreground="{DynamicResource BrushTextSoft}"
-																	FontSize="10"
-																	FontWeight="SemiBold">
-																	<Run
-																		Text="Осталось: " /> <Run
-																		Text="{Binding Quantity, Mode=OneWay, StringFormat={}{0:F2}}" /> <Run
-																		Text="{Binding Unit, Mode=OneWay, FallbackValue=кг}" /></TextBlock>
+                                                            <TextBlock Grid.Row="0" Grid.ColumnSpan="2" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"
+                                   TextTrimming="CharacterEllipsis" MaxHeight="36"
+                                   Text="{Binding Title}" />
+                                                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" FontSize="18" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushAccent}" Margin="0,4,0,0"
+                                   Text="{Binding PriceLine}" />
+                                                            <StackPanel Grid.Row="3" Grid.Column="0" VerticalAlignment="Bottom">
+                                                                <TextBlock Foreground="{DynamicResource BrushTextSoft}" FontSize="10" Margin="0,0,0,2"
+                                       Text="{Binding Barcode, StringFormat=ШК:{0}, TargetNullValue='ШК: —'}" />
+                                                                <TextBlock Foreground="{DynamicResource BrushTextSoft}" FontSize="10" FontWeight="SemiBold">
+                                <Run Text="Осталось: " />
+                                <Run Text="{Binding Quantity, Mode=OneWay, StringFormat={}{0:F2}}" />
+                                <Run Text=" " />
+                                <Run Text="{Binding Unit, Mode=OneWay, FallbackValue=кг}" />
+                                                                </TextBlock>
                                                             </StackPanel>
-                                                            <Button
-																Grid.Row="0"
-																Grid.RowSpan="3"
-																Grid.Column="1"
-																Width="28"
-																Height="28"
-																Padding="0"
-																Background="#00FFFFFF"
-																BorderThickness="0"
-																HorizontalAlignment="Right"
-																VerticalAlignment="Top"
-																Margin="4,0,0,0"
-																Click="ToggleFavorite_Click">
-                                                                <Path
-																	Width="18"
-																	Height="18"
-																	Stretch="Uniform"
-																	Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
-                                                                    <FrameworkElement.Style>
-                                                                        <Style
-																			TargetType="{x:Type Path}">
-                                                                            <Setter
-																				Property="Fill"
-																				Value="#00FFFFFF" />
-                                                                            <Setter
-																				Property="Stroke"
-																				Value="#C0C0C0" />
-                                                                            <Setter
-																				Property="StrokeThickness"
-																				Value="1.5" />
+                                                            <Button Grid.Row="0" Grid.RowSpan="3" Grid.Column="1"
+                                Width="28" Height="28" Padding="0"
+                                Background="#00FFFFFF" BorderThickness="0"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="4,0,0,0"
+                                Click="ToggleFavorite_Click">
+                                                                <Path Width="18" Height="18" Stretch="Uniform"
+                                  Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
+                                                                    <Path.Style>
+                                                                        <Style TargetType="{x:Type Path}">
+                                                                            <Setter Property="Fill" Value="#00FFFFFF" />
+                                                                            <Setter Property="Stroke" Value="#C0C0C0" />
+                                                                            <Setter Property="StrokeThickness" Value="1.5" />
                                                                             <Style.Triggers>
-                                                                                <DataTrigger
-																					Value="True"
-																					Binding="{Binding IsFavorite}">
-                                                                                    <Setter
-																						Property="Fill"
-																						Value="#FFD700" />
-                                                                                    <Setter
-																						Property="Stroke"
-																						Value="#F2994A" />
+                                                                                <DataTrigger Value="True" Binding="{Binding IsFavorite}">
+                                                                                    <Setter Property="Fill" Value="#FFD700" />
+                                                                                    <Setter Property="Stroke" Value="#F2994A" />
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>
-                                                                    </FrameworkElement.Style>
+                                                                    </Path.Style>
                                                                 </Path>
                                                             </Button>
                                                         </Grid>
                                                     </Border>
                                                 </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
                                     </TabItem>
-                                    <TabItem
-										Header="Штучные"
-										Margin="5,0,-8,0">
-                                        <ItemsControl
-											x:Name="CatalogItemsPiece">
-                                            <ItemsControl.ItemsPanel>
+                                    <TabItem Header="Штучные" Margin="5,0,-8,0">
+                                        <ListView x:Name="CatalogItemsPiece"
+              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+              VirtualizingPanel.IsVirtualizing="True"
+              VirtualizingPanel.VirtualizationMode="Recycling"
+              BorderThickness="0"
+              Background="Transparent"
+              PreviewMouseWheel="CatalogListBox_PreviewMouseWheel">
+                                            <ListView.ItemContainerStyle>
+                                                <Style TargetType="ListViewItem">
+                                                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                    <Setter Property="Margin" Value="0"/>
+                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ListViewItem">
+                                                                <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                                                    <ContentPresenter HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Stretch"/>
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter Property="Background" Value="Transparent"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ListView.ItemContainerStyle>
+                                            <ListView.ItemsPanel>
                                                 <ItemsPanelTemplate>
-                                                    <UniformGrid
-														Columns="2" />
+                                                    <UniformGrid Columns="2" />
                                                 </ItemsPanelTemplate>
-                                            </ItemsControl.ItemsPanel>
-                                            <ItemsControl.ItemTemplate>
+                                            </ListView.ItemsPanel>
+                                            <ListView.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border
-														Background="{DynamicResource BrushPanel}"
-														BorderBrush="{DynamicResource BrushBorder}"
-														BorderThickness="0.5"
-														CornerRadius="12"
-														Margin="4"
-														Padding="10"
-														MinHeight="120"
-														HorizontalAlignment="Stretch"
-														MouseLeftButtonDown="CatalogProduct_MouseDoubleClick">
+                                                    <Border Background="{DynamicResource BrushPanel}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Margin="4"
+                        Padding="10"
+                        HorizontalAlignment="Stretch"
+                        MouseLeftButtonDown="CatalogProduct_MouseDoubleClick">
                                                         <Grid>
                                                             <Grid.RowDefinitions>
-                                                                <RowDefinition
-																	Height="Auto" />
-                                                                <RowDefinition
-																	Height="Auto" />
-                                                                <RowDefinition
-																	Height="*" />
-                                                                <RowDefinition
-																	Height="Auto" />
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="*"/>
+                                                                <RowDefinition Height="Auto"/>
                                                             </Grid.RowDefinitions>
                                                             <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition
-																	Width="*" />
-                                                                <ColumnDefinition
-																	Width="Auto" />
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock
-																Grid.Row="0"
-																Grid.ColumnSpan="2"
-																FontSize="13"
-																FontWeight="SemiBold"
-																Foreground="{DynamicResource BrushText}"
-																TextWrapping="Wrap"
-																TextTrimming="CharacterEllipsis"
-																MaxHeight="36"
-																Width="180"
-																HorizontalAlignment="Left"
-																Text="{Binding Title}" />
-                                                            <TextBlock
-																Grid.Row="1"
-																Grid.ColumnSpan="2"
-																FontSize="18"
-																FontWeight="Bold"
-																Foreground="{DynamicResource BrushAccent}"
-																Margin="0,4,0,0"
-																Text="{Binding PriceLine}" />
-                                                            <StackPanel
-																Grid.Row="3"
-																Grid.Column="0"
-																Orientation="Horizontal"
-																VerticalAlignment="Bottom">
-                                                                <TextBlock
-																	Foreground="{DynamicResource BrushTextSoft}"
-																	FontSize="10"
-																	Margin="0,0,8,0"
-																	Text="{Binding Barcode, StringFormat=ШК:{0}, TargetNullValue='ШК: —'}" />
-                                                                <TextBlock
-																	Foreground="{DynamicResource BrushTextSoft}"
-																	FontSize="10"
-																	FontWeight="SemiBold">
-																	<Run
-																		Text="Ост: " /> <Run
-																		Text="{Binding Quantity, Mode=OneWay, StringFormat={}{0:F2}}" /> <Run
-																		Text="{Binding Unit, Mode=OneWay, FallbackValue=кг}" /></TextBlock>
+
+                                                            <!-- Название (с твоим усечением) -->
+                                                            <TextBlock Grid.Row="0"
+                                   Grid.ColumnSpan="2"
+                                   FontSize="{DynamicResource CatalogTitleFont}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxHeight="{DynamicResource CatalogTitleMaxH}"
+                                   Text="{Binding Title, Converter={StaticResource StringTruncationConverter}, ConverterParameter=40}" />
+
+                                                            <!-- Цена -->
+                                                            <TextBlock Grid.Row="1"
+                                   Grid.ColumnSpan="2"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushAccent}"
+                                   Margin="0,4,0,0"
+                                   Text="{Binding PriceLine}" />
+
+                                                            <!-- Инфа -->
+                                                            <StackPanel Grid.Row="3"
+                                    Grid.Column="0"
+                                    VerticalAlignment="Bottom">
+                                                                <TextBlock Foreground="{DynamicResource BrushTextSoft}"
+                                       FontSize="10"
+                                       Margin="0,0,0,2"
+                                       Text="{Binding Barcode,
+                                       StringFormat=ШК:{0},
+                                       TargetNullValue='ШК: —'}" />
+                                                                <TextBlock Foreground="{DynamicResource BrushTextSoft}"
+                                       FontSize="10"
+                                       FontWeight="SemiBold">
+                                <Run Text="Ост: " />
+                                <Run Text="{Binding Quantity,
+                                      Mode=OneWay,
+                                      StringFormat={}{0:F2}}" />
+                                <Run Text=" " />
+                                <Run Text="{Binding Unit,
+                                      Mode=OneWay,
+                                      FallbackValue=шт}" />
+                                                                </TextBlock>
                                                             </StackPanel>
-                                                            <Button
-																Grid.Row="0"
-																Grid.RowSpan="3"
-																Grid.Column="1"
-																Width="28"
-																Height="28"
-																Padding="0"
-																Background="#00FFFFFF"
-																BorderThickness="0"
-																HorizontalAlignment="Right"
-																VerticalAlignment="Top"
-																Margin="4,0,0,0"
-																Click="ToggleFavorite_Click">
-                                                                <Path
-																	Width="18"
-																	Height="18"
-																	Stretch="Uniform"
-																	Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
-                                                                    <FrameworkElement.Style>
-                                                                        <Style
-																			TargetType="{x:Type Path}">
-                                                                            <Setter
-																				Property="Fill"
-																				Value="#00FFFFFF" />
-                                                                            <Setter
-																				Property="Stroke"
-																				Value="#C0C0C0" />
-                                                                            <Setter
-																				Property="StrokeThickness"
-																				Value="1.5" />
+
+                                                            <!-- Избранное -->
+                                                            <Button Grid.Row="0"
+                                Grid.RowSpan="3"
+                                Grid.Column="1"
+                                Width="28"
+                                Height="28"
+                                Padding="0"
+                                Background="#00FFFFFF"
+                                BorderThickness="0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Margin="4,0,0,0"
+                                Click="ToggleFavorite_Click">
+                                                                <Path Width="18"
+                                  Height="18"
+                                  Stretch="Uniform"
+                                  Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
+                                                                    <Path.Style>
+                                                                        <Style TargetType="{x:Type Path}">
+                                                                            <Setter Property="Fill" Value="#00FFFFFF"/>
+                                                                            <Setter Property="Stroke" Value="#C0C0C0"/>
+                                                                            <Setter Property="StrokeThickness" Value="1.5"/>
                                                                             <Style.Triggers>
-                                                                                <DataTrigger
-																					Value="True"
-																					Binding="{Binding IsFavorite}">
-                                                                                    <Setter
-																						Property="Fill"
-																						Value="#FFD700" />
-                                                                                    <Setter
-																						Property="Stroke"
-																						Value="#F2994A" />
+                                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                                    <Setter Property="Fill" Value="#FFD700"/>
+                                                                                    <Setter Property="Stroke" Value="#F2994A"/>
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>
-                                                                    </FrameworkElement.Style>
+                                                                    </Path.Style>
                                                                 </Path>
                                                             </Button>
                                                         </Grid>
                                                     </Border>
                                                 </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
                                     </TabItem>
                                 </TabControl>
                                 <TextBlock
@@ -1171,113 +1212,66 @@
 									Margin="0,0,8,0" />
                             </Grid>
                         </ScrollViewer>
-                        <DataGrid
-							x:Name="CatalogGrid"
-							AutoGenerateColumns="False"
-							IsReadOnly="True"
-							Style="{StaticResource ModernGrid}"
-							GridLinesVisibility="None"
-							ScrollViewer.PanningMode="Both"
-							Visibility="{Binding IsChecked, ElementName=BtnTable, Converter='{StaticResource BoolToVis}'}"
-							ItemsSource="{Binding CatalogTableSource}"
-							MouseDoubleClick="CatalogGrid_MouseDoubleClick">
+                        <DataGrid x:Name="CatalogGrid"
+          AutoGenerateColumns="False"
+          IsReadOnly="True"
+          Style="{StaticResource ModernGrid}"
+          ScrollViewer.PanningMode="Both"
+          Visibility="{Binding IsChecked, ElementName=BtnTable, Converter='{StaticResource BoolToVis}'}"
+          ItemsSource="{Binding CatalogTableSource}"
+          MouseDoubleClick="CatalogGrid_MouseDoubleClick"
+          Loaded="CatalogGrid_Loaded"
+          SizeChanged="CatalogGrid_SizeChanged">
                             <DataGrid.Columns>
-                                <DataGridTextColumn
-									Header="Название"
-									Width="*"
-									MinWidth="160"
-									Binding="{Binding Title}" />
-                                <DataGridTextColumn
-									Header="Цена"
-									Width="110"
-									Binding="{Binding PriceLine}" />
-                                <DataGridTextColumn
-									Header="Остаток"
-									Width="90"
-									CellStyle="{StaticResource CenterAlignedCell}"
-									Binding="{Binding Quantity, StringFormat={}{0:F0}}">
-                                    <DataGridBoundColumn.ElementStyle>
-                                        <Style
-											TargetType="{x:Type TextBlock}">
-                                            <Setter
-												Property="Foreground"
-												Value="#27AE60" />
-                                            <Setter
-												Property="HorizontalAlignment"
-												Value="Center" />
+                                <DataGridTextColumn Header="Название" MinWidth="120" Binding="{Binding Title}" />
+                                <DataGridTextColumn Header="Цена" MinWidth="80" Binding="{Binding PriceLine}" />
+                                <DataGridTextColumn Header="Остаток" MinWidth="70" CellStyle="{StaticResource CenterAlignedCell}" Binding="{Binding Quantity, StringFormat={}{0:F0}}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Setter Property="Foreground" Value="#27AE60" />
+                                            <Setter Property="HorizontalAlignment" Value="Center" />
                                             <Style.Triggers>
-                                                <DataTrigger
-													Value="0"
-													Binding="{Binding Quantity}">
-                                                    <Setter
-														Property="Foreground"
-														Value="#FFFF0000" />
+                                                <DataTrigger Value="0" Binding="{Binding Quantity}">
+                                                    <Setter Property="Foreground" Value="#FFFF0000" />
                                                 </DataTrigger>
-                                                <DataTrigger
-													Value="True"
-													Binding="{Binding Path=Quantity, Converter='{StaticResource LessThanConverter}', ConverterParameter=5}">
-                                                    <Setter
-														Property="Foreground"
-														Value="#FFFF0000" />
+                                                <DataTrigger Value="True" Binding="{Binding Path=Quantity, Converter='{StaticResource LessThanConverter}', ConverterParameter=5}">
+                                                    <Setter Property="Foreground" Value="#FFFF0000" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </DataGridBoundColumn.ElementStyle>
+                                    </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn
-									Header="Штрихкод"
-									Width="130"
-									Binding="{Binding Barcode}" />
-                                <DataGridCheckBoxColumn
-									Header="Весовой"
-									Width="70"
-									CellStyle="{StaticResource CenterAlignedCell}"
-									Binding="{Binding MustWeigh, Mode=OneWay}" />
-                                <DataGridTemplateColumn
-									Header="★"
-									Width="50"
-									CellStyle="{StaticResource CenterAlignedCell}">
+                                <DataGridTextColumn Header="Штрихкод" MinWidth="100" Binding="{Binding Barcode}" />
+                                <DataGridTextColumn Header="Ед." MinWidth="50" Binding="{Binding Unit, FallbackValue=шт}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                            <Setter Property="HorizontalAlignment" Value="Center" />
+                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTemplateColumn Header="★" MinWidth="50" CellStyle="{StaticResource CenterAlignedCell}">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button
-												Width="24"
-												Height="24"
-												Padding="0"
-												Background="#00FFFFFF"
-												BorderThickness="0"
-												HorizontalAlignment="Center"
-												Click="ToggleFavorite_Click">
-                                                <Path
-													Width="14"
-													Height="14"
-													Stretch="Uniform"
-													Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
-                                                    <FrameworkElement.Style>
-                                                        <Style
-															TargetType="{x:Type Path}">
-                                                            <Setter
-																Property="Fill"
-																Value="#00FFFFFF" />
-                                                            <Setter
-																Property="Stroke"
-																Value="#C0C0C0" />
-                                                            <Setter
-																Property="StrokeThickness"
-																Value="1.5" />
+                                            <Button Width="24" Height="24" Padding="0"
+                            Background="#00FFFFFF" BorderThickness="0"
+                            HorizontalAlignment="Center"
+                            Click="ToggleFavorite_Click">
+                                                <Path Width="14" Height="14" Stretch="Uniform"
+                              Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
+                                                    <Path.Style>
+                                                        <Style TargetType="{x:Type Path}">
+                                                            <Setter Property="Fill" Value="#00FFFFFF" />
+                                                            <Setter Property="Stroke" Value="#C0C0C0" />
+                                                            <Setter Property="StrokeThickness" Value="1.5" />
                                                             <Style.Triggers>
-                                                                <DataTrigger
-																	Value="True"
-																	Binding="{Binding IsFavorite}">
-                                                                    <Setter
-																		Property="Fill"
-																		Value="#FFD700" />
-                                                                    <Setter
-																		Property="Stroke"
-																		Value="#F2994A" />
+                                                                <DataTrigger Value="True" Binding="{Binding IsFavorite}">
+                                                                    <Setter Property="Fill" Value="#FFD700" />
+                                                                    <Setter Property="Stroke" Value="#F2994A" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
-                                                    </FrameworkElement.Style>
+                                                    </Path.Style>
                                                 </Path>
                                             </Button>
                                         </DataTemplate>
@@ -1312,17 +1306,6 @@
                             <Grid
 								HorizontalAlignment="Center"
 								VerticalAlignment="Center">
-                                <TextBlock
-									Text="● ● ●"
-									Foreground="{StaticResource BrushTextMuted}"
-									FontSize="14"
-									HorizontalAlignment="Center"
-									VerticalAlignment="Center">
-									<UIElement.RenderTransform>
-										<RotateTransform
-											Angle="90" />
-									</UIElement.RenderTransform>
-                                </TextBlock>
                             </Grid>
                         </Border>
                     </ControlTemplate>
@@ -1562,7 +1545,7 @@
                                 <StackPanel
 									Orientation="Horizontal">
                                     <TextBlock
-										Text="откл: "
+										Text="отлож: "
 										Foreground="{StaticResource BrushTextMuted}"
 										FontSize="10"
 										Height="14" />
@@ -1580,7 +1563,7 @@
 							VerticalAlignment="Center">
                             <Button
 								x:Name="StartSaleButton"
-								Content="Новый"
+								Content="Новый чек"
 								Style="{StaticResource TouchGhostButton}"
 								Padding="7,5"
 								Margin="0,0,4,0"
@@ -1592,8 +1575,8 @@
 								Content="↻"
 								IsEnabled="False"
 								Style="{StaticResource TouchSecondaryButton}"
-								Padding="7,5"
-								FontSize="12"
+								Padding="10,8"
+								FontSize="16"
 								ToolTip="Обновить чек"
 								Click="RefreshCart_Click" />
                         </StackPanel>
@@ -1687,44 +1670,40 @@
 										ToolTip="Посмотреть все отложенные корзины"
 										Click="OpenDeferredCarts_Click" />
                                 </Grid>
-                                <Border
-									Style="{StaticResource ModernInfoPanel}"
-									Padding="8,6"
-									Margin="0,0,0,5">
+
+                                <!-- Блок скидки на чек -->
+                                <Border Background="{DynamicResource BrushInputAlt}" CornerRadius="8" Padding="10,8" Margin="0,0,0,5"
+										BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition
-												Width="*" />
-                                            <ColumnDefinition
-												Width="Auto" />
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock
-												Text="Скидка"
-												FontSize="9"
-												FontWeight="Bold"
-												Foreground="{StaticResource BrushTextMuted}" />
-                                            <TextBlock
-												x:Name="OrderDiscountSummaryText"
-												Margin="0,1,0,0"
-												FontSize="10"
-												Foreground="{StaticResource BrushTextSoft}"
-												TextWrapping="Wrap" />
+                                        <!-- Глобальная скидка: замените в блоке «Скидка на чек» (ToolsPanel) -->
+                                        <Button Grid.Column="0" Background="Transparent" BorderThickness="0"
+											 ToolTip="Скидка на чек"
+											 Click="ApplyOrderDiscount_Click" VerticalAlignment="Center"
+											 Margin="0,0,6,0">
+                                            <Grid Width="38" Height="38">
+                                                <Path Data="M92.7,41.2c-1.1-4.3-4.1-7.8-8.1-9.6c-0.8-3.4-2.5-6.6-4.9-9.2c-3.1-3.3-7.2-5.4-11.7-5.9c-2.3-3.1-5.6-5.5-9.3-6.8c-4.3-1.5-8.9-1.5-13.2,0c-3.8,1.3-7.1,3.7-9.3,6.8c-4.5,0.5-8.6,2.6-11.7,5.9c-2.4,2.6-4.1,5.8-4.9,9.2c-4,1.8-7,5.3-8.1,9.6c-1.3,4.8-0.5,9.9,2.1,14c-1.8,4.1-2.2,8.7-1.1,13.1c1.4,5.4,5,10,9.7,12.5c0.5,3.4,2,6.6,4.3,9.2c3.4,3.8,8.2,6.2,13.4,6.5c2.6,3,6.1,5.2,10.1,6.1c5.3,1.3,10.9,0.3,15.5-2.6c3.9,2.9,8.7,4.3,13.6,4c5.1-0.3,9.8-2.6,13.2-6.5c2.2-2.6,3.8-5.8,4.3-9.2c4.7-2.6,8.2-7.1,9.7-12.5c1.1-4.4,0.7-9-1.1-13.1C93.2,51.1,94,46,92.7,41.2z"
+              Fill="#FF0000" Stretch="Uniform" Width="38" Height="38"/>
+                                                <Path Data="M38,30c-4.4,0-8,3.6-8,8s3.6,8,8,8s8-3.6,8-8S42.4,30,38,30z M38,41c-1.7,0-3-1.3-3-3s1.3-3,3-3s3,1.3,3,3S39.7,41,38,41z M65,30c-1.1,0-2.1,0.4-2.8,1.2l-31,35c-1.5,1.7-1.3,4.2,0.4,5.7c1.7,1.5,4.2,1.3,5.7-0.4l31-35c1.5-1.7,1.3-4.2-0.4-5.7C67.1,30.3,66,30,65,30z M62,54c-4.4,0-8,3.6-8,8s3.6,8,8,8s8-3.6,8-8S66.4,54,62,54z M62,65c-1.7,0-3-1.3-3-3s1.3-3,3-3s3,1.3,3,3S63.7,65,62,65z"
+              Fill="White" Stretch="Uniform" Width="28" Height="28"/>
+                                            </Grid>
+                                        </Button>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Скидка на чек" FontSize="10" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,2"/>
+                                            <TextBlock x:Name="OrderDiscountSummaryText" FontSize="13" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" TextWrapping="Wrap"/>
                                         </StackPanel>
-                                        <Button
-											x:Name="OrderDiscountButton"
-											Grid.Column="1"
-											Content="Изменить"
-											Style="{StaticResource TouchSecondaryButton}"
-											Padding="8,4"
-											Margin="8,0,0,0"
-											MinWidth="0"
-											FontSize="10"
-											VerticalAlignment="Center"
-											ToolTip="Открыть окно настройки скидки"
-											Click="ApplyOrderDiscount_Click" />
+                                        <Button x:Name="OrderDiscountButton" Grid.Column="2" Content="✕"
+        Style="{StaticResource TouchSecondaryButton}" Width="28" Height="28" Padding="0"
+        ToolTip="Убрать скидку с чека" Visibility="Collapsed"
+        Click="ClearOrderDiscountFromHeader_Click" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
+
                                 <TextBlock
 									x:Name="CartMessageText"
 									TextWrapping="Wrap"
@@ -1747,28 +1726,32 @@
                                         <RowDefinition
 											Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <StackPanel
-										Orientation="Horizontal"
-										HorizontalAlignment="Right"
-										VerticalAlignment="Center">
-                                        <Button
-											x:Name="ToggleToolsButton"
-											Style="{StaticResource TouchGhostButton}"
-											Width="36"
-											Height="28"
-											Padding="0"
-											Margin="0,0,8,0"
-											ToolTip="Показать/скрыть инструменты"
-											FontSize="16"
-											Foreground="{DynamicResource BrushText}"
-											Content="∧"
-											Click="ToggleToolsPanel_Click" />
-                                        <TextBlock
-											Text="Итого к оплате"
-											FontSize="10"
-											FontWeight="SemiBold"
-											Foreground="{DynamicResource BrushTextSoft}"
-											VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button x:Name="ToggleToolsButton"
+        Style="{StaticResource TouchGhostButton}"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Center"
+        ToolTip="Показать/скрыть инструменты"
+        Click="ToggleToolsPanel_Click"
+        Background="Transparent">
+                                            <Border Width="20" Height="20" 
+            CornerRadius="10" 
+            Background="Transparent">
+                                                <TextBlock x:Name="IconText" 
+                   Text="∨" 
+                   FontSize="14" 
+                   Foreground="{DynamicResource BrushText}" 
+                   FontWeight="Bold"
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center"/>
+                                            </Border>
+                                        </Button>
+                                        <TextBlock Text="Итого к оплате"
+												FontSize="20"
+												FontWeight="Bold"
+												Foreground="{DynamicResource BrushText}"
+												VerticalAlignment="Center"
+												Margin="0,0,8,0"/>
                                     </StackPanel>
                                     <StackPanel
 										Grid.Row="1"
@@ -1809,7 +1792,7 @@
                         </Grid>
                     </Border>
                     <ListView
-						x:Name="CartListView"
+						x:Name="CartListView" 
 						HorizontalAlignment="Stretch"
 						HorizontalContentAlignment="Stretch"
 						BorderThickness="0"
@@ -1822,123 +1805,99 @@
 						VirtualizingPanel.VirtualizationMode="Recycling"
 						ItemsSource="{Binding CartLines}"
 						SizeChanged="CartListView_SizeChanged">
-                        <ItemsControl.ItemContainerStyle>
-                            <Style
-								TargetType="{x:Type ListViewItem}">
-                                <Setter
-									Property="HorizontalContentAlignment"
-									Value="Stretch" />
-                                <Setter
-									Property="VerticalContentAlignment"
-									Value="Stretch" />
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                                                <ContentPresenter HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
-                        </ItemsControl.ItemContainerStyle>
+                        </ListView.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate
-								DataType="{x:Type pos:CartLineRow}">
-                                <Border
-									Background="{StaticResource BrushWindowAlt}"
-									BorderBrush="{StaticResource BrushBorder}"
-									BorderThickness="0.5"
-									CornerRadius="8"
-									Padding="8,6"
-									HorizontalAlignment="Stretch">
-                                    <Grid
-										HorizontalAlignment="Stretch">
+                            <DataTemplate DataType="{x:Type pos:CartLineRow}">
+                                <Border Background="{StaticResource BrushWindowAlt}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0.5" CornerRadius="8" Padding="8,6" HorizontalAlignment="Stretch">
+                                    <Grid HorizontalAlignment="Stretch">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition
-												Width="*" />
-                                            <ColumnDefinition
-												Width="Auto"
-												MinWidth="{DynamicResource CartUiSumColMinW}" />
-                                            <ColumnDefinition
-												Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" MinWidth="{DynamicResource CartUiSumColMinW}" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel
-											Grid.Column="0"
-											Margin="0,0,8,0"
-											VerticalAlignment="Center">
-                                            <TextBlock
-												FontSize="{DynamicResource CatalogTitleFont}"
-												FontWeight="SemiBold"
-												Foreground="{StaticResource BrushText}"
-												HorizontalAlignment="Left"
-												TextAlignment="Left"
-												TextTrimming="CharacterEllipsis"
-												TextWrapping="NoWrap"
-												MaxWidth="200"
-												Text="{Binding Title, Mode=OneWay}"
-												ToolTip="{Binding Title}" />
-                                            <TextBlock
-												FontSize="14"
-												FontWeight="SemiBold"
-												Foreground="{DynamicResource BrushTextSoft}"
-												HorizontalAlignment="Left"
-												TextTrimming="CharacterEllipsis"
-												TextWrapping="NoWrap"
-												MaxWidth="200"
-												Margin="0,2,0,0"
-												Text="{Binding SubLine}" />
+
+                                        <!-- 1. Информация о товаре -->
+                                        <StackPanel Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock FontSize="14" 
+                                                       FontWeight="SemiBold" 
+                                                       Foreground="{StaticResource BrushText}" 
+                                                       HorizontalAlignment="Left" 
+                                                       TextTrimming="CharacterEllipsis" 
+                                                       TextWrapping="NoWrap" 
+                                                       MaxWidth="200" 
+                                                       Text="{Binding Title, Mode=OneWay}" 
+                                                       ToolTip="{Binding Title}" />
+                                            <TextBlock FontSize="13" 
+                                                       FontWeight="SemiBold" 
+                                                       Foreground="{DynamicResource BrushTextSoft}" 
+                                                       HorizontalAlignment="Left" 
+                                                       TextTrimming="CharacterEllipsis" 
+                                                       TextWrapping="NoWrap" 
+                                                       MaxWidth="200"
+                                                       Margin="0,2,0,0" 
+                                                       Text="{Binding SubLine}" />
                                         </StackPanel>
-                                        <TextBlock
-											Grid.Column="1"
-											FontSize="18"
-											FontWeight="Bold"
-											Foreground="{DynamicResource BrushAccent}"
-											VerticalAlignment="Center"
-											HorizontalAlignment="Center"
-											TextAlignment="Center"
-											TextWrapping="Wrap"
-											Text="{Binding LineTotal}" />
-                                        <StackPanel
-											Grid.Column="2"
-											Orientation="Horizontal"
-											VerticalAlignment="Center"
-											Margin="6,0,0,0">
-                                            <!--Неизвестный ID соединения: 59-->
-                                            <Button
-												Content="Взвесить"
-												Style="{StaticResource TouchSecondaryButton}"
-												FontSize="{DynamicResource CartUiSmallBtnFont}"
-												Padding="6,2"
-												MinWidth="0"
-												MinHeight="{DynamicResource CartUiSmallBtnMinH}"
-												Margin="{DynamicResource CartUiQtyBtnSpacing}"
-												ToolTip="Указать вес"
-												Visibility="{Binding WeighedLine, Converter='{StaticResource BoolToVis}'}" />
-                                            <!--Неизвестный ID соединения: 60-->
-                                            <Button
-												Content="−"
-												Style="{StaticResource CartQtyMiniButton}"
-												Width="{DynamicResource CartUiQtyBtnSize}"
-												Height="{DynamicResource CartUiQtyBtnSize}"
-												MinHeight="{DynamicResource CartUiQtyBtnSize}"
-												Margin="{DynamicResource CartUiQtyBtnSpacing}"
-												FontSize="{DynamicResource CartUiQtyBtnFont}"
-												ToolTip="Уменьшить" />
-                                            <!--Неизвестный ID соединения: 61-->
-                                            <Button
-												Content="+"
-												Style="{StaticResource CartQtyMiniButton}"
-												Width="{DynamicResource CartUiQtyBtnSize}"
-												Height="{DynamicResource CartUiQtyBtnSize}"
-												MinHeight="{DynamicResource CartUiQtyBtnSize}"
-												Margin="{DynamicResource CartUiQtyBtnSpacing}"
-												FontSize="{DynamicResource CartUiQtyBtnFont}"
-												ToolTip="Увеличить" />
-                                            <!--Неизвестный ID соединения: 62-->
-                                            <Button
-												Style="{StaticResource TouchDangerButton}"
-												Width="40"
-												Height="40"
-												Padding="0"
-												ToolTip="Убрать из чека">
-                                                <TextBlock
-													Text=""
-													FontFamily="Segoe MDL2 Assets"
-													FontSize="16"
-													VerticalAlignment="Center"
-													HorizontalAlignment="Center" />
+
+                                        <!-- 2. Итоговая цена + Скидка -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="4,0">
+                                            <TextBlock Text="{Binding LineTotal}" FontSize="18" FontWeight="Bold"
+               Foreground="{DynamicResource BrushAccent}" HorizontalAlignment="Center"/>
+                                            <!-- Скидка (если есть) -->
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,2,0,0"
+                Visibility="{Binding HasDiscount, Converter={StaticResource BoolToVis}}">
+                                                <!-- Локальная скидка: в строке чека (CartLineRow) внутри StackPanel «2. Итоговая цена + Скидка» -->
+                                                <Button Background="Transparent" BorderThickness="0" Padding="0"
+        ToolTip="Изменить скидку товара"
+        Click="CartLineDiscount_Click" VerticalAlignment="Center">
+                                                    <Grid Width="34" Height="34">
+                                                        <Path Data="M92.7,41.2c-1.1-4.3-4.1-7.8-8.1-9.6c-0.8-3.4-2.5-6.6-4.9-9.2c-3.1-3.3-7.2-5.4-11.7-5.9c-2.3-3.1-5.6-5.5-9.3-6.8c-4.3-1.5-8.9-1.5-13.2,0c-3.8,1.3-7.1,3.7-9.3,6.8c-4.5,0.5-8.6,2.6-11.7,5.9c-2.4,2.6-4.1,5.8-4.9,9.2c-4,1.8-7,5.3-8.1,9.6c-1.3,4.8-0.5,9.9,2.1,14c-1.8,4.1-2.2,8.7-1.1,13.1c1.4,5.4,5,10,9.7,12.5c0.5,3.4,2,6.6,4.3,9.2c3.4,3.8,8.2,6.2,13.4,6.5c2.6,3,6.1,5.2,10.1,6.1c5.3,1.3,10.9,0.3,15.5-2.6c3.9,2.9,8.7,4.3,13.6,4c5.1-0.3,9.8-2.6,13.2-6.5c2.2-2.6,3.8-5.8,4.3-9.2c4.7-2.6,8.2-7.1,9.7-12.5c1.1-4.4,0.7-9-1.1-13.1C93.2,51.1,94,46,92.7,41.2z"
+              Fill="#FF0000" Stretch="Uniform" Width="34" Height="34"/>
+                                                        <Path Data="M38,30c-4.4,0-8,3.6-8,8s3.6,8,8,8s8-3.6,8-8S42.4,30,38,30z M38,41c-1.7,0-3-1.3-3-3s1.3-3,3-3s3,1.3,3,3S39.7,41,38,41z M65,30c-1.1,0-2.1,0.4-2.8,1.2l-31,35c-1.5,1.7-1.3,4.2,0.4,5.7c1.7,1.5,4.2,1.3,5.7-0.4l31-35c1.5-1.7,1.3-4.2-0.4-5.7C67.1,30.3,66,30,65,30z M62,54c-4.4,0-8,3.6-8,8s3.6,8,8,8s8-3.6,8-8S66.4,54,62,54z M62,65c-1.7,0-3-1.3-3-3s1.3-3,3-3s3,1.3,3,3S63.7,65,62,65z"
+              Fill="White" Stretch="Uniform" Width="28" Height="28"/>
+                                                    </Grid>
+                                                </Button>
+                                                <TextBlock Text="{Binding DiscountDisplay}" FontSize="11" Foreground="#FF0000"
+                   FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- 3. Кнопки управления -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                                            <Button Content="Взвесить" Style="{StaticResource TouchSecondaryButton}" FontSize="{DynamicResource CartUiSmallBtnFont}" Padding="6,2" MinWidth="0" MinHeight="{DynamicResource CartUiSmallBtnMinH}" Margin="{DynamicResource CartUiQtyBtnSpacing}" ToolTip="Указать вес" Visibility="{Binding WeighedLine, Converter='{StaticResource BoolToVis}'}" Click="CartWeigh_Click" />
+                                            <Button Content="−" Style="{StaticResource CartQtyMiniButton}" Width="{DynamicResource CartUiQtyBtnSize}" Height="{DynamicResource CartUiQtyBtnSize}" MinHeight="{DynamicResource CartUiQtyBtnSize}" Margin="{DynamicResource CartUiQtyBtnSpacing}" FontSize="{DynamicResource CartUiQtyBtnFont}" ToolTip="Уменьшить" Click="CartQtyMinus_Click" />
+                                            <Button Content="+" Style="{StaticResource CartQtyMiniButton}" Width="{DynamicResource CartUiQtyBtnSize}" Height="{DynamicResource CartUiQtyBtnSize}" MinHeight="{DynamicResource CartUiQtyBtnSize}" Margin="{DynamicResource CartUiQtyBtnSpacing}" FontSize="{DynamicResource CartUiQtyBtnFont}" ToolTip="Увеличить" Click="CartQtyPlus_Click" />
+                                            <Button Style="{StaticResource TouchDangerButton}" Width="40" Height="40" Padding="0" ToolTip="Убрать из чека" Click="CartLineDelete_Click">
+                                                <TextBlock Text="" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                             </Button>
                                         </StackPanel>
                                     </Grid>
@@ -2071,7 +2030,8 @@
 											CornerRadius="8"
 											Padding="14"
 											Margin="6"
-											Effect="{DynamicResource CardShadow}">
+											Effect="{DynamicResource CardShadow}"
+                                            MouseLeftButtonDown="WarehouseCard_Click">
                                             <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition
@@ -2187,7 +2147,8 @@
 								AutoGenerateColumns="False"
 								ScrollViewer.CanContentScroll="False"
 								Visibility="{Binding IsChecked, ElementName=WarehouseTableBtn, Converter='{StaticResource BoolToVis}'}"
-								ItemsSource="{Binding WarehouseItems}">
+								ItemsSource="{Binding WarehouseItems}"
+                                MouseDoubleClick="WarehouseGrid_MouseDoubleClick">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn
 										Header="Название"
@@ -2216,165 +2177,19 @@
 										Binding="{Binding StockQuantity}" />
                                 </DataGrid.Columns>
                             </DataGrid>
+                            <TextBlock
+								x:Name="WarehouseEmptyText"
+								Text="Нет товаров для отображения"
+								Foreground="{DynamicResource BrushTextSoft}"
+								FontSize="16"
+								HorizontalAlignment="Center"
+								VerticalAlignment="Center"
+								TextWrapping="Wrap"
+								Visibility="Collapsed"
+								Panel.ZIndex="1" />
                         </Grid>
                     </ScrollViewer>
                 </Grid>
-            </Border>
-            <Border
-				x:Name="ShiftPanel"
-				Visibility="Collapsed"
-				Background="{DynamicResource BrushPanel}"
-				CornerRadius="12"
-				Padding="16"
-				Margin="0"
-				Grid.Row="1"
-				Grid.Column="0"
-				Grid.ColumnSpan="3">
-                <ScrollViewer
-					VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <Button
-							Content="← Назад"
-							Style="{StaticResource TouchSecondaryButton}"
-							HorizontalAlignment="Left"
-							Margin="0,0,0,12"
-							Click="ShiftBack_Click" />
-                        <Border
-							Style="{StaticResource KpiCard}"
-							Padding="12,10"
-							Margin="0,0,0,12">
-                            <StackPanel>
-                                <TextBlock
-									Text="Контроль наличности"
-									FontWeight="SemiBold"
-									Foreground="{DynamicResource BrushText}"
-									Margin="0,0,0,8" />
-                                <WrapPanel>
-                                    <TextBlock
-										Text="Сумма при открытии:"
-										VerticalAlignment="Center"
-										Foreground="{DynamicResource BrushTextSoft}"
-										Margin="0,0,8,0" />
-                                    <TextBox
-										x:Name="ShiftOpeningCashBox"
-										Width="160"
-										Style="{DynamicResource TouchTextBox}"
-										Margin="0,0,8,0" />
-                                    <Button
-										Content="Сохранить"
-										Style="{StaticResource PrimaryActionButton}"
-										Click="ShiftSaveOpeningCash_Click" />
-                                    <Button
-										Style="{StaticResource SecondaryActionButton}"
-										Width="50"
-										Height="36"
-										Padding="0"
-										Margin="8,0,0,0"
-										ToolTip="История контроля наличности"
-										Click="ShiftOpenCashHistory_Click">
-                                        <TextBlock
-											FontFamily="Segoe MDL2 Assets"
-											Text=""
-											FontSize="16"
-											Foreground="{DynamicResource BrushText}"
-											VerticalAlignment="Center"
-											HorizontalAlignment="Center" />
-                                    </Button>
-                                </WrapPanel>
-                            </StackPanel>
-                        </Border>
-                        <Border
-							Style="{StaticResource KpiCard}"
-							Padding="12,10">
-                            <StackPanel>
-                                <TextBlock
-									Text="Операции с наличными"
-									FontWeight="SemiBold"
-									Foreground="{DynamicResource BrushText}"
-									Margin="0,0,0,8" />
-                                <StackPanel
-									Orientation="Horizontal">
-                                    <Button
-										Content="Внести"
-										Style="{StaticResource PrimaryActionButton}"
-										Background="#16A34A"
-										Foreground="#FFFFFFFF"
-										Width="120"
-										Margin="0,0,8,0"
-										Click="ShiftCashInButton_Click" />
-                                    <Button
-										Content="Изъять"
-										Style="{StaticResource PrimaryActionButton}"
-										Background="#DC2626"
-										Foreground="#FFFFFFFF"
-										Width="120"
-										Click="ShiftCashOutButton_Click" />
-                                </StackPanel>
-                                <StackPanel
-									x:Name="ShiftCashOperationPanel"
-									Visibility="Collapsed"
-									Margin="0,8,0,0">
-                                    <TextBlock
-										x:Name="ShiftCashOperationTitle"
-										FontWeight="SemiBold"
-										Foreground="{DynamicResource BrushText}"
-										Margin="0,0,0,4" />
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition
-												Width="140" />
-                                            <ColumnDefinition
-												Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock
-											Text="Сумма:"
-											VerticalAlignment="Center"
-											Foreground="{DynamicResource BrushText}" />
-                                        <TextBox
-											x:Name="ShiftCashAmountBox"
-											Grid.Column="1"
-											Style="{DynamicResource TouchTextBox}"
-											Margin="8,0,0,0" />
-                                    </Grid>
-                                    <Grid
-										Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition
-												Width="140" />
-                                            <ColumnDefinition
-												Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock
-											Text="Комментарий:"
-											VerticalAlignment="Center"
-											Foreground="{DynamicResource BrushText}" />
-                                        <TextBox
-											x:Name="ShiftCashCommentBox"
-											Grid.Column="1"
-											Style="{DynamicResource TouchTextBox}"
-											Margin="8,0,0,0" />
-                                    </Grid>
-                                    <StackPanel
-										Orientation="Horizontal"
-										HorizontalAlignment="Right"
-										Margin="0,12,0,0">
-                                        <Button
-											Content="Применить"
-											Style="{StaticResource PrimaryActionButton}"
-											Width="100"
-											Click="ShiftCashApplyButton_Click" />
-                                        <Button
-											Content="Отмена"
-											Style="{StaticResource SecondaryActionButton}"
-											Width="100"
-											Margin="8,0,0,0"
-											Click="ShiftCashCancelButton_Click" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </ScrollViewer>
             </Border>
             <Border
 				x:Name="HamburgerOverlay"

@@ -35,40 +35,103 @@ namespace NurMarketKassa.Views
             TitleBlock.Text = "Взвесить: " + productTitle;
             PriceBlock.Text = string.IsNullOrEmpty(pricePerKgLine) ? "" : "Цена за кг: " + pricePerKgLine;
 
+            // Показываем панель весов и кнопку подстановки, только если есть сервис
+            bool hasScale = _scale != null;
+            ScalePanel.Visibility = hasScale ? Visibility.Visible : Visibility.Collapsed;
+            FromScaleButton.Visibility = hasScale ? Visibility.Visible : Visibility.Collapsed;
+            ManualHintText.Visibility = hasScale ? Visibility.Collapsed : Visibility.Visible;
+
+            // Устанавливаем начальное значение
             if (!string.IsNullOrEmpty(initialKg))
             {
                 WeightBox.Text = initialKg;
             }
-            else
+            else if (hasScale)
             {
-                double? w = _scale?.LastWeight;
+                double? w = _scale.LastWeight;
                 if (w.HasValue && w.Value > 0)
                     WeightBox.Text = FormatWeight(w.Value);
             }
 
-            _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
-            _timer.Tick += (_, _) => RefreshLiveScale();
-            Loaded += (_, _) => _timer.Start();
-            Closed += (_, _) => _timer.Stop();
+            // Таймер обновления показаний (если есть весы)
+            if (hasScale)
+            {
+                _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+                _timer.Tick += (_, _) => RefreshLiveScale();
+                Loaded += (_, _) => _timer.Start();
+                Closed += (_, _) => _timer.Stop();
+            }
+
+            // Автофокус на поле ввода
+            Loaded += (_, _) => WeightBox.Focus();
+        }
+
+        private void WeightBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            // Разрешаем только цифры, запятую и точку (для вставки тоже работает)
+            foreach (char c in e.Text)
+            {
+                if (!char.IsDigit(c) && c != '.' && c != ',')
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+            // Запрещаем второй разделитель
+            string current = WeightBox.Text ?? "";
+            if ((e.Text.Contains('.') || e.Text.Contains(',')) && (current.Contains('.') || current.Contains(',')))
+            {
+                e.Handled = true;
+                return;
+            }
         }
 
         private void WeightBox_GotFocus(object sender, RoutedEventArgs e)
         {
+            WeightBox.SelectAll();
             if (UserPreferences.Instance.AutoShowTouchKeyboard)
                 TouchKeyboard.TryShow();
         }
 
+        private void Numpad_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag != null)
+            {
+                string ch = btn.Tag.ToString()!;
+                // Запрещаем второй разделитель
+                if ((ch == "." || ch == ",") && (WeightBox.Text.Contains('.') || WeightBox.Text.Contains(',')))
+                    return;
+                WeightBox.Text += ch;
+                WeightBox.CaretIndex = WeightBox.Text.Length;
+                WeightBox.Focus();
+            }
+        }
+
+        private void NumpadBackspace_Click(object sender, RoutedEventArgs e)
+        {
+            string current = WeightBox.Text;
+            if (current.Length > 0)
+            {
+                WeightBox.Text = current.Substring(0, current.Length - 1);
+                WeightBox.CaretIndex = WeightBox.Text.Length;
+                WeightBox.Focus();
+            }
+        }
+
         private void RefreshLiveScale()
         {
-            double? w = _scale?.LastWeight;
-            LiveScaleText.Text = (!w.HasValue || w.Value <= 0)
-                ? "—"
-                : FormatWeight(w.Value) + " кг";
+            if (_scale == null) return;
+            double? w = _scale.LastWeight;
+            LiveScaleText.Text = (w.HasValue && w.Value > 0)
+                ? FormatWeight(w.Value) + " кг"
+                : "—";
         }
 
         private static string FormatWeight(double w)
         {
-            return w.ToString("0.###", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.');
+            return w.ToString("0.###", CultureInfo.InvariantCulture)
+                  .TrimEnd('0')
+                  .TrimEnd('.');
         }
 
         private void FromScale_Click(object sender, RoutedEventArgs e)
@@ -83,12 +146,22 @@ namespace NurMarketKassa.Views
             double? w = _scale.LastWeight;
             if (!w.HasValue || w.Value <= 0)
             {
-                MessageBox.Show("Нет веса с весов (поставьте товар и подождите).", "Весы",
+                MessageBox.Show("Нет веса с весов (поставьте товар на весы и подождите стабилизации).", "Весы",
                     MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 return;
             }
 
             WeightBox.Text = FormatWeight(w.Value);
+            WeightBox.SelectAll();
+        }
+
+        private void QuickWeight_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag != null)
+            {
+                WeightBox.Text = btn.Tag.ToString().Replace(',', '.');
+                WeightBox.SelectAll();
+            }
         }
 
         private void Ok_Click(object sender, RoutedEventArgs e) => TryCloseOk();
@@ -104,14 +177,26 @@ namespace NurMarketKassa.Views
 
         private void TryCloseOk()
         {
-            string error = OrderDiscountHelper.ValidateQuantity(WeightBox.Text);
-            if (error != null)
+            string raw = (WeightBox.Text ?? "").Trim();
+            if (raw.Length == 0)
             {
-                MessageBox.Show(error, "Вес", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                MessageBox.Show("Введите вес.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                WeightBox.Focus();
                 return;
             }
 
-            QuantityNormalized = OrderDiscountHelper.NormalizeDecimal(WeightBox.Text);
+            // Нормализуем запятую в точку
+            raw = raw.Replace(',', '.');
+            if (!decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal kg) || kg <= 0)
+            {
+                MessageBox.Show("Вес должен быть положительным числом.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                WeightBox.Focus();
+                return;
+            }
+
+            QuantityNormalized = kg.ToString("0.###", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.');
+            if (string.IsNullOrEmpty(QuantityNormalized)) QuantityNormalized = "0";
+
             DialogResult = true;
         }
 

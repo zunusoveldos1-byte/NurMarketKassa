@@ -87,67 +87,19 @@
                 <RowDefinition
 					Height="Auto" />
             </Grid.RowDefinitions>
-            <Border
-				Grid.Row="0"
-				Padding="0,0,0,12"
-				BorderBrush="{DynamicResource BrushBorder}"
-				BorderThickness="0,0,0,1">
+            <Border Grid.Row="0"
+        Padding="0,0,0,12"
+        BorderBrush="{DynamicResource BrushBorder}"
+        BorderThickness="0,0,0,1">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition
-							Width="Auto" />
-                        <ColumnDefinition
-							Width="*" />
-                        <ColumnDefinition
-							Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Button
-						Content="✕"
-						Grid.Column="0"
-						Height="32"
-						Background="#00FFFFFF"
-						BorderThickness="0"
-						Foreground="{DynamicResource BrushText}"
-						FontSize="18"
-						Grid.ColumnSpan="2"
-						Margin="0,1,712,1"
-						Click="Close_Click" />
-                    <StackPanel
-						Grid.Column="1"
-						Orientation="Horizontal"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center">
-                        <Button
-							Content="Редактировать"
-							Style="{StaticResource ActionButton}"
-							Background="#FFD700"
-							Foreground="#1A1A1A"
-							Margin="4" />
-                        <Button
-							Content="Дублировать"
-							Style="{StaticResource ActionButton}"
-							Background="{DynamicResource BrushInputAlt}"
-							Foreground="{DynamicResource BrushText}"
-							Margin="4" />
-                        <Button
-							Content="Удалить"
-							Style="{StaticResource ActionButton}"
-							Background="#F44336"
-							Foreground="#FFFFFFFF"
-							Margin="4" />
-                        <Button
-							Content="Добавить"
-							Style="{StaticResource ActionButton}"
-							Background="#FFD700"
-							Foreground="#1A1A1A"
-							Margin="4" />
-                        <Button
-							Content="Брак"
-							Style="{StaticResource ActionButton}"
-							Background="#FF9800"
-							Foreground="#FFFFFFFF"
-							Margin="4" />
-                    </StackPanel>
+                    <Button Content="✕"
+                HorizontalAlignment="Right"
+                Height="32"
+                Background="#00FFFFFF"
+                BorderThickness="0"
+                Foreground="{DynamicResource BrushText}"
+                FontSize="18"
+                Click="Close_Click" />
                 </Grid>
             </Border>
             <Grid

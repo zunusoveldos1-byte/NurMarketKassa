@@ -1,26 +1,39 @@
+using System;
 using System.Windows;
 
-namespace NurMarketKassa.Views;
-
-public partial class CloseShiftDialog : Window
+namespace NurMarketKassa.Views
 {
-    /// <summary>null или пустая строка — не передаём closing_cash в API.</summary>
-    public string? ClosingCashOrNull =>
-        string.IsNullOrWhiteSpace(ClosingCashBox.Text) ? null : ClosingCashBox.Text.Trim();
-
-    public CloseShiftDialog()
+    public partial class CloseShiftDialog : Window
     {
-        InitializeComponent();
-        ClosingCashBox.Focus();
-    }
+        /// <summary>Остаток в кассе (null, если поле пустое или некорректное).</summary>
+        public decimal? ClosingCash =>
+            decimal.TryParse(ClosingCashBox.Text, out var value) ? value : null;
 
-    private void Ok_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = true;
-    }
+        public CloseShiftDialog()
+        {
+            InitializeComponent();
+            ClosingCashBox.Focus();
+        }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
+        private void Ok_Click(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(ClosingCashBox.Text) &&
+                !decimal.TryParse(ClosingCashBox.Text, out _))
+            {
+                MessageBox.Show(
+                    "Введите корректную сумму.",
+                    "Ошибка",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            DialogResult = true;
+        }
+
+        private void Cancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+        }
     }
 }

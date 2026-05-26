@@ -1,3 +1,4 @@
+﻿using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
@@ -20,83 +21,85 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
       bool mustWeigh,
       string? imageUrl = null)
     {
-        this.Id = id;
-        this.Title = title;
-        this.PriceLine = priceLine;
-        this.MustWeigh = mustWeigh;
-        this.ImageUrl = imageUrl;
+        Id = id;
+        Title = title;
+        PriceLine = priceLine;
+        MustWeigh = mustWeigh;
+        ImageUrl = imageUrl;
     }
 
+    // ────────── существующие свойства ──────────
     public string? Category { get; set; }
-
     public string? Brand { get; set; }
-
     public string Id { get; }
-
     public string Title { get; }
-
     public string PriceLine { get; }
-
     public bool MustWeigh { get; }
-
     public string? ImageUrl { get; }
+    public string? StatusDisplay { get; set; }
+    public string? HotkeyGroupName { get; set; }
+
+    // ────────── новые свойства для фильтрации ──────────
+    public DateTime CreatedAt { get; set; }
+    public string? ClientName { get; set; }
+    public string? Status { get; set; }
+    public string? HotkeyGroup { get; set; }
 
     public string? Barcode
     {
-        get => this._barcode;
+        get => _barcode;
         set
         {
-            if (this._barcode == value)
+            if (_barcode == value)
                 return;
-            this._barcode = value;
-            this.OnPropertyChanged(nameof(Barcode));
+            _barcode = value;
+            OnPropertyChanged(nameof(Barcode));
         }
     }
 
     public string? StockInfo
     {
-        get => this._stockInfo;
+        get => _stockInfo;
         set
         {
-            this._stockInfo = value;
-            this.OnPropertyChanged(nameof(StockInfo));
+            _stockInfo = value;
+            OnPropertyChanged(nameof(StockInfo));
         }
     }
 
     public bool IsFavorite
     {
-        get => this._isFavorite;
+        get => _isFavorite;
         set
         {
-            this._isFavorite = value;
-            this.OnPropertyChanged(nameof(IsFavorite));
+            _isFavorite = value;
+            OnPropertyChanged(nameof(IsFavorite));
         }
     }
 
     public double Quantity
     {
-        get => this._quantity;
+        get => _quantity;
         set
         {
-            this._quantity = value;
-            this.OnPropertyChanged(nameof(Quantity));
+            _quantity = value;
+            OnPropertyChanged(nameof(Quantity));
         }
     }
 
     public ImageSource? Thumb
     {
-        get => this._thumb;
+        get => _thumb;
         set
         {
-            if (this._thumb == value)
+            if (_thumb == value)
                 return;
-            this._thumb = value;
-            this.OnPropertyChanged(nameof(Thumb));
+            _thumb = value;
+            OnPropertyChanged(nameof(Thumb));
         }
     }
 
     public double PurchasePrice { get; set; }
-
     public string? Unit { get; set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;

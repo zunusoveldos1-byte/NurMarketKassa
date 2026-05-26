@@ -9,8 +9,9 @@ using System.Windows;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 using NurMarketKassa.Views;
+using System.Linq;
 
-#nullable disable
+#nullable enable
 namespace NurMarketKassa.Services
 {
     public static class CatalogCacheService
@@ -18,8 +19,8 @@ namespace NurMarketKassa.Services
         private static readonly string CacheDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
         private static readonly string CacheFilePath = Path.Combine(CacheDirectory, "products_cache.json");
         private static readonly TimeSpan BackgroundSyncInterval = TimeSpan.FromMinutes(10.0);
-        private static CancellationTokenSource _backgroundCts;
-        private static Task _backgroundTask;
+        private static CancellationTokenSource? _backgroundCts;
+        private static Task? _backgroundTask;
 
         public static ObservableCollection<CatalogProductTileVm> Products { get; } = new ObservableCollection<CatalogProductTileVm>();
 
@@ -58,14 +59,19 @@ namespace NurMarketKassa.Services
                         newList.Add(vm);
                 }
 
+                // Единый вызов UI-потока
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     Products.Clear();
                     foreach (var vm in newList)
                         Products.Add(vm);
+
+                    // Обновляем индикатор кэша, если главное окно доступно
+                    if (Application.Current.MainWindow is MainWindow mainWindow)
+                        mainWindow.UpdateCacheStatus();
                 });
 
-                SaveToFile(newList);
+                SaveToFile();
                 LastSyncTime = DateTime.UtcNow;
             }
             catch
@@ -74,7 +80,52 @@ namespace NurMarketKassa.Services
             }
         }
 
-        private static bool LoadFromFile()
+
+        private static HashSet<string>? _favoriteIds;
+        private static readonly string FavoritesFilePath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory, "favorites.json");
+
+        public static HashSet<string> FavoriteIds
+        {
+            get
+            {
+                if (_favoriteIds == null)
+                    LoadFavoriteIds();
+                return _favoriteIds!;
+            }
+        }
+
+        public static void LoadFavoriteIds()
+        {
+            try
+            {
+                if (File.Exists(FavoritesFilePath))
+                {
+                    var json = File.ReadAllText(FavoritesFilePath);
+                    _favoriteIds = JsonSerializer.Deserialize<HashSet<string>>(json) ?? new HashSet<string>();
+                }
+                else
+                {
+                    _favoriteIds = new HashSet<string>();
+                }
+            }
+            catch
+            {
+                _favoriteIds = new HashSet<string>();
+            }
+        }
+
+        public static void SaveFavoriteIds()
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(FavoriteIds);
+                File.WriteAllText(FavoritesFilePath, json);
+            }
+            catch { /* игнорируем */ }
+        }
+
+        public static bool LoadFromFile()
         {
             try
             {
@@ -103,22 +154,26 @@ namespace NurMarketKassa.Services
             }
         }
 
-        private static void SaveToFile(List<CatalogProductTileVm> list)
+        // В начале класса CatalogCacheService
+        private static readonly JsonSerializerOptions PrettyJsonOptions = new()
+        {
+            WriteIndented = true
+        };
+
+        // Метод SaveToFile
+        public static void SaveToFile()
         {
             try
             {
                 if (!Directory.Exists(CacheDirectory))
                     Directory.CreateDirectory(CacheDirectory);
 
-                string json = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = false });
+                var list = Products.ToList();
+                string json = JsonSerializer.Serialize(list, PrettyJsonOptions);
                 File.WriteAllText(CacheFilePath, json);
             }
-            catch
-            {
-                // ignore
-            }
+            catch { /* игнорируем */ }
         }
-
         private static void StartBackgroundSync()
         {
             StopBackgroundSync();
