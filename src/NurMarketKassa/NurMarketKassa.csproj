@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<Version>1.2.4</Version>
+		<Version>1.2.9</Version>
 		<OutputType>WinExe</OutputType>
 		<ApplicationIcon>Assets\app-logo.ico</ApplicationIcon>
 		<TargetFramework>net8.0-windows</TargetFramework>
@@ -27,14 +27,16 @@
 	<ItemGroup>
 	  <None Remove="Assets\Elkart-logo.png" />
 	  <None Remove="Assets\Finca-logo.png" />
+	  <None Remove="Assets\Login1.png" />
 	  <None Remove="Assets\Mbank-logo.png" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-		<PackageReference Include="System.IO.Ports" Version="8.0.0" />
-		<PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
-		<PackageReference Include="Velopack" Version="0.0.1298" />
+		<PackageReference Include="System.Drawing.Common" Version="10.0.8" />
+		<PackageReference Include="System.IO.Ports" Version="10.0.8" />
+		<PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.8" />
+		<PackageReference Include="Velopack" Version="1.0.1" />
+		<PackageReference Include="MySqlConnector" Version="2.4.0" />
 		<PackageReference Include="VirtualizingWrapPanel" Version="2.5.1" />
 		<PackageReference Include="WebSocketSharp-netstandard" Version="1.0.1" />
 	</ItemGroup>
@@ -49,6 +51,9 @@
 		<Resource Include="Assets\app-logo.png" />
 		<Resource Include="Assets\Elkart-logo.png" />
 		<Resource Include="Assets\Finca-logo.png" />
+		<Resource Include="Assets\Login1.png">
+		  <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</Resource>
 		<Resource Include="Assets\Mbank-logo.png" />
 	</ItemGroup>
 

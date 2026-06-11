@@ -60,18 +60,20 @@ namespace NurMarketKassa.Services
                 }
 
                 // Единый вызов UI-потока
+                await StockSyncService.OverlayAgentStockAsync(newList).ConfigureAwait(false);
+
                 await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
                     Products.Clear();
                     foreach (var vm in newList)
                         Products.Add(vm);
 
-                    // Обновляем индикатор кэша, если главное окно доступно
                     if (Application.Current.MainWindow is MainWindow mainWindow)
                         mainWindow.UpdateCacheStatus();
                 });
 
                 SaveToFile();
+                App.AuditDb.LogEvent("catalog", "refresh", new { count = newList.Count });
                 LastSyncTime = DateTime.UtcNow;
             }
             catch

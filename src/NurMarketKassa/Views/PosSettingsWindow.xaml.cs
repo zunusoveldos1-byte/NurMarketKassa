@@ -3,6 +3,8 @@ using NurMarketKassa.Models;
 using NurMarketKassa.Services;
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
@@ -17,8 +19,8 @@ namespace NurMarketKassa.Views
     {
         private readonly UpdateService _updateService;
 
-        private string? _recommendedEncoding;
-        private string? _recommendedEscTable;
+        //private string? _recommendedEncoding;
+        //private string? _recommendedEscTable;   
 
         private ObservableCollection<BankQrSetting> _bankSettings;
         private readonly string[] _banks = { "Элкарт", "MBank", "ФинкаБанк" };
@@ -56,6 +58,16 @@ namespace NurMarketKassa.Views
             FullscreenCheck.IsChecked = prefs.Fullscreen;
             AutostartCheck.IsChecked = prefs.Autostart || AutostartHelper.IsEnabled();
             AutoTouchKeyboardCheck.IsChecked = prefs.AutoShowTouchKeyboard;
+            // Загрузка названия магазина
+            StoreNameBox.Text = prefs.StoreName;
+            // Загрузка элементов чека
+            ShowStoreNameCheck.IsChecked = prefs.ShowStoreName;
+            ShowAddressCheck.IsChecked = prefs.ShowAddress;
+            ShowReceiptNumberCheck.IsChecked = prefs.ShowReceiptNumber;
+            ShowDateCheck.IsChecked = prefs.ShowDate;
+            ShowItemsCheck.IsChecked = prefs.ShowItems;
+            ShowTotalCheck.IsChecked = prefs.ShowTotal;
+            ShowQrCodeCheck.IsChecked = prefs.ShowQrCode;
 
             DoubleClickToCartRadio.IsChecked = !prefs.SingleClickToCart;
             SingleClickToCartRadio.IsChecked = prefs.SingleClickToCart;
@@ -78,6 +90,42 @@ namespace NurMarketKassa.Views
             }
             if (ReceiptTableCombo.SelectedItem == null && ReceiptTableCombo.Items.Count > 0)
                 ReceiptTableCombo.SelectedIndex = 0;
+
+            // === Загрузка настроек графического чека ===
+            GraphicReceiptEnabledCheck.IsChecked = prefs.GraphicReceiptEnabled;
+            TextModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Text;
+            GraphicModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Graphic;
+
+            GraphicWidthBox.Text = prefs.GraphicPaperWidthPixels.ToString();
+            SelectComboByTag(GraphicFontCombo, prefs.GraphicFontFamily);
+
+            string savedFont = prefs.GraphicFontFamily;
+            foreach (ComboBoxItem item in GraphicFontCombo.Items)
+            {
+                if (item.Tag?.ToString() == savedFont)
+                {
+                    GraphicFontCombo.SelectedItem = item;
+                    break;
+                }
+            }
+            if (GraphicFontCombo.SelectedItem == null)
+                GraphicFontCombo.SelectedIndex = 0;
+
+            // Загрузка размера шрифта
+            var fontSize = prefs.GraphicFontSize;
+            foreach (ComboBoxItem item in GraphicFontSizeCombo.Items)
+            {
+                if (item.Tag != null && float.TryParse(item.Tag.ToString(), out float val) && Math.Abs(val - fontSize) < 0.01)
+                {
+                    GraphicFontSizeCombo.SelectedItem = item;
+                    break;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(prefs.QrCodePath))
+                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {System.IO.Path.GetFileName(prefs.QrCodePath)}";
+            else
+                GraphicQrStatusText.Text = "QR-код не загружен";
 
             string? manifestUrl = App.Settings.Updates.ManifestUrl;
             if (string.IsNullOrWhiteSpace(manifestUrl))
@@ -140,186 +188,6 @@ namespace NurMarketKassa.Views
             prefs.SaveToDisk();  // ← обязательно сохраняем на диск
         }
 
-        private void PrinterDiagnostic_Click(object sender, RoutedEventArgs e)
-        {
-            PrinterDiagnosticText.Text = "Запуск диагностики...\n";
-            var prefs = UserPreferences.Instance;
-            string? devicePath = prefs.ReceiptDevicePath?.Trim();
-
-            if (string.IsNullOrEmpty(devicePath))
-            {
-                PrinterDiagnosticText.Text += "❌ Не указан порт принтера.\n" +
-                    "Перейдите на вкладку «Печать» и укажите LPT-порт или COM-порт.";
-                return;
-            }
-
-            // Определяем тип порта
-            bool isCom = devicePath.StartsWith("COM", StringComparison.OrdinalIgnoreCase);
-            bool isLpt = devicePath.StartsWith("LPT", StringComparison.OrdinalIgnoreCase);
-            bool isUsb = devicePath.StartsWith("USB", StringComparison.OrdinalIgnoreCase) ||
-                         devicePath.Contains("VID_", StringComparison.OrdinalIgnoreCase); // USB-идентификатор
-
-            if (isCom)
-            {
-                // ========== COM-порт – полная диагностика ==========
-                try
-                {
-                    string portName = devicePath.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries)[0];
-                    int baudRate = prefs.ScaleBaudRate;
-                    using (var serial = new System.IO.Ports.SerialPort(portName, baudRate))
-                    {
-                        serial.ReadTimeout = 1000;
-                        serial.WriteTimeout = 1000;
-                        serial.Open();
-
-                        // 1. Запрос статуса (DLE EOT 1)
-                        byte[] request = new byte[] { 0x10, 0x04, 0x01 };
-                        serial.Write(request, 0, request.Length);
-                        try
-                        {
-                            int status = serial.ReadByte();
-                            PrinterDiagnosticText.Text += $"📟 Принтер ответил. Статус: 0x{status:X2}\n";
-                            if ((status & 0x04) != 0) PrinterDiagnosticText.Text += "• Обнаружена ошибка принтера (конец бумаги?).\n";
-                            if ((status & 0x08) != 0) PrinterDiagnosticText.Text += "• Принтер в режиме off-line.\n";
-                            if ((status & 0x20) != 0) PrinterDiagnosticText.Text += "• Крышка открыта.\n";
-                            if ((status & 0x40) != 0) PrinterDiagnosticText.Text += "• Бумага подана.\n";
-                        }
-                        catch (TimeoutException)
-                        {
-                            PrinterDiagnosticText.Text += "⚠️ Принтер не ответил на запрос статуса (таймаут).\n";
-                        }
-
-                        // 2. Запрос ID (GS I)
-                        byte[] gsI = new byte[] { 0x1D, 0x49, 0x01 };
-                        serial.Write(gsI, 0, gsI.Length);
-                        System.Threading.Thread.Sleep(200);
-                        byte[] buffer = new byte[256];
-                        int bytesRead = 0;
-                        try { bytesRead = serial.Read(buffer, 0, buffer.Length); }
-                        catch (TimeoutException) { }
-
-                        if (bytesRead > 0)
-                        {
-                            string id = System.Text.Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                            PrinterDiagnosticText.Text += $"🆔 ID принтера: {id.Trim()}\n";
-                            if (id.Contains("RP") || id.Contains("Rongta"))
-                            {
-                                PrinterDiagnosticText.Text += "💡 Рекомендуется кодировка wpc1251 и таблица ESC t = 46.\n";
-                                _recommendedEncoding = "wpc1251";
-                                _recommendedEscTable = "46";
-                                ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Visible;
-                            }
-                            else
-                            {
-                                PrinterDiagnosticText.Text += "💡 Попробуйте кодировку wpc1251 или cp866; если не поможет — utf-8, koi8-r, iso-8859-5.\n";
-                                ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Collapsed;
-                            }
-                        }
-                        else
-                        {
-                            PrinterDiagnosticText.Text += "• ID принтера не получен.\n";
-                            PrinterDiagnosticText.Text += "💡 Рекомендуется перебрать кодировки: wpc1251, cp866, utf-8, koi8-r, iso-8859-5.\n";
-                            PrinterDiagnosticText.Text += "   Для каждой меняйте таблицу ESC t: Авто, 46, 17, 0, 53, 26.\n";
-                            ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Collapsed;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    PrinterDiagnosticText.Text += $"❌ Ошибка диагностики: {ex.Message}\n";
-                }
-            }
-            else
-            {
-                // ========== LPT / USB / файловый порт – подсказка ==========
-                string portType = isLpt ? "LPT" : (isUsb ? "USB" : "файловый");
-                PrinterDiagnosticText.Text += $"⚠️ Принтер подключен через {portType}. Автоматический опрос невозможен.\n\n";
-                PrinterDiagnosticText.Text += "Надёжная схема настройки:\n";
-                PrinterDiagnosticText.Text += "1) Нажмите кнопку ниже, чтобы установить кодировку wpc1251.\n";
-                PrinterDiagnosticText.Text += "2) Нажмите «Тест печати».\n";
-                PrinterDiagnosticText.Text += "3) Если текст нечитаемый, вручную выберите cp866 в поле «Кодировка текста» и снова «Тест печати».\n";
-                PrinterDiagnosticText.Text += "4) Если и это не помогло – переберите остальные кодировки (utf-8, koi8-r, iso-8859-5).\n";
-                PrinterDiagnosticText.Text += "   Для каждой меняйте таблицу ESC t: Авто, 46, 17, 0, 53, 26.\n";
-                PrinterDiagnosticText.Text += "5) Убедитесь, что кабель подключён, а порт правильно указан в Windows.\n";
-
-                // Предлагаем применить wpc1251 как самый частый вариант
-                _recommendedEncoding = "wpc1251";
-                _recommendedEscTable = "46";
-                ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Visible;
-            }
-        }
-
-        private void TestCyrillic_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
-                if (string.IsNullOrWhiteSpace(cfg.DevicePath))
-                {
-                    MessageBox.Show("Не указан порт принтера.\nЗайдите в настройки и укажите порт (например, LPT1).",
-                        "Принтер", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                // Тестовый текст (как в вашем примере, только без прямой работы с портом)
-                string testText = string.Join("\n",
-                    new[]
-                    {
-                new string('=', ReceiptLayout.CharWidth),
-                "        NUR MARKET KASSA        ",
-                new string('=', ReceiptLayout.CharWidth),
-                "Проверка печати кириллицы!",
-                "Тест русского языка прошел успешно.",
-                "Работает без прошивки через 46!",
-                "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ",
-                "абвгдежзийклмнопрстуфхцчшщъыьэюя",
-                new string('=', ReceiptLayout.CharWidth),
-                ""
-                    });
-
-                // Создаём копию настроек вручную (метода Clone нет)
-                var cfgCopy = new ReceiptPrinterSettings
-                {
-                    DevicePath = cfg.DevicePath,
-                    TextEncoding = "windows-1251",   // <--- принудительно кириллица
-                    Enabled = cfg.Enabled,
-                    EscPosTableByte = cfg.EscPosTableByte,
-                    EscRByte = cfg.EscRByte,
-                    RetryCount = cfg.RetryCount
-                };
-
-                EscPosTextReceiptPrinter.Print(cfgCopy, testText);
-                MessageBox.Show("Пробный чек отправлен на принтер.", "Успех",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка печати:\n\n" + ex.Message, "Принтер",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void ApplyRecommendedPrinterSettings_Click(object sender, RoutedEventArgs e)
-        {
-            if (_recommendedEncoding != null)
-            {
-                SelectComboByTag(ReceiptEncCombo, _recommendedEncoding);
-            }
-            if (_recommendedEscTable != null)
-            {
-                foreach (ComboBoxItem item in ReceiptTableCombo.Items)
-                {
-                    if (item?.Tag?.ToString() == _recommendedEscTable)
-                    {
-                        ReceiptTableCombo.SelectedItem = item;
-                        break;
-                    }
-                }
-            }
-
-            PrinterDiagnosticText.Text += "\n✅ Рекомендованные настройки установлены. Нажмите «Тест печати» для проверки.\n" +
-                "Если текст читается правильно, нажмите «Сохранить» внизу окна.";
-        }
 
         private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
         {
@@ -446,10 +314,194 @@ namespace NurMarketKassa.Views
             prefs.SaveToDisk();
             AutostartHelper.SyncFromPreference(prefs.Autostart);
 
+            // Сохранение элементов чека
+            prefs.ShowStoreName = ShowStoreNameCheck.IsChecked == true;
+            prefs.ShowAddress = ShowAddressCheck.IsChecked == true;
+            prefs.ShowReceiptNumber = ShowReceiptNumberCheck.IsChecked == true;
+            prefs.ShowDate = ShowDateCheck.IsChecked == true;
+            prefs.ShowItems = ShowItemsCheck.IsChecked == true;
+            prefs.ShowTotal = ShowTotalCheck.IsChecked == true;
+            prefs.ShowQrCode = ShowQrCodeCheck.IsChecked == true;
+
+            // Сохранение названия магазина
+            prefs.StoreName = StoreNameBox.Text.Trim();
+            if (string.IsNullOrEmpty(prefs.StoreName))
+                prefs.StoreName = "MARKET PLUS";
+
             if (Owner is MainWindow mainWindow)
                 mainWindow.ApplyHardwareAndUiPreferences();
 
+            // === Сохранение графических настроек ===
+            prefs.GraphicReceiptEnabled = GraphicReceiptEnabledCheck.IsChecked == true;
+
+            // Сохранение размера шрифта
+            if (GraphicFontSizeCombo.SelectedItem is ComboBoxItem sizeItem && sizeItem.Tag != null)
+            {
+                if (float.TryParse(sizeItem.Tag.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out float size))
+                    prefs.GraphicFontSize = size;
+            }
+
+            // Сохранение выбранного режима печати
+            if (TextModeRadio.IsChecked == true)
+                prefs.SelectedPrintMode = PrintMode.Text;
+            else if (GraphicModeRadio.IsChecked == true)
+                prefs.SelectedPrintMode = PrintMode.Graphic;
+
+            // Ширина бумаги
+            if (int.TryParse(GraphicWidthBox.Text.Trim(), out int width) && width >= 200)
+                prefs.GraphicPaperWidthPixels = width;
+            else
+                prefs.GraphicPaperWidthPixels = 384; // значение по умолчанию
+
+            // Шрифт
+            var fontItem = GraphicFontCombo.SelectedItem as ComboBoxItem;
+            prefs.GraphicFontFamily = fontItem?.Tag?.ToString() ?? "Consolas";
+            // QrCodePath сохраняется отдельно в LoadGraphicQrCode_Click
+
             DialogResult = true;
+        }
+
+        // --- Обработчики графического чека ---
+
+        private void LoadGraphicQrCode_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp",
+                Title = "Выберите QR-код (сохранится для будущего)"
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                var prefs = UserPreferences.Instance;
+                prefs.QrCodePath = dlg.FileName;
+                prefs.SaveToDisk();
+                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {System.IO.Path.GetFileName(dlg.FileName)}";
+            }
+        }
+
+        private void DeleteGraphicQrCode_Click(object sender, RoutedEventArgs e)
+        {
+            var prefs = UserPreferences.Instance;
+            prefs.QrCodePath = "";
+            prefs.SaveToDisk();
+            GraphicQrStatusText.Text = "QR-код не загружен";
+        }
+
+        private void TestGraphicPrint_Click(object sender, RoutedEventArgs e)
+        {
+            var prefs = UserPreferences.Instance;
+
+            // 1. Проверяем, включён ли графический чек вообще
+            if (!prefs.GraphicReceiptEnabled)
+            {
+                StatusText.Text = "❌ Графический чек выключен. Включите его в настройках (чекбокс «Включить графический чек»).";
+                return;
+            }
+
+            // 2. Проверяем, выбран ли графический режим
+            if (prefs.SelectedPrintMode != PrintMode.Graphic)
+            {
+                StatusText.Text = "❌ Сейчас выбран текстовый режим. Переключите на графический в настройках.";
+                return;
+            }
+
+            // 3. Проверяем порт принтера
+            string devicePath = prefs.ReceiptDevicePath?.Trim() ?? "LPT1";
+            if (string.IsNullOrEmpty(devicePath))
+            {
+                StatusText.Text = "❌ Укажите порт принтера!";
+                return;
+            }
+
+            StatusText.Text = "🔄 Печать графического чека...";
+
+            // 4. Формируем тестовый текст
+            string testText = string.Join("\n",
+                new[]
+                {
+            "==================================",
+            "      NUR MARKET KASSA          ",
+            "==================================",
+            "Привет мир!",
+            "Тест кириллицы: АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ",
+            "Кыргызча текст: Салам дүйнө!",
+            "==================================",
+            "ИТОГО: 1 234,56 сом",
+            "СПАСИБО ЗА ПОКУПКУ!",
+            "==================================",
+            ""
+                });
+
+            try
+            {
+                // 5. Создаём настройки для графического чека (берём всё из преференсов)
+                var settings = new GraphicReceiptSettings
+                {
+                    PaperWidthPixels = prefs.GraphicPaperWidthPixels,
+                    FontFamily = prefs.GraphicFontFamily,
+                    FontSize = prefs.GraphicFontSize, // <- НОВОЕ!
+                    DevicePath = devicePath,
+                    ShowStoreName = prefs.ShowStoreName,
+                    ShowAddress = prefs.ShowAddress,
+                    ShowReceiptNumber = prefs.ShowReceiptNumber,
+                    ShowDate = prefs.ShowDate,
+                    ShowItems = prefs.ShowItems,
+                    ShowTotal = prefs.ShowTotal,
+                    ShowQrCode = false,
+                    QrCodePath = prefs.QrCodePath
+                };
+
+                // 6. Генерируем изображение
+                byte[] receiptBytes = GraphicReceiptGenerator.GenerateReceiptImage(testText, settings);
+
+                // 7. Отправка на принтер (прямая запись в порт)
+                File.WriteAllBytes(devicePath, receiptBytes);
+
+                // 8. Успех
+                StatusText.Text = $"✅ Графический чек отправлен на {devicePath}\n(Размер: {receiptBytes.Length} байт)";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"❌ Ошибка: {ex.Message}";
+            }
+        }
+
+        private void TestTextPrint_Click(object sender, RoutedEventArgs e)
+        {
+            var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
+            if (string.IsNullOrWhiteSpace(cfg.DevicePath))
+            {
+                StatusText.Text = "❌ Не указан порт принтера!";
+                return;
+            }
+
+            string testText = string.Join("\n", new[]
+            {
+        "==================================",
+        "      NUR MARKET KASSA          ",
+        "==================================",
+        "Тест текстовой печати (ESC/POS)",
+        "Кириллица: АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ",
+        "Кыргызча: Салам дүйнө!",
+        "==================================",
+        "Дата: " + DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"),
+        "==================================",
+        "Если этот текст читается —",
+        "кодировка и таблица подобраны верно.",
+        "==================================",
+        ""
+    });
+
+            try
+            {
+                // Принудительно используем настройки текстовой печати (без графики)
+                EscPosTextReceiptPrinter.Print(cfg, testText);
+                StatusText.Text = $"✅ Текстовый чек отправлен на {cfg.DevicePath}";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"❌ Ошибка текстовой печати: {ex.Message}";
+            }
         }
 
         private void CheckPrinter_Click(object sender, RoutedEventArgs e)

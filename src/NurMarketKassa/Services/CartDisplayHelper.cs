@@ -312,28 +312,8 @@ internal static class CartDisplayHelper
         return FormatMoney(0);
     }
 
-    public static double TotalDue(JsonElement cart)
-    {
-        if (cart.ValueKind != JsonValueKind.Object)
-            return 0;
-
-        foreach (var src in new[] { cart, TryTotals(cart) })
-        {
-            if (src.ValueKind != JsonValueKind.Object)
-                continue;
-            foreach (var key in new[]
-                     {
-                         "total", "grand_total", "total_amount", "amount_due", "payable_total",
-                         "order_total", "total_to_pay", "amount_total",
-                     })
-            {
-                if (TryDouble(src, key) is { } v)
-                    return v;
-            }
-        }
-
-        return 0;
-    }
+    public static double TotalDue(JsonElement cart) =>
+        CartTotalsCalculator.Calculate(cart).TotalDue;
 
     private static JsonElement TryTotals(JsonElement cart) =>
         cart.TryGetProperty("totals", out var t) && t.ValueKind == JsonValueKind.Object ? t : default;
@@ -442,7 +422,7 @@ internal static class CartDisplayHelper
         if (it.ValueKind != JsonValueKind.Object)
             return false;
 
-        if (TruthyBool(it, "is_wait") || TruthyBool(it, "is_weight"))
+        if (TruthyBool(it, "is_wait") || TruthyBool(it, "is_weigh") || TruthyBool(it, "is_weight"))
             return true;
 
         // Частые имена полей в ответах API для весовой строки
@@ -486,7 +466,8 @@ internal static class CartDisplayHelper
 
     /// <summary>Как _product_must_weigh в main.py — для каталога и диалога взвешивания.</summary>
     public static bool ProductMustWeigh(JsonElement p) =>
-        TruthyBool(p, "is_wait") || TruthyBool(p, "is_weight") || TruthyBool(p, "is_weight_product") ||
+        TruthyBool(p, "is_wait") || TruthyBool(p, "is_weigh") || TruthyBool(p, "is_weight") ||
+        TruthyBool(p, "is_weight_product") ||
         TruthyBool(p, "sale_as_weight") || TruthyBool(p, "sells_by_weight") || DictHasKgUnit(p) ||
         ProductTypeImpliesWeight(p);
 

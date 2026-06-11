@@ -4,7 +4,7 @@ using System.Text.Json;
 namespace NurMarketKassa.Configuration;
 
 /// <summary>
-/// Базовые настройки. Перекрытие: переменная окружения DESKTOP_MARKET_API_URL (как в Python config.py).
+/// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ DESKTOP_MARKET_API_URL (пїЅпїЅпїЅ пїЅ Python config.py).
 /// </summary>
 public sealed class AppSettings
 {
@@ -17,6 +17,8 @@ public sealed class AppSettings
     public CatalogUiSettings Catalog { get; init; } = new();
 
     public UpdateSettings Updates { get; init; } = new();
+
+    public MySqlSettings MySql { get; init; } = new();
 
     public static AppSettings Load()
     {
@@ -48,6 +50,7 @@ public sealed class AppSettings
                 Scale = merged.Scale,
                 Catalog = merged.Catalog,
                 Updates = merged.Updates,
+                MySql = merged.MySql ?? new MySqlSettings(),
             };
         }
 
@@ -66,6 +69,7 @@ public sealed class AppSettings
                     CheckOnStartup = merged.Updates.CheckOnStartup,
                     MinHoursBetweenChecks = merged.Updates.MinHoursBetweenChecks,
                 },
+                MySql = merged.MySql,
             };
         }
 
@@ -80,6 +84,7 @@ public sealed class AppSettings
             Scale = s.Scale ?? new ScaleSettings(),
             Catalog = s.Catalog ?? new CatalogUiSettings(),
             Updates = s.Updates ?? new UpdateSettings(),
+            MySql = s.MySql ?? new MySqlSettings(),
         };
 
     private static readonly JsonSerializerOptions JsonOptions = new()

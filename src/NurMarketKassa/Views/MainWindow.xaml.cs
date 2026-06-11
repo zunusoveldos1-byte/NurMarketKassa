@@ -33,8 +33,8 @@ namespace NurMarketKassa.Views;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
-    private const int CatalogInitialRenderCount = 9999;
-    private const int CatalogRenderStep = 9999;
+    private const int CatalogInitialRenderCount = 48;
+    private const int CatalogRenderStep = 36;
     private const int SearchInitialRenderCount = 40;
     private const int SearchRenderStep = 24;
     private string _barcodeBuf = "";
@@ -91,6 +91,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _logoutNavigateScheduled;
     private readonly CancellationTokenSource _windowCts = new();
     private bool _catalogLoadBusy;
+    private decimal? _shiftCashBalance;
     private bool _isMenuOpen;
     private bool _toolsPanelVisible = true;
     public ShiftViewModel ShiftViewModel { get; private set; }
@@ -234,13 +235,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         foreach (var vm in CatalogCacheService.Products)
         {
+            if (!vm.MustWeigh && string.Equals(vm.Unit, "кг", StringComparison.OrdinalIgnoreCase))
+                vm.MustWeigh = true;
             if (vm.MustWeigh)
                 _allTilesKg.Add(vm);
             else
                 _allTilesPiece.Add(vm);
         }
 
-        SortByFavorite(); // сортировка избранного
+        CatalogProductClassifier.ReclassifyTiles(_allTilesKg, _allTilesPiece);
+        SortByFavorite();
         RefreshCategoriesAndBrands();
         _visibleKgCount = Math.Min(CatalogInitialRenderCount, _allTilesKg.Count);
         _visiblePieceCount = Math.Min(CatalogInitialRenderCount, _allTilesPiece.Count);
@@ -289,8 +293,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (dep is ScrollViewer sv)
         {
             sv.ScrollToVerticalOffset(sv.VerticalOffset - e.Delta / 3);
+            TryLoadMoreCatalogOnScroll(sv);
             e.Handled = true;
         }
+    }
+
+    private void CatalogScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (sender is ScrollViewer sv)
+            TryLoadMoreCatalogOnScroll(sv);
+    }
+
+    private void TryLoadMoreCatalogOnScroll(ScrollViewer sv)
+    {
+        if (sv.ScrollableHeight <= 0)
+            return;
+
+        var nearBottom = sv.VerticalOffset >= sv.ScrollableHeight - 120;
+        if (!nearBottom)
+            return;
+
+        var selectedTab = GetSelectedCatalogTabIndex();
+        if (selectedTab == 1)
+        {
+            if (_visiblePieceCount >= _allTilesPiece.Count)
+                return;
+            _visiblePieceCount = Math.Min(_visiblePieceCount + CatalogRenderStep, _allTilesPiece.Count);
+        }
+        else
+        {
+            if (_visibleKgCount >= _allTilesKg.Count)
+                return;
+            _visibleKgCount = Math.Min(_visibleKgCount + CatalogRenderStep, _allTilesKg.Count);
+        }
+
+        ApplyCatalogViewport();
     }
 
     private async Task LoadProfileHeaderAsync(CancellationToken ct)
@@ -360,10 +397,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var dlg = new OpenShiftDialog { Owner = this };
+        var dlg = new OpenShiftDialog
+        {
+            Owner = this,
+            SuggestedBalance = _shiftCashBalance,
+        };
         if (dlg.ShowDialog() != true) return;
 
-        // decimal -> string
         string openingCash = dlg.OpeningCash.ToString("0.00", CultureInfo.InvariantCulture);
         var resp = await App.Api.ConstructionShiftOpenAsync(cashboxId, openingCash,
             CancellationToken.None);
@@ -372,6 +412,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             App.ActiveShiftId = shiftId;
         else
             await RefreshShiftStateAsync();
+        _shiftCashBalance = dlg.OpeningCash;
+        App.AuditDb.LogShift("open", dlg.OpeningCash, App.ActiveShiftId);
         UpdateShiftBanner();
     }
 
@@ -379,15 +421,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(App.ActiveShiftId)) return;
 
-        var dlg = new CloseShiftDialog { Owner = this };
+        var dlg = new CloseShiftDialog
+        {
+            Owner = this,
+            SuggestedBalance = _shiftCashBalance,
+        };
         if (dlg.ShowDialog() != true) return;
 
-        // Используем ClosingCash (decimal?) и форматируем в строку
-        string? closingCash = dlg.ClosingCash?.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
-        await App.Api.ConstructionShiftCloseAsync(App.ActiveShiftId, closingCash,
+        string? closingCash = dlg.ClosingCash?.ToString("0.00", CultureInfo.InvariantCulture);
+        var shiftId = App.ActiveShiftId;
+        await App.Api.ConstructionShiftCloseAsync(shiftId, closingCash,
             CancellationToken.None);
         App.ActiveShiftId = null;
         await RefreshShiftStateAsync();
+        App.AuditDb.LogShift("close", dlg.ClosingCash, shiftId);
+        _shiftCashBalance = dlg.ClosingCash;
         UpdateShiftBanner();
     }
 
@@ -413,7 +461,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Brands.Add(b);
     }
 
-    public decimal GetCurrentBalance() => 0m;
+    public decimal GetCurrentBalance() => _shiftCashBalance ?? 0m;
 
     /// <summary>Начальные значения DynamicResource для плиток каталога и строк корзины.</summary>
     private void InjectLayoutMetricsDefaults()
@@ -936,11 +984,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 var vm = ProductCatalogMapper.TryTile(el, apiBase);
                 if (vm == null) continue;
+                newProducts.Add(vm);
+            }
+
+            await StockSyncService.OverlayAgentStockAsync(newProducts, cancellationToken).ConfigureAwait(true);
+            foreach (var vm in newProducts)
+            {
                 if (vm.MustWeigh)
                     _allTilesKg.Add(vm);
                 else
                     _allTilesPiece.Add(vm);
-                newProducts.Add(vm);
             }
 
             // Обновляем кэш и сохраняем на диск
@@ -1298,6 +1351,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!await EnsureSaleSessionReadyAsync().ConfigureAwait(true))
             return;
 
+        if (vm.Quantity <= 0)
+        {
+            var msg = vm.MustWeigh ? "Товар закончился" : "Товар отсутствует на остатках";
+            ShowToast(msg, warn: true);
+            CartMessageText.Text = msg;
+            CartMessageText.Foreground = UiWarn;
+            return;
+        }
+
         string? qty = null;
         if (vm.MustWeigh)
         {
@@ -1595,7 +1657,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             else
                 await RefreshShiftStateAsync();
             UpdateShiftBanner();
-            ShiftService.IsShiftOpen = true;   // обновим глобальное состояние
+            ShiftService.IsShiftOpen = true;
+            _shiftCashBalance = openingCash;
+            App.AuditDb.LogShift("open", openingCash, App.ActiveShiftId);
         }
         catch (Exception ex)
         {
@@ -1606,14 +1670,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public async Task CloseShiftWithCashAsync(decimal? closingCash)
     {
         if (string.IsNullOrEmpty(App.ActiveShiftId)) return;
+        var shiftId = App.ActiveShiftId;
         string? closing = closingCash?.ToString("0.00", CultureInfo.InvariantCulture);
         try
         {
-            await App.Api.ConstructionShiftCloseAsync(App.ActiveShiftId, closing);
+            await App.Api.ConstructionShiftCloseAsync(shiftId, closing);
             App.ActiveShiftId = null;
             await RefreshShiftStateAsync();
             UpdateShiftBanner();
             ShiftService.IsShiftOpen = false;
+            App.AuditDb.LogShift("close", closingCash, shiftId);
+            _shiftCashBalance = closingCash;
         }
         catch (Exception ex)
         {
@@ -1846,18 +1913,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var cashReceived = dlg.CashReceivedForApi;
         var saved = SaveCurrentSaleOffline(paymentMethod, cashReceived);
 
-        var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
-        if (wantPrintReceipt && UserPreferences.Instance.ReceiptEnabled && cfg.Enabled &&
-            !string.IsNullOrWhiteSpace(cfg.DevicePath))
+        // ===== ПЕЧАТЬ ЧЕКА (текстовый или графический — в зависимости от настроек) =====
+        if (wantPrintReceipt && UserPreferences.Instance.ReceiptEnabled)
         {
             try
             {
-                var txt = CartReceiptTextBuilder.BuildSimpleReceipt(
+                ReceiptPrintService.PrintReceipt(
                     saved.CartJson,
-                    "ОФФЛАЙН (ожидает выгрузку)",
-                    saved.PaymentMethod,
-                    saved.CashReceived);
-                EscPosTextReceiptPrinter.Print(cfg, txt);
+                    offlineNote: "ОФФЛАЙН (ожидает выгрузку)",
+                    paymentMethodKey: saved.PaymentMethod,
+                    cashReceived: saved.CashReceived);
             }
             catch (Exception ex)
             {
@@ -2279,25 +2344,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             CartMessageText.Foreground = UiWarn;
         }
 
+        // ===== ПЕЧАТЬ ЧЕКА (текстовый или графический — в зависимости от настроек) =====
         if (wantPrintReceipt && UserPreferences.Instance.ReceiptEnabled)
         {
-            var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
-            if (cfg.Enabled && !string.IsNullOrWhiteSpace(cfg.DevicePath))
+            try
             {
-                try
-                {
-                    var txt = CartReceiptTextBuilder.BuildSimpleReceipt(
-                        App.Cart.Root.GetRawText(),
-                        paymentMethodKey: paymentMethod ?? "—",
-                        cashReceived: cashReceived);
-                    EscPosTextReceiptPrinter.Print(cfg, txt);
-                }
-                catch (Exception ex)
-                {
-                    PosLogger.Log("Ошибка печати: " + ex.Message, "PRINTER");
-                }
+                string cartJson = App.Cart.Root.GetRawText();
+                ReceiptPrintService.PrintReceipt(
+                    cartJson,
+                    offlineNote: null,
+                    paymentMethodKey: paymentMethod,
+                    cashReceived: cashReceived);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log("Ошибка печати: " + ex.Message, "PRINTER");
             }
         }
+
+        var cartSnapshot = App.Cart.Root.Clone();
+        _ = Task.Run(async () =>
+        {
+            await StockSyncService.RefreshSoldItemsStockAsync(cartSnapshot, CancellationToken.None).ConfigureAwait(false);
+            await Dispatcher.InvokeAsync(() =>
+            {
+                RestoreTilesFromCache();
+                ApplyCatalogViewport();
+            });
+        });
+
+        var total = CartTotalsCalculator.Calculate(cartSnapshot).TotalDue;
+        App.AuditDb.LogSale(App.Cart.CartId ?? "", total, paymentMethod ?? "", App.CurrentUserId);
 
         _ = Task.Run(() => App.OfflineSync.TriggerSyncNowAsync(CancellationToken.None));
     }
@@ -2308,8 +2385,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             var list = await App.Api.ConstructionShiftsListAsync(cancellationToken).ConfigureAwait(true);
             var openId = ShiftHelper.PickOpenShiftId(list, App.PosCashboxId);
-            // Всегда приводим к факту с сервера: при закрытой смене сбрасываем id (не доверяем старому id из корзины).
             App.ActiveShiftId = string.IsNullOrEmpty(openId) ? null : openId;
+            _shiftCashBalance = ShiftBalanceHelper.FindOpenShiftBalance(list, App.PosCashboxId);
         }
         catch
         {
@@ -2355,11 +2432,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (CloseShiftButton != null)
             CloseShiftButton.IsEnabled = shiftOpen;
+
+        if (ShiftBalanceText != null)
+        {
+            ShiftBalanceText.Text = shiftOpen
+                ? $"Остаток в кассе: {ShiftBalanceHelper.FormatBalance(_shiftCashBalance)}"
+                : "Смена закрыта";
+        }
+
+        if (HamburgerShiftBalanceText != null)
+        {
+            HamburgerShiftBalanceText.Text = shiftOpen
+                ? ShiftBalanceHelper.FormatBalance(_shiftCashBalance)
+                : "Смена не открыта";
+        }
     }
 
     private async void OpenShift_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenShiftDialog { Owner = this };
+        var dlg = new OpenShiftDialog
+        {
+            Owner = this,
+            SuggestedBalance = _shiftCashBalance,
+        };
         if (dlg.ShowDialog() == true)
         {
             await OpenShiftWithCashAsync(dlg.OpeningCash);
@@ -2370,7 +2465,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (string.IsNullOrEmpty(App.ActiveShiftId)) return;
 
-        var dlg = new CloseShiftDialog { Owner = this };
+        var dlg = new CloseShiftDialog
+        {
+            Owner = this,
+            SuggestedBalance = _shiftCashBalance,
+        };
         if (dlg.ShowDialog() == true)
         {
             await CloseShiftWithCashAsync(dlg.ClosingCash);
@@ -2626,7 +2725,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     /// <summary>null — печать ок; иначе текст предупреждения для пользователя.</summary>
-    private async Task<string?> TryPrintReceiptAfterCheckoutAsync(JsonElement checkoutResponse, bool wantPrintReceipt)
+    private async Task<string?> TryPrintReceiptAfterCheckoutAsync(JsonElement checkoutResponse, bool wantPrintReceipt, string cartJson)
     {
         if (!wantPrintReceipt)
             return null;
@@ -2671,18 +2770,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return "Печать: не удалось получить текст чека.";
         }
 
-        try
+        // ===== ПЕЧАТЬ ЧЕКА (текстовый или графический — в зависимости от настроек) =====
+        if (wantPrintReceipt && UserPreferences.Instance.ReceiptEnabled && !string.IsNullOrWhiteSpace(txt))
         {
-            PosLogger.Log($"LPT печать: устройство={cfg.DevicePath}, символов текста={txt.Length}", "PRINTER");
-            EscPosTextReceiptPrinter.Print(cfg, txt);
-            PosLogger.Log("LPT: отправка завершена без исключения", "PRINTER");
-            return null;
+            try
+            {
+                ReceiptPrintService.PrintReceipt(
+                    cartJson,
+                    offlineNote: null,
+                    paymentMethodKey: null,
+                    cashReceived: null);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Печать LPT: {ex.Message}", "ERROR");
+                return $"Печать: {ex.Message}";
+            }
         }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Печать LPT: {ex.Message}", "ERROR");
-            return $"Печать: {ex.Message}";
-        }
+
+        return null;
     }
 
     private async void Checkout_Click(object sender, RoutedEventArgs e)
@@ -3018,20 +3125,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _ = RunScanAsync(BarcodeBox.Text);
     }
 
-    private void ToggleFavorite_Click(object sender, RoutedEventArgs e)
+    private async void ToggleFavorite_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.DataContext is CatalogProductTileVm vm)
+        if (sender is not Button { DataContext: CatalogProductTileVm vm })
+            return;
+
+        var newState = !vm.IsFavorite;
+        vm.IsFavorite = newState;
+
+        if (newState)
+            CatalogCacheService.FavoriteIds.Add(vm.Id);
+        else
+            CatalogCacheService.FavoriteIds.Remove(vm.Id);
+        CatalogCacheService.SaveFavoriteIds();
+
+        SortByFavorite();
+        ApplyCatalogViewport();
+
+        try
         {
-            vm.IsFavorite = !vm.IsFavorite;
-
-            if (vm.IsFavorite)
-                CatalogCacheService.FavoriteIds.Add(vm.Id);
+            var synced = await App.Api.SetProductFavoriteAsync(vm.Id, newState, _windowCts.Token).ConfigureAwait(true);
+            if (synced)
+            {
+                App.AuditDb.LogFavorite(vm.Id, newState);
+                ShowToast(newState ? "Добавлено в избранное на сайте" : "Убрано из избранного на сайте");
+            }
             else
-                CatalogCacheService.FavoriteIds.Remove(vm.Id);
-            CatalogCacheService.SaveFavoriteIds();
-
-            SortByFavorite();           // теперь только сортировка _allTiles*
-            ApplyCatalogViewport();     // перестраивает _tiles* из отсортированных списков
+            {
+                ShowToast("Избранное сохранено локально (сайт не ответил)", warn: true);
+            }
+        }
+        catch (ApiException ex)
+        {
+            ShowToast($"Синхронизация избранного: {ex.Message}", warn: true);
+        }
+        catch (HttpRequestException)
+        {
+            ShowToast("Избранное сохранено локально (нет сети)", warn: true);
         }
     }
 
@@ -3497,6 +3627,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (!App.Cart.HasCart)
         {
             CartTotalAmountText.Text = "";
+            if (CartSubtotalText != null) CartSubtotalText.Text = "";
+            if (CartDiscountText != null) CartDiscountText.Text = "";
             RefreshCartButton.IsEnabled = false;
             CheckoutFooterButton.IsEnabled = false;
             ScanBarcodeButton.IsEnabled = false;
@@ -3562,8 +3694,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             });
         }
 
-        var total = CartDisplayHelper.TotalDue(root);
-        CartTotalAmountText.Text = CartDisplayHelper.FormatMoney(total);
+        var totals = CartTotalsCalculator.Calculate(root);
+        if (CartSubtotalText != null)
+            CartSubtotalText.Text = $"Промежуточный итог: {totals.SubtotalFormatted} сом";
+        if (CartDiscountText != null)
+        {
+            var discount = totals.LineDiscounts + totals.OrderDiscount;
+            CartDiscountText.Text = discount > 1e-6
+                ? $"Скидка: −{CartTotalsCalculator.FormatMoney(discount)} сом"
+                : "";
+        }
+
+        CartTotalAmountText.Text = totals.TotalDueFormatted;
         RefreshCartButton.IsEnabled = App.Cart.CanRefresh;
         CheckoutFooterButton.IsEnabled = App.Cart.CanRefresh && CartLines.Count > 0;
         ScanBarcodeButton.IsEnabled = App.Cart.CanRefresh;

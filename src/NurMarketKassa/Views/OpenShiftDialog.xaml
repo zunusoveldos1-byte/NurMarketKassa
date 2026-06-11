@@ -2,37 +2,41 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Открыть смену"
-        Height="350" Width="470"
+        Height="390" Width="500"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Style="{StaticResource AppWindow}">
     <Grid Margin="24">
         <Border Style="{StaticResource ElevatedCardBorder}" CornerRadius="12" Padding="20">
             <StackPanel>
-                <TextBlock Text="Открыть смену"
-                           Style="{StaticResource DialogTitleText}"
-                           Margin="0,0,0,12"/>
-                <TextBlock Text="Введите стартовую сумму наличных в кассе."
-                           Style="{StaticResource DialogLabelText}"
-                           Margin="0,0,0,16"/>
+                <TextBlock Text="Открыть смену" Style="{StaticResource DialogTitleText}" Margin="0,0,0,8"/>
+                <TextBlock Text="Укажите сумму наличных в кассе на начало смены (Z-отчёт)."
+                           Style="{StaticResource DialogLabelText}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                <Border Padding="12" CornerRadius="8" Margin="0,0,0,14"
+                        Background="{DynamicResource BrushPanel}"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Остаток по системе" FontSize="12"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock x:Name="SystemBalanceText" FontSize="18" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushAccent}" Margin="0,4,0,0"
+                                   Text="—"/>
+                    </StackPanel>
+                </Border>
                 <TextBlock Text="Сумма на открытие"
                            Foreground="{DynamicResource BrushTextSoft}"
-                           FontSize="13" FontWeight="SemiBold"
-                           Margin="0,0,0,6"/>
+                           FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
                 <TextBox x:Name="OpeningCashBox"
                          Text="0.00"
                          Style="{StaticResource TouchTextBox}"
                          Height="40" FontSize="16"
                          Margin="0,0,0,24"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Отмена"
-                            IsCancel="True"
+                    <Button Content="Отмена" IsCancel="True"
                             Style="{StaticResource TouchSecondaryButton}"
-                            Width="100" Height="38"
-                            Margin="0,0,12,0"
+                            Width="100" Height="38" Margin="0,0,12,0"
                             Click="Cancel_Click"/>
-                    <Button Content="Открыть"
-                            IsDefault="True"
+                    <Button Content="Открыть" IsDefault="True"
                             Style="{StaticResource TouchPrimaryButton}"
                             Width="100" Height="38"
                             Click="Ok_Click"/>

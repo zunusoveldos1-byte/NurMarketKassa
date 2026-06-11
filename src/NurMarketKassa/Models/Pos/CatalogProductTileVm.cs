@@ -26,6 +26,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         PriceLine = priceLine;
         MustWeigh = mustWeigh;
         ImageUrl = imageUrl;
+        OnPropertyChanged(nameof(MustWeigh));
     }
 
     // ────────── существующие свойства ──────────
@@ -34,7 +35,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     public string Id { get; }
     public string Title { get; }
     public string PriceLine { get; }
-    public bool MustWeigh { get; }
+    public bool MustWeigh { get; set; }
     public string? ImageUrl { get; }
     public string? StatusDisplay { get; set; }
     public string? HotkeyGroupName { get; set; }

@@ -17,6 +17,7 @@ namespace NurMarketKassa
         public static NurMarketApiClient Api { get; private set; } = null!;
         public static CartSession Cart { get; } = new();
         public static OfflineSalesSyncService OfflineSync { get; private set; } = null!;
+        public static MySqlAuditService AuditDb { get; private set; } = null!;
         public static string? CurrentUserId { get; set; }
         public static string? PosCashboxId { get; set; }
         internal static bool ExitWithoutLoginRedirect { get; set; }
@@ -54,6 +55,8 @@ namespace NurMarketKassa
             _http = new HttpClient { Timeout = TimeSpan.FromSeconds(55) };
             Api = new NurMarketApiClient(_http, Settings);
             OfflineSync = new OfflineSalesSyncService(Api);
+            AuditDb = new MySqlAuditService(Settings.MySql);
+            AuditDb.Initialize();
 
             // Фоновая проверка обновлений
             _ = Task.Run(async () =>
@@ -134,6 +137,7 @@ namespace NurMarketKassa
         {
             Cart.Dispose();
             OfflineSync.Dispose();
+            AuditDb.Dispose();
             Api.Dispose();
             _http?.Dispose();
             _agentService?.Dispose();

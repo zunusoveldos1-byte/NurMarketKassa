@@ -194,7 +194,7 @@ namespace NurMarketKassa.Views
                     ["page"] = page.ToString(CultureInfo.InvariantCulture)
                 };
 
-                var response = await _api.GetAsync("main/products/list/", pageParams, CancellationToken.None);
+                var response = await _api.GetAsync("api/main/products/list/", pageParams, CancellationToken.None);
 
                 if (response.ValueKind == JsonValueKind.Object &&
                     response.TryGetProperty("results", out var results) &&

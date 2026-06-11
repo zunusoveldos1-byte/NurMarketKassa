@@ -45,5 +45,36 @@ namespace NurMarketKassa.Models
 
         [JsonPropertyName("must_weigh")]
         public bool MustWeigh { get; set; }
+
+        [JsonPropertyName("is_weight")]
+        public bool IsWeight { get; set; }
+
+        [JsonPropertyName("is_weight_product")]
+        public bool IsWeightProduct { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("stock_quantity")]
+        public double StockQuantity { get; set; }
+
+        [JsonPropertyName("stock_weight")]
+        public double StockWeight { get; set; }
+
+        [JsonPropertyName("is_favorite")]
+        public bool IsFavorite { get; set; }
+
+        public bool ResolvesMustWeigh()
+        {
+            if (MustWeigh || IsWeight || IsWeightProduct)
+                return true;
+            var unit = (Unit ?? "").Trim().ToLowerInvariant();
+            return unit is "кг" or "kg" or "kг";
+        }
+
+        public double ResolvesQuantity(bool mustWeigh) =>
+            mustWeigh
+                ? (StockWeight > 0 ? StockWeight : (StockQuantity > 0 ? StockQuantity : Quantity))
+                : (StockQuantity > 0 ? StockQuantity : Quantity);
     }
 }

@@ -1,3 +1,5 @@
+using NurMarketKassa.Services;
+using NurMarketKassa.ViewModels;
 using System;
 using System.Net.Http;
 using System.Threading;
@@ -5,8 +7,9 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using NurMarketKassa.Services;
-using NurMarketKassa.ViewModels;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 
 #nullable disable
 
@@ -15,6 +18,7 @@ namespace NurMarketKassa.Views
     public partial class LoginWindow : Window
     {
         private readonly LoginViewModel _viewModel;
+        private bool _passwordVisible;
 
         public LoginWindow()
         {
@@ -31,6 +35,8 @@ namespace NurMarketKassa.Views
                 VisiblePasswordBox.Text = prefs.LastLoginPassword;
             }
 
+            EmailBox.TextChanged += (_, _) => UpdateEmailValidIcon();
+
             Loaded += (_, _) =>
             {
                 if (UserPreferences.Instance.Fullscreen)
@@ -39,34 +45,73 @@ namespace NurMarketKassa.Views
                     ResizeMode = ResizeMode.NoResize;
                     WindowState = WindowState.Maximized;
                 }
+
+                UpdateEmailValidIcon();
             };
         }
 
-        private void EmailBox_KeyDown(object sender, KeyEventArgs e)
+        private void UpdateEmailValidIcon()
         {
-            if (e.Key != Key.Return) return;
-
-            if (ShowPasswordCheck.IsChecked.GetValueOrDefault())
-                VisiblePasswordBox.Focus();
-            else
-                PasswordBox.Focus();
+            var email = EmailBox.Text.Trim();
+            EmailValidIcon.Visibility = email.Contains('@') && email.Contains('.')
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
 
-        private void PasswordBox_KeyDown(object sender, KeyEventArgs e)
+        private void FluentField_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (e.Key == Key.Return)
-                _ = TryLoginAsync();
+            AnimateFieldBorder(GetFieldBorder(sender), true);
         }
 
-        private void VisiblePasswordBox_KeyDown(object sender, KeyEventArgs e)
+        private void FluentField_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (e.Key == Key.Return)
-                _ = TryLoginAsync();
+            AnimateFieldBorder(GetFieldBorder(sender), false);
         }
 
-        private void ShowPasswordCheck_Changed(object sender, RoutedEventArgs e)
+        private Border GetFieldBorder(object sender)
         {
-            if (ShowPasswordCheck.IsChecked.GetValueOrDefault())
+            if (sender == EmailBox || sender == VisiblePasswordBox)
+                return sender == EmailBox ? EmailFieldBorder : PasswordFieldBorder;
+
+            if (sender == PasswordBox)
+                return PasswordFieldBorder;
+
+            return null;
+        }
+
+        private void AnimateFieldBorder(Border border, bool focused)
+        {
+            if (border == null) return;
+
+            var targetColor = focused
+                ? ((SolidColorBrush)FindResource("LoginFocusBrush")).Color
+                : ((SolidColorBrush)FindResource("LoginBorderBrush")).Color;
+
+            var brush = border.BorderBrush as SolidColorBrush;
+            if (brush == null || brush.IsFrozen)
+            {
+                brush = new SolidColorBrush(brush?.Color ?? Colors.Transparent);
+                border.BorderBrush = brush;
+            }
+
+            brush.BeginAnimation(SolidColorBrush.ColorProperty,
+                new ColorAnimation(targetColor, TimeSpan.FromMilliseconds(180))
+                {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                });
+        }
+
+        private void TogglePasswordButton_Click(object sender, RoutedEventArgs e)
+        {
+            SetPasswordVisible(!_passwordVisible);
+        }
+
+        private void SetPasswordVisible(bool show)
+        {
+            _passwordVisible = show;
+            TogglePasswordIcon.Text = show ? "\uED1A" : "\uE7B3";
+
+            if (show)
             {
                 VisiblePasswordBox.Text = PasswordBox.Password;
                 PasswordBox.Visibility = Visibility.Collapsed;
@@ -84,6 +129,44 @@ namespace NurMarketKassa.Views
             }
         }
 
+        // ОБРАБОТЧИК ССЫЛКИ "АДМИНИСТРАТОРУ"
+        private void AdminSupport_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+
+            // Изменили 180 на 230 (почти непрозрачный, очень темный серый)
+            OverlayGrid.Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0));
+            OverlayGrid.IsHitTestVisible = true; // Блокируем клики
+
+            var support = new AdminSupportWindow { Owner = this };
+            support.ShowDialog();
+
+            OverlayGrid.Background = Brushes.Transparent;
+            OverlayGrid.IsHitTestVisible = false;
+        }
+
+        private void EmailBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Return) return;
+
+            if (_passwordVisible)
+                VisiblePasswordBox.Focus();
+            else
+                PasswordBox.Focus();
+        }
+
+        private void PasswordBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Return)
+                _ = TryLoginAsync();
+        }
+
+        private void VisiblePasswordBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Return)
+                _ = TryLoginAsync();
+        }
+
         private async void LoginButton_Click(object sender, RoutedEventArgs e) => await TryLoginAsync();
 
         private async Task TryLoginAsync()
@@ -92,7 +175,7 @@ namespace NurMarketKassa.Views
             ErrorText.Text = "";
 
             string email = EmailBox.Text.Trim();
-            string password = ShowPasswordCheck.IsChecked.GetValueOrDefault()
+            string password = _passwordVisible
                 ? VisiblePasswordBox.Text
                 : PasswordBox.Password;
 
@@ -106,6 +189,7 @@ namespace NurMarketKassa.Views
             try
             {
                 await App.Api.LoginAsync(email, password, CancellationToken.None);
+                App.AuditDb.LogEvent("auth", "login", new { email }, App.CurrentUserId);
 
                 var prefs = UserPreferences.Instance;
                 prefs.LastLoginEmail = email;
