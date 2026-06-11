@@ -43,27 +43,9 @@ namespace NurMarketKassa.Services
             CatalogProductTileVm vm = new CatalogProductTileVm(id, title, priceLine, mustWeigh, imageUrl);
             vm.Barcode = barcode;
 
-            // ---------- Quantity ----------
-            double qty = 0;
-            if (p.TryGetProperty("quantity", out var qEl) && TryGetDouble(qEl, out double qVal))
-                qty = qVal;
-            else if (p.TryGetProperty("stock_quantity", out var sqEl) && TryGetDouble(sqEl, out double sqVal))
-                qty = sqVal;
-            vm.Quantity = qty;
-
-            // ---------- StockInfo ----------
-            string? stockInfo = null;
-            if (p.TryGetProperty("stock_quantity", out var stEl) && TryGetDouble(stEl, out double stVal))
-            {
-                stockInfo = !mustWeigh
-                    ? $"{stVal:F0} шт."
-                    : $"{stVal:F2} кг";
-            }
-            else if (p.TryGetProperty("stock_weight", out var swEl) && TryGetDouble(swEl, out double swVal))
-            {
-                stockInfo = $"{swVal:F2} кг";
-            }
-            vm.StockInfo = stockInfo;
+            // ---------- Quantity / остаток ----------
+            var qty = StockSyncService.ResolveStockQuantity(p, mustWeigh);
+            StockSyncService.ApplyQuantityToTile(vm, qty, mustWeigh);
 
             // ---------- PurchasePrice ----------
             if (p.TryGetProperty("purchase_price", out var ppEl) && TryGetDouble(ppEl, out double ppVal))
@@ -92,8 +74,15 @@ namespace NurMarketKassa.Services
             if (p.TryGetProperty("hotkey_group", out var hk) && hk.ValueKind == JsonValueKind.String)
                 vm.HotkeyGroup = hk.GetString();
 
-            // Восстановление избранного из локального кэша
-            vm.IsFavorite = CatalogCacheService.FavoriteIds.Contains(vm.Id);
+            if (p.TryGetProperty("is_favorite", out var favEl) &&
+                favEl.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                vm.IsFavorite = favEl.GetBoolean();
+            }
+            else
+            {
+                vm.IsFavorite = CatalogCacheService.FavoriteIds.Contains(vm.Id);
+            }
 
             return vm;
         }
@@ -101,20 +90,33 @@ namespace NurMarketKassa.Services
         public static CatalogProductTileVm? TryTile(ProductDto dto, string apiBaseUrl)
         {
             if (dto == null) return null;
-            if (string.IsNullOrEmpty(dto.Id) || string.IsNullOrEmpty(dto.Title))
+
+            var title = !string.IsNullOrWhiteSpace(dto.Title)
+                ? dto.Title
+                : dto.Name;
+            if (string.IsNullOrEmpty(dto.Id) || string.IsNullOrEmpty(title))
                 return null;
 
-            return new CatalogProductTileVm(dto.Id, dto.Title, dto.Price.ToString(CultureInfo.InvariantCulture), dto.MustWeigh, dto.ImageUrl)
+            var mustWeigh = dto.ResolvesMustWeigh();
+            var vm = new CatalogProductTileVm(
+                dto.Id,
+                title,
+                $"{dto.Price.ToString("0.00", CultureInfo.InvariantCulture)} сом",
+                mustWeigh,
+                dto.ImageUrl)
             {
                 Barcode = dto.Barcode,
                 Category = dto.Category,
                 Brand = dto.Brand,
-                Quantity = dto.Quantity,
-                // ↓↓↓ исправлено ↓↓↓
                 Unit = !string.IsNullOrWhiteSpace(dto.Unit)
                     ? dto.Unit.Trim()
-                    : (dto.MustWeigh ? "кг" : "шт")
+                    : (mustWeigh ? "кг" : "шт"),
+                IsFavorite = dto.IsFavorite || CatalogCacheService.FavoriteIds.Contains(dto.Id),
             };
+
+            var qty = dto.ResolvesQuantity(mustWeigh);
+            StockSyncService.ApplyQuantityToTile(vm, qty, mustWeigh);
+            return vm;
         }
 
         public static string Title(JsonElement p)

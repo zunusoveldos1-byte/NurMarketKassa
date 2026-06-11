@@ -65,20 +65,67 @@ public sealed class NurMarketApiClient : IDisposable
         return false;
     }
 
-    /// <summary>GET /main/agents/me/products/ (список товаров агента).</summary>
+    /// <summary>GET список товаров агента с остатками (для склада).</summary>
     public async Task<List<JsonElement>> GetAgentProductsAsync(CancellationToken ct = default)
     {
-        HttpResponseMessage httpResponseMessage = await _http.GetAsync(
-            App.Settings.ApiBaseUrl + "/main/agents/me/products/", ct).ConfigureAwait(false);
-        httpResponseMessage.EnsureSuccessStatusCode();
-        using (JsonDocument jsonDocument = JsonDocument.Parse(
-            await httpResponseMessage.Content.ReadAsStringAsync().ConfigureAwait(false)))
+        foreach (var path in new[]
+                 {
+                     "api/main/agents/me/products/",
+                     "api/main/products/agent-stock/",
+                     "api/main/agents/products/",
+                 })
         {
-            if (jsonDocument.RootElement.TryGetProperty("results", out JsonElement results) &&
-                results.ValueKind == JsonValueKind.Array)
-                return results.EnumerateArray().ToList();
+            try
+            {
+                var data = await RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
+                var list = UnwrapList(data);
+                if (list.Count > 0)
+                    return list;
+            }
+            catch (ApiException ex) when (ex.StatusCode is 404 or 405)
+            {
+                /* next path */
+            }
         }
+
         return new List<JsonElement>();
+    }
+
+    /// <summary>Синхронизация статуса «избранный» с сайтом.</summary>
+    public async Task<bool> SetProductFavoriteAsync(string productId, bool isFavorite, CancellationToken ct = default)
+    {
+        var pid = productId.Trim();
+        if (pid.Length == 0)
+            return false;
+
+        var escaped = Uri.EscapeDataString(pid);
+        var bodyFavorite = new Dictionary<string, string> { ["is_favorite"] = isFavorite ? "true" : "false" };
+        var bodyToggle = new Dictionary<string, string>();
+
+        var attempts = new List<(HttpMethod Method, string Path, Dictionary<string, string>? Body)>
+        {
+            (HttpMethod.Patch, $"api/main/products/{escaped}/", bodyFavorite),
+            (HttpMethod.Patch, $"api/main/products/list/{escaped}/", bodyFavorite),
+            (HttpMethod.Post, $"api/main/products/{escaped}/favorite/", bodyToggle),
+            (HttpMethod.Post, $"api/main/products/list/{escaped}/favorite/", bodyToggle),
+            (HttpMethod.Post, $"api/main/products/{escaped}/toggle-favorite/", bodyToggle),
+            (HttpMethod.Put, $"api/main/products/{escaped}/favorite/", bodyFavorite),
+        };
+
+        foreach (var (method, path, body) in attempts)
+        {
+            try
+            {
+                await RequestAsync(method, path, body, null, ct).ConfigureAwait(false);
+                return true;
+            }
+            catch (ApiException ex) when (ex.StatusCode is 404 or 405)
+            {
+                /* next */
+            }
+        }
+
+        return false;
     }
 
     public async Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default)
@@ -667,89 +714,93 @@ public sealed class NurMarketApiClient : IDisposable
         var q = (query ?? "").Trim();
         if (q.Length == 0) return new List<ProductDto>();
 
-        var qs = new Dictionary<string, string> { ["search"] = q, ["page"] = "1" };
-        var response = await RequestDataAsync<ApiListResponse<ProductDto>>(
-            HttpMethod.Get, "api/main/products/list/", null, qs, ct).ConfigureAwait(false);
-
+        limit = Math.Clamp(limit, 1, 20000);
         var list = new List<ProductDto>();
-        if (response?.Results != null)
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var page = 1;
+        var hasNext = true;
+
+        while (hasNext && list.Count < limit)
         {
-            list.AddRange(response.Results);
+            ct.ThrowIfCancellationRequested();
+            var qs = new Dictionary<string, string>
+            {
+                ["search"] = q,
+                ["page"] = page.ToString(CultureInfo.InvariantCulture),
+                ["page_size"] = "300",
+            };
+
+            var response = await RequestDataAsync<ApiListResponse<ProductDto>>(
+                HttpMethod.Get, "api/main/products/list/", null, qs, ct).ConfigureAwait(false);
+
+            if (response?.Results == null || response.Results.Count == 0)
+                break;
+
+            foreach (var item in response.Results)
+            {
+                if (string.IsNullOrEmpty(item.Id) || !seen.Add(item.Id))
+                    continue;
+                list.Add(item);
+                if (list.Count >= limit)
+                    break;
+            }
+
+            hasNext = response.Results.Count >= 300;
+            page++;
+            if (page > 100)
+                break;
         }
+
         return list;
     }
 
-    /// <summary>Страницы каталога без поиска (как products_catalog). Страница 1 последовательно, 2…N — параллельно.</summary>
+    /// <summary>Полный каталог с пагинацией (все SKU, до limit).</summary>
     public async Task<List<JsonElement>> ProductsCatalogAsync(int limit, int maxPages, CancellationToken ct = default)
     {
         var outList = new List<JsonElement>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var paths = new[] { "api/main/products/list/", "api/main/products/" };
         ApiException? last404 = null;
-        maxPages = Math.Max(1, maxPages);
+        limit = Math.Max(1, limit);
+        maxPages = maxPages <= 0 ? 100 : Math.Max(1, maxPages);
+        const int pageSize = 300;
 
         foreach (var path in paths)
         {
             outList.Clear();
             seen.Clear();
+
             try
             {
-                var qs1 = new Dictionary<string, string> { ["page"] = "1" };
-                var data1 = await RequestAsync(HttpMethod.Get, path, null, qs1, ct).ConfigureAwait(false);
-                var page1 = UnwrapList(data1);
-                if (page1.Count == 0)
-                    continue;
+                var page = 1;
+                var hasNext = true;
 
-                foreach (var p in page1)
+                while (hasNext && outList.Count < limit && page <= maxPages)
                 {
-                    var pid = TryProductIdString(p);
-                    if (string.IsNullOrEmpty(pid) || seen.Contains(pid))
-                        continue;
-                    seen.Add(pid);
-                    outList.Add(p);
-                    if (outList.Count >= limit)
-                        return outList;
-                }
-
-                if (maxPages > 1)
-                {
-                    var rest = Enumerable.Range(2, maxPages - 1).ToArray();
-                    var tasks = rest.Select(async page =>
+                    ct.ThrowIfCancellationRequested();
+                    var qs = new Dictionary<string, string>
                     {
-                        try
-                        {
-                            var qs = new Dictionary<string, string>
-                            {
-                                ["page"] = page.ToString(CultureInfo.InvariantCulture),
-                            };
-                            var data = await RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
-                            return UnwrapList(data);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch
-                        {
-                            return new List<JsonElement>();
-                        }
-                    });
+                        ["page"] = page.ToString(CultureInfo.InvariantCulture),
+                        ["page_size"] = pageSize.ToString(CultureInfo.InvariantCulture),
+                    };
 
-                    var batches = await Task.WhenAll(tasks).ConfigureAwait(false);
-                    foreach (var items in batches)
+                    var data = await RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
+                    var batch = UnwrapList(data);
+                    if (batch.Count == 0)
+                        break;
+
+                    foreach (var p in batch)
                     {
-                        ct.ThrowIfCancellationRequested();
-                        foreach (var p in items)
-                        {
-                            var pid = TryProductIdString(p);
-                            if (string.IsNullOrEmpty(pid) || seen.Contains(pid))
-                                continue;
-                            seen.Add(pid);
-                            outList.Add(p);
-                            if (outList.Count >= limit)
-                                return outList;
-                        }
+                        var pid = TryProductIdString(p);
+                        if (string.IsNullOrEmpty(pid) || !seen.Add(pid))
+                            continue;
+                        outList.Add(p);
+                        if (outList.Count >= limit)
+                            return outList;
                     }
+
+                    hasNext = HasNextPage(data, batch.Count, pageSize);
+                    page++;
                 }
 
                 if (outList.Count > 0)
@@ -766,6 +817,25 @@ public sealed class NurMarketApiClient : IDisposable
         if (last404 != null && outList.Count == 0)
             throw last404;
         return outList;
+    }
+
+    private static bool HasNextPage(JsonElement data, int batchCount, int pageSize)
+    {
+        if (data.ValueKind == JsonValueKind.Object)
+        {
+            if (data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String)
+            {
+                var url = next.GetString();
+                return !string.IsNullOrWhiteSpace(url);
+            }
+
+            if (data.TryGetProperty("count", out var countEl) && countEl.TryGetInt32(out var total))
+            {
+                // handled by caller via batch loop
+            }
+        }
+
+        return batchCount >= pageSize;
     }
 
     /// <summary>Карточка товара с картинками (как products_detail).</summary>

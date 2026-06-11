@@ -702,6 +702,14 @@
 						FontSize="11"
 						Foreground="{StaticResource BrushTextMuted}"
 						TextWrapping="Wrap" />
+                    <TextBlock
+						x:Name="ShiftBalanceText"
+						Margin="0,4,0,0"
+						HorizontalAlignment="Center"
+						FontSize="12"
+						FontWeight="SemiBold"
+						Foreground="{DynamicResource BrushAccent}"
+						Text="Смена закрыта" />
                     <StackPanel
 						Orientation="Horizontal"
 						HorizontalAlignment="Center"
@@ -927,8 +935,10 @@
                     <Grid
 						Row="2">
                         <ScrollViewer
+							x:Name="CatalogScrollViewer"
 							VerticalScrollBarVisibility="Auto"
 							PanningMode="Both"
+							ScrollChanged="CatalogScrollViewer_ScrollChanged"
 							Visibility="{Binding IsChecked, ElementName=BtnGrid, Converter='{StaticResource BoolToVis}'}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -1721,58 +1731,33 @@
 								Margin="12,2,12,2">
                                 <Grid>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition
-											Height="Auto" />
-                                        <RowDefinition
-											Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button x:Name="ToggleToolsButton"
-        Style="{StaticResource TouchGhostButton}"
-        HorizontalAlignment="Left"
-        VerticalAlignment="Center"
-        ToolTip="Показать/скрыть инструменты"
-        Click="ToggleToolsPanel_Click"
-        Background="Transparent">
-                                            <Border Width="20" Height="20" 
-            CornerRadius="10" 
-            Background="Transparent">
-                                                <TextBlock x:Name="IconText" 
-                   Text="∨" 
-                   FontSize="14" 
-                   Foreground="{DynamicResource BrushText}" 
-                   FontWeight="Bold"
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"/>
-                                            </Border>
+											Style="{StaticResource TouchGhostButton}"
+											ToolTip="Показать/скрыть инструменты"
+											Click="ToggleToolsPanel_Click" Background="Transparent">
+                                            <TextBlock x:Name="IconText" Text="∨" FontSize="14"
+												Foreground="{DynamicResource BrushText}" FontWeight="Bold" />
                                         </Button>
-                                        <TextBlock Text="Итого к оплате"
-												FontSize="20"
-												FontWeight="Bold"
-												Foreground="{DynamicResource BrushText}"
-												VerticalAlignment="Center"
-												Margin="0,0,8,0"/>
+                                        <TextBlock Text="Итого к оплате" FontSize="20" FontWeight="Bold"
+											Foreground="{DynamicResource BrushText}" Margin="8,0,0,0" />
                                     </StackPanel>
-                                    <StackPanel
-										Grid.Row="1"
-										Orientation="Horizontal"
-										VerticalAlignment="Bottom"
-										HorizontalAlignment="Right"
-										Margin="0,4,0,0">
-                                        <TextBlock
-											x:Name="CartTotalAmountText"
-											FontSize="28"
-											FontWeight="Bold"
-											LineHeight="32"
-											Foreground="{DynamicResource BrushAccentStrong}"
-											Typography.NumeralAlignment="Tabular" />
-                                        <TextBlock
-											Text=" сом"
-											FontSize="15"
-											FontWeight="SemiBold"
-											Foreground="{DynamicResource BrushTextMuted}"
-											VerticalAlignment="Bottom"
-											Margin="6,0,0,3" />
+                                    <StackPanel Grid.Row="1" HorizontalAlignment="Right" Margin="0,6,0,0">
+                                        <TextBlock x:Name="CartSubtotalText" FontSize="11"
+											Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Right" />
+                                        <TextBlock x:Name="CartDiscountText" FontSize="11"
+											Foreground="{DynamicResource BrushUiStatusWarn}" HorizontalAlignment="Right" />
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
+                                            <TextBlock x:Name="CartTotalAmountText" FontSize="28" FontWeight="Bold"
+												Foreground="{DynamicResource BrushAccentStrong}"
+												Typography.NumeralAlignment="Tabular" />
+                                            <TextBlock Text=" сом" FontSize="15" FontWeight="SemiBold"
+												Foreground="{DynamicResource BrushTextMuted}"
+												VerticalAlignment="Bottom" Margin="6,0,0,3" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -2242,49 +2227,47 @@
 								Click="HamburgerMenuClose_Click" />
                         </Grid>
                     </Border>
-                    <StackPanel
+                    <ScrollViewer
 						Grid.Row="1"
-						Margin="0,8,0,0">
-                        <Button
-							Content="🏠  Главная"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="MenuMain_Click" />
-                        <Button
-							Content="📊  Аналитика"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="OpenFinanceWindow_Click" />
-                        <Button
-							Content="📦  Склад"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="MenuWarehouse_Click" />
-                        <Button
-							Content="🔑 Смена"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="MenuShift_Click" />
-                        <Button
-							Content="🔧  Доп услуги"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="MenuServices_Click" />
-                        <Button
-							Content="↩️  Возврат"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="ReturnSale_Click" />
-                        <Separator
-							Margin="12,8"
-							Background="{DynamicResource BrushBorder}" />
-                        <Button
-							Content="🔄  Синхронизация"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="SyncNow_Click" />
-                        <Button
-							Content="⚙️  Настройки"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="Settings_Click" />
-                        <Button
-							Content="🚪  Выйти"
-							Style="{StaticResource HamburgerMenuItem}"
-							Click="Logout_Click" />
-                    </StackPanel>
+						VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="0,8,0,16">
+                            <Border Margin="12,0,12,10" Padding="14" CornerRadius="10"
+								Background="{DynamicResource BrushPanel}"
+								BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Кассовая смена" FontSize="12" FontWeight="SemiBold"
+										Foreground="{DynamicResource BrushTextSoft}" />
+                                    <TextBlock x:Name="HamburgerShiftBalanceText" Margin="0,6,0,0"
+										FontSize="20" FontWeight="Bold"
+										Foreground="{DynamicResource BrushAccent}" Text="—" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button Content="Открыть" Style="{StaticResource TouchSecondaryButton}"
+											Padding="12,6" Margin="0,0,8,0" Click="OpenShift_Click" />
+                                        <Button Content="Закрыть" Style="{StaticResource TouchSecondaryButton}"
+											Padding="12,6" Click="CloseShift_Click" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="РАБОТА" Margin="16,4,16,6" FontSize="11" FontWeight="Bold"
+								Foreground="{DynamicResource BrushTextSoft}" />
+                            <Button Content="Главная" Style="{StaticResource HamburgerMenuItem}" Click="MenuMain_Click" />
+                            <Button Content="Склад" Style="{StaticResource HamburgerMenuItem}" Click="MenuWarehouse_Click" />
+                            <Button Content="Возврат" Style="{StaticResource HamburgerMenuItem}" Click="ReturnSale_Click" />
+                            <Button Content="Доп. услуги" Style="{StaticResource HamburgerMenuItem}" Click="MenuServices_Click" />
+
+                            <TextBlock Text="ОТЧЁТЫ" Margin="16,12,16,6" FontSize="11" FontWeight="Bold"
+								Foreground="{DynamicResource BrushTextSoft}" />
+                            <Button Content="Аналитика" Style="{StaticResource HamburgerMenuItem}" Click="OpenFinanceWindow_Click" />
+
+                            <TextBlock Text="СИСТЕМА" Margin="16,12,16,6" FontSize="11" FontWeight="Bold"
+								Foreground="{DynamicResource BrushTextSoft}" />
+                            <Button Content="Синхронизация" Style="{StaticResource HamburgerMenuItem}" Click="SyncNow_Click" />
+                            <Button Content="Настройки" Style="{StaticResource HamburgerMenuItem}" Click="Settings_Click" />
+                            <Separator Margin="12,8" Background="{DynamicResource BrushBorder}" />
+                            <Button Content="Выйти" Style="{StaticResource HamburgerMenuItem}" Click="Logout_Click" />
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </Border>
         </Grid>

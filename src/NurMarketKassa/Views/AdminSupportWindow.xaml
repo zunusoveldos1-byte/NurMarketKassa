@@ -1,0 +1,149 @@
+<Window x:Class="NurMarketKassa.Views.AdminSupportWindow"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Title="Поддержка — Nur Market"
+	Icon="pack://application:,,,/NurMarketKassa;component/Assets/app-logo.png"
+	Height="580"
+	Width="420"
+	MinHeight="480"
+	MinWidth="380"
+	ResizeMode="NoResize"
+	WindowStyle="None"
+    AllowsTransparency="True"
+    WindowStartupLocation="CenterOwner"
+	FontFamily="Segoe UI"
+	Background="Transparent">
+
+    <!-- Внешний бордер для закругления углов окна -->
+    <Border CornerRadius="18" Background="#FFFFFF" ClipToBounds="True">
+
+        <Border.Clip>
+            <RectangleGeometry Rect="0,0,420,580" RadiusX="18" RadiusY="18" />
+        </Border.Clip>
+
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.15" Color="#64748B" />
+        </Border.Effect>
+
+        <Grid>
+            <!-- Фоновые волны (желтые линии) -->
+            <Canvas IsHitTestVisible="False" VerticalAlignment="Bottom" Height="180">
+                <Path Fill="#FFF7C2" Opacity="0.55"
+					Data="M -40,120 C 80,40 200,160 420,80 L 460,180 L -40,180 Z" />
+                <Path Fill="#FFE566" Opacity="0.35"
+					Data="M -20,140 C 120,60 260,150 460,100 L 460,180 L -20,180 Z" />
+                <Path Fill="#FFF9E6" Opacity="0.7"
+					Data="M 0,155 C 140,90 300,165 460,120 L 460,180 L 0,180 Z" />
+            </Canvas>
+
+            <!-- Основной контент по центру -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="32,24">
+                <!-- Логотип и заголовки -->
+                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,30">
+                    <!-- ЛОГОТИП (Закругление через RectangleGeometry, как в LoginWindow) -->
+                    <Grid Width="72" Height="72" HorizontalAlignment="Center" Margin="0,0,0,14">
+                        <Grid.Clip>
+                            <RectangleGeometry Rect="0,0,72,72" RadiusX="5" RadiusY="5" />
+                        </Grid.Clip>
+                        <Image Source="pack://application:,,,/NurMarketKassa;component/Assets/app-logo.png"
+							Stretch="UniformToFill"
+							RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Grid>
+
+                    <TextBlock Text="Nur Market" FontSize="28" FontWeight="Bold"
+						Foreground="#0F172A" HorizontalAlignment="Center" />
+                    <TextBlock Text="Поддержка администратора"
+						Margin="0,4,0,0" FontSize="16" FontWeight="SemiBold"
+						Foreground="#0F172A" HorizontalAlignment="Center" />
+                    <TextBlock Text="Поддержка всегда на связи"
+						Margin="0,4,0,0" FontSize="14"
+						Foreground="#64748B" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Кнопки действий -->
+                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+                    <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
+						Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+						Margin="0,0,0,12" Click="Phone_Click">
+                        <Border Width="320" Padding="14,12" CornerRadius="12"
+							Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="1" Opacity="0.06" Color="#64748B" />
+                            </Border.Effect>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="36" Height="36" CornerRadius="8"
+									Background="#FFF7C2" Margin="0,0,12,0">
+                                    <TextBlock Text="&#xE717;" FontFamily="Segoe MDL2 Assets"
+										FontSize="16" HorizontalAlignment="Center"
+										VerticalAlignment="Center" Foreground="#B8860B" />
+                                </Border>
+                                <TextBlock Text="+996 555 123 456" FontSize="15" FontWeight="SemiBold"
+									Foreground="#0F172A" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
+						Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+						Margin="0,0,0,12" Click="WhatsApp_Click">
+                        <Border Width="320" Padding="14,12" CornerRadius="12"
+							Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="1" Opacity="0.06" Color="#64748B" />
+                            </Border.Effect>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="36" Height="36" CornerRadius="8"
+									Background="#FFF7C2" Margin="0,0,12,0">
+                                    <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets"
+										FontSize="16" HorizontalAlignment="Center"
+										VerticalAlignment="Center" Foreground="#B8860B" />
+                                </Border>
+                                <TextBlock Text="+996 555 123 456" FontSize="15" FontWeight="SemiBold"
+									Foreground="#0F172A" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <Button Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
+						Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand"
+						Click="Email_Click">
+                        <Border Width="320" Padding="14,12" CornerRadius="12"
+							Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="1" Opacity="0.06" Color="#64748B" />
+                            </Border.Effect>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="36" Height="36" CornerRadius="8"
+									Background="#FFF7C2" Margin="0,0,12,0">
+                                    <TextBlock Text="&#xE715;" FontFamily="Segoe MDL2 Assets"
+										FontSize="16" HorizontalAlignment="Center"
+										VerticalAlignment="Center" Foreground="#B8860B" />
+                                </Border>
+                                <TextBlock Text="support@nurmarket.kg" FontSize="15" FontWeight="SemiBold"
+									Foreground="#0F172A" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </StackPanel>
+
+                <!-- Кнопка закрытия -->
+                <Button Content="Закрыть" IsCancel="True"
+					HorizontalAlignment="Center" MinWidth="120" Padding="20,10"
+					Background="#F7D617" Foreground="#111827" FontWeight="SemiBold"
+					BorderBrush="#D6B500" BorderThickness="1" Cursor="Hand"
+					Click="Close_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}"
+								BorderBrush="{TemplateBinding BorderBrush}"
+								BorderThickness="{TemplateBinding BorderThickness}"
+								CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
