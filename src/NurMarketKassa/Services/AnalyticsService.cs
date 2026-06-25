@@ -15,7 +15,7 @@ public static class AnalyticsService
         try
         {
             StringContent content = new StringContent(JsonSerializer.Serialize<AnalyticsRecord>(record), Encoding.UTF8, "application/json");
-            HttpResponseMessage httpResponseMessage = await AnalyticsService._client.PostAsync(App.Settings.ApiBaseUrl + "/analytics/shift-events", (HttpContent)content);
+            HttpResponseMessage httpResponseMessage = await AnalyticsService._client.PostAsync(App.Settings.ApiBaseUrl + "/analytics/shift-events/", (HttpContent)content);
         }
         catch
         {

@@ -1,4 +1,5 @@
 ﻿using NurMarketKassa.Services;
+using NurMarketKassa.Views.Dialogs;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -367,7 +368,7 @@ namespace NurMarketKassa.Views
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    var json = await App.Api.PosSaleGetAsync(sale.Id, CancellationToken.None);
+                    var json = await App.SalesApi.PosSaleGetAsync(sale.Id, CancellationToken.None);
                     // парсим элементы чека
                     if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
                     {
@@ -395,7 +396,7 @@ namespace NurMarketKassa.Views
 
         private async Task<List<SaleItem>> FetchSalesPageAsync(int page, int pageSize, CancellationToken token)
         {
-            var raw = await App.Api.PosSalesListAsync(page, pageSize, null, CancellationToken.None);
+            var raw = await App.SalesApi.PosSalesListAsync(page, pageSize, null, CancellationToken.None);
             token.ThrowIfCancellationRequested();
 
             var result = new List<SaleItem>(raw.Count);
@@ -543,7 +544,7 @@ namespace NurMarketKassa.Views
             if (string.IsNullOrEmpty(receiptId)) return;
             try
             {
-                var json = await App.Api.PosSaleGetAsync(receiptId, CancellationToken.None);
+                var json = await App.SalesApi.PosSaleGetAsync(receiptId, CancellationToken.None);
                 var items = new List<string>();
                 try
                 {

@@ -23,7 +23,8 @@ namespace NurMarketKassa.Models
         public string? Title { get; set; }
 
         [JsonPropertyName("price")]
-        public decimal Price { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
+        public decimal? Price { get; set; }
 
         [JsonPropertyName("barcode")]
         public string? Barcode { get; set; }
@@ -38,12 +39,67 @@ namespace NurMarketKassa.Models
         public string? ImageUrl { get; set; }
 
         [JsonPropertyName("quantity")]
-        public double Quantity { get; set; }
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
+        public double? Quantity { get; set; }
 
         [JsonPropertyName("unit")]
         public string? Unit { get; set; }
 
         [JsonPropertyName("must_weigh")]
         public bool MustWeigh { get; set; }
+
+        [JsonPropertyName("is_weight")]
+        public bool IsWeight { get; set; }
+
+        [JsonPropertyName("is_weight_product")]
+        public bool IsWeightProduct { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("stock_quantity")]
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
+        public double? StockQuantity { get; set; }
+
+        [JsonPropertyName("stock_weight")]
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
+        public double? StockWeight { get; set; }
+
+        [JsonPropertyName("is_favorite")]
+        public bool IsFavorite { get; set; }
+
+        public bool ResolvesMustWeigh()
+        {
+            if (MustWeigh || IsWeight || IsWeightProduct)
+                return true;
+            var unit = (Unit ?? "").Trim().ToLowerInvariant();
+            return unit is "кг" or "kg" or "kг";
+        }
+
+        public double ResolvesQuantity(bool mustWeigh)
+        {
+            var qty = Quantity ?? 0;
+            var stockQty = StockQuantity ?? 0;
+            var stockWeight = StockWeight ?? 0;
+            return mustWeigh
+                ? (stockWeight > 0 ? stockWeight : (stockQty > 0 ? stockQty : qty))
+                : (stockQty > 0 ? stockQty : qty);
+        }
+    }
+
+    /// <summary>GET /api/users/company/</summary>
+    public sealed class CompanyDto
+    {
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("inn")]
+        public string? Inn { get; set; }
+
+        [JsonPropertyName("address")]
+        public string? Address { get; set; }
     }
 }

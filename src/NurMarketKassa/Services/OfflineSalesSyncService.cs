@@ -1,19 +1,28 @@
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
+using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
 public sealed class OfflineSalesSyncService : IDisposable
 {
-    private readonly NurMarketApiClient _api;
+    private readonly ISalesApiService _sales;
+    private readonly IAuthApiService _auth;
+    private readonly ISyncConflictResolver _syncConflictResolver;
     private readonly SemaphoreSlim _syncGate = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private Task? _loopTask;
 
-    public OfflineSalesSyncService(NurMarketApiClient api)
+    public OfflineSalesSyncService(
+        ISalesApiService sales,
+        IAuthApiService auth,
+        ISyncConflictResolver syncConflictResolver)
     {
-        _api = api;
+        _sales = sales;
+        _auth = auth;
+        _syncConflictResolver = syncConflictResolver;
     }
 
     public event EventHandler? StateChanged;
@@ -42,7 +51,7 @@ public sealed class OfflineSalesSyncService : IDisposable
 
     public async Task ProbeNowAsync(CancellationToken ct = default)
     {
-        IsOnline = await _api.CanReachApiAsync(ct).ConfigureAwait(false);
+        IsOnline = await _auth.CanReachApiAsync(ct).ConfigureAwait(false);
         UpdateStatusText();
         RaiseStateChanged();
     }
@@ -109,6 +118,7 @@ public sealed class OfflineSalesSyncService : IDisposable
                 {
                     var saleId = await ReplayOfflineSaleAsync(entry, ct).ConfigureAwait(false);
                     OfflinePendingSalesStore.MarkSynced(entry.Id, saleId);
+                    OfflinePendingSalesStore.RemoveSynced(entry.Id);
                 }
                 catch (HttpRequestException ex)
                 {
@@ -134,6 +144,18 @@ public sealed class OfflineSalesSyncService : IDisposable
                 UpdateStatusText();
                 RaiseStateChanged();
             }
+
+            if (IsOnline)
+            {
+                try
+                {
+                    await CatalogCacheService.RefreshFromApiAsync(ct).ConfigureAwait(false);
+                }
+                catch
+                {
+                    /* каталог обновится при следующем цикле */
+                }
+            }
         }
         finally
         {
@@ -146,7 +168,7 @@ public sealed class OfflineSalesSyncService : IDisposable
 
     private async Task<string?> ReplayOfflineSaleAsync(OfflineSaleEntry entry, CancellationToken ct)
     {
-        var start = await _api.PosSalesStartAsync(entry.CashboxId, ct).ConfigureAwait(false);
+        var start = await _sales.PosSalesStartAsync(entry.CashboxId, ct).ConfigureAwait(false);
         var cartId = CartDisplayHelper.TryCartId(start);
         if (string.IsNullOrEmpty(cartId))
             throw new ApiException("Сервер не вернул cart_id для синхронизации офлайн-чека.", 500);
@@ -164,12 +186,12 @@ public sealed class OfflineSalesSyncService : IDisposable
             var qty = FormatQuantityForApi(CartDisplayHelper.LineQuantity(item), weighed);
             var price = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(item));
             var discount = CartDisplayHelper.OptionalDiscountTotalParam(item);
-            await _api.PosAddItemAsync(cartId, productId, qty, price, discount, ct).ConfigureAwait(false);
+            await _sales.PosAddItemAsync(cartId, productId, qty, price, discount, ct).ConfigureAwait(false);
         }
 
         ApplyOrderDiscountPatch(root, out var discountBody);
         if (discountBody.Count > 0)
-            await _api.PosCartPatchAsync(cartId, discountBody, ct).ConfigureAwait(false);
+            await _sales.PosCartPatchAsync(cartId, discountBody, ct).ConfigureAwait(false);
 
         var body = new Dictionary<string, string>
         {
@@ -178,7 +200,32 @@ public sealed class OfflineSalesSyncService : IDisposable
             ["cash_received"] = entry.CashReceived ?? "",
         };
 
-        var result = await _api.PosCheckoutAsync(cartId, body, ct).ConfigureAwait(false);
+        var result = await _sales.PosCheckoutAsync(cartId, body, ct).ConfigureAwait(false);
+
+        foreach (var item in CartDisplayHelper.EnumerateItems(root))
+        {
+            var productId = CartDisplayHelper.TryProductId(item);
+            if (string.IsNullOrEmpty(productId))
+                continue;
+
+            var soldQty = CartDisplayHelper.LineQuantity(item);
+            if (soldQty <= 0)
+                continue;
+
+            try
+            {
+                await _syncConflictResolver.ResolveAndSyncStockAsync(
+                    productId,
+                    -soldQty,
+                    SyncStrategy.Accumulate,
+                    ct).ConfigureAwait(false);
+            }
+            catch
+            {
+                /* синхронизация остатков не должна отменять отправку чека */
+            }
+        }
+
         return CheckoutResponseHelper.TrySaleId(result);
     }
 
@@ -192,7 +239,10 @@ public sealed class OfflineSalesSyncService : IDisposable
         {
             var value = ReadScalar(pct);
             if (!string.IsNullOrWhiteSpace(value) && !OrderDiscountHelper.IsEmptyOrZeroLike(value))
+            {
                 body["order_discount_percent"] = OrderDiscountHelper.NormalizeDecimal(value);
+                return;
+            }
         }
 
         if (root.TryGetProperty("order_discount_total", out var total))

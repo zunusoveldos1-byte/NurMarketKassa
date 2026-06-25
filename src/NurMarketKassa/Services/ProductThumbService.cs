@@ -3,12 +3,13 @@ using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.PixelFormats;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
@@ -40,7 +41,7 @@ internal sealed class ProductThumbService
 
     public async Task SetThumbAsync(
         Dispatcher uiDispatcher,
-        NurMarketApiClient api,
+        IAuthApiService authApi,
         string apiBaseUrl,
         string imageUrl,
         Models.Pos.CatalogProductTileVm vm,
@@ -49,7 +50,7 @@ internal sealed class ProductThumbService
         if (vm.Thumb != null)
             return;
 
-        var path = await GetOrDownloadPathAsync(api, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
+        var path = await GetOrDownloadPathAsync(authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return;
 
@@ -63,7 +64,7 @@ internal sealed class ProductThumbService
         if (thumb == null)
         {
             TryDelete(path);
-            path = await GetOrDownloadPathAsync(api, apiBaseUrl, imageUrl, ct, forceDownload: true).ConfigureAwait(false);
+            path = await GetOrDownloadPathAsync(authApi, apiBaseUrl, imageUrl, ct, forceDownload: true).ConfigureAwait(false);
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
             {
                 await uiDispatcher.InvokeAsync(() => vm.Thumb ??= PlaceholderThumb);
@@ -83,7 +84,7 @@ internal sealed class ProductThumbService
     }
 
     private async Task<string?> GetOrDownloadPathAsync(
-        NurMarketApiClient api,
+        IAuthApiService authApi,
         string apiBaseUrl,
         string imageUrl,
         CancellationToken ct,
@@ -97,7 +98,7 @@ internal sealed class ProductThumbService
 
         if (!forceDownload)
         {
-            var task = _downloadTasks.GetOrAdd(local, _ => DownloadToCacheAsync(local, api, apiBaseUrl, imageUrl, ct));
+            var task = _downloadTasks.GetOrAdd(local, _ => DownloadToCacheAsync(local, authApi, apiBaseUrl, imageUrl, ct));
             try
             {
                 return await task.ConfigureAwait(false);
@@ -108,12 +109,12 @@ internal sealed class ProductThumbService
             }
         }
 
-        return await DownloadToCacheAsync(local, api, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
+        return await DownloadToCacheAsync(local, authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
     }
 
     private async Task<string?> DownloadToCacheAsync(
         string local,
-        NurMarketApiClient api,
+        IAuthApiService authApi,
         string apiBaseUrl,
         string imageUrl,
         CancellationToken ct)
@@ -121,7 +122,7 @@ internal sealed class ProductThumbService
         byte[]? bytes;
         if (IsSameHost(imageUrl, apiBaseUrl))
         {
-            bytes = await api.DownloadAuthorizedAsync(imageUrl, ct).ConfigureAwait(false);
+            bytes = await authApi.DownloadAuthorizedAsync(imageUrl, ct).ConfigureAwait(false);
             bytes ??= await DownloadPublicAsync(imageUrl, ct).ConfigureAwait(false);
         }
         else
@@ -163,52 +164,58 @@ internal sealed class ProductThumbService
         }
         catch
         {
-            return await TryLoadWithImageSharpAsync(path, ct).ConfigureAwait(false);
+            return await TryLoadWithSystemDrawingAsync(path, ct).ConfigureAwait(false);
         }
     }
 
-    private static async Task<ImageSource?> TryLoadWithImageSharpAsync(string path, CancellationToken ct)
+    private static async Task<ImageSource?> TryLoadWithSystemDrawingAsync(string path, CancellationToken ct)
     {
         try
         {
-            await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using var image = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(fs, ct).ConfigureAwait(false);
+            using var bitmap = new Bitmap(path);
 
-            var width = image.Width;
-            var height = image.Height;
-            if (width <= 0 || height <= 0)
-                return null;
-
-            var scale = Math.Min(1.0, DecodePixelSize / (double)Math.Max(width, height));
-            if (scale < 0.999)
+            // Масштабирование, если необходимо
+            int width = bitmap.Width;
+            int height = bitmap.Height;
+            if (width > DecodePixelSize || height > DecodePixelSize)
             {
-                var targetWidth = Math.Max(1, (int)Math.Round(width * scale));
-                var targetHeight = Math.Max(1, (int)Math.Round(height * scale));
-                image.Mutate(ctx => ctx.Resize(targetWidth, targetHeight));
-                width = image.Width;
-                height = image.Height;
+                double scale = Math.Min(1.0, DecodePixelSize / (double)Math.Max(width, height));
+                int newWidth = (int)(width * scale);
+                int newHeight = (int)(height * scale);
+                using var resized = new Bitmap(bitmap, newWidth, newHeight);
+                bitmap.Dispose();
+                return await Task.Run(() => ConvertToBitmapSource(resized), ct);
             }
 
-            var pixels = new byte[width * height * 4];
-            image.CopyPixelDataTo(pixels);
-
-            var bmp = BitmapSource.Create(
-                width,
-                height,
-                96,
-                96,
-                PixelFormats.Bgra32,
-                null,
-                ConvertRgbaToBgra(pixels),
-                width * 4);
-            bmp.Freeze();
-            return bmp;
+            return await Task.Run(() => ConvertToBitmapSource(bitmap), ct);
         }
         catch
         {
             return null;
         }
     }
+
+    private static ImageSource ConvertToBitmapSource(Bitmap bitmap)
+    {
+        IntPtr hbitmap = bitmap.GetHbitmap();
+        try
+        {
+            var source = System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
+                hbitmap,
+                IntPtr.Zero,
+                System.Windows.Int32Rect.Empty,
+                BitmapSizeOptions.FromEmptyOptions());
+            source.Freeze();
+            return source;
+        }
+        finally
+        {
+            DeleteObject(hbitmap);
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("gdi32.dll")]
+    private static extern bool DeleteObject(IntPtr hObject);
 
     private static void TryDelete(string path)
     {
@@ -288,15 +295,5 @@ internal sealed class ProductThumbService
             Geometry.Parse("M8,48 L23,31 L34,40 L42,34 L52,48 Z")));
         group.Freeze();
         return new DrawingImage(group);
-    }
-
-    private static byte[] ConvertRgbaToBgra(byte[] rgba)
-    {
-        for (var i = 0; i <= rgba.Length - 4; i += 4)
-        {
-            (rgba[i], rgba[i + 2]) = (rgba[i + 2], rgba[i]);
-        }
-
-        return rgba;
     }
 }

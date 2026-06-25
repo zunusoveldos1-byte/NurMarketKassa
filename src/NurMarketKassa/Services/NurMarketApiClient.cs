@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -8,11 +9,15 @@ using System.Text.Json;
 using NurMarketKassa.Configuration;
 using NurMarketKassa.Models.Auth;
 using NurMarketKassa.Models;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
 /// <summary>
-/// HTTP-клиент к Nur CRM (логика как в PRINTER_EXE_CHAIN/api_client.py JwtClient).
+/// Центральный конфигуратор <see cref="HttpClient"/> и транспорт/сессия для Nur CRM
+/// (BaseUrl, заголовки Bearer, таймауты, refresh-токен).
+/// Доменные операции вынесены в <see cref="IAuthApiService"/>, <see cref="ICatalogApiService"/>,
+/// <see cref="ISalesApiService"/> и <see cref="IShiftApiService"/>.
 /// </summary>
 public sealed class NurMarketApiClient : IDisposable
 {
@@ -35,14 +40,66 @@ public sealed class NurMarketApiClient : IDisposable
     public JsonElement UserPayload { get; private set; }
     public string? ActiveBranchId { get; private set; }
 
-    public NurMarketApiClient(HttpClient http, AppSettings settings)
+    public NurMarketApiClient(AppSettings settings)
     {
-        _http = http;
         var baseUrl = settings.ApiBaseUrl.Trim().TrimEnd('/') + "/";
-        _http.BaseAddress = new Uri(baseUrl, UriKind.Absolute);
+        var handler = new JwtBearerRefreshHandler(this) { InnerHandler = new HttpClientHandler() };
+        _http = new HttpClient(handler)
+        {
+            BaseAddress = new Uri(baseUrl, UriKind.Absolute),
+            Timeout = TimeSpan.FromSeconds(55),
+        };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         UserPayload = default;
     }
+
+    internal void ApplyBearerAuthorization(HttpRequestMessage request)
+    {
+        if (string.IsNullOrEmpty(AccessToken))
+            return;
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+    }
+
+    internal async Task<bool> RefreshAccessAndPersistAsync(CancellationToken ct = default)
+    {
+        if (!await RefreshAccessUnlockedAsync(ct).ConfigureAwait(false))
+            return false;
+
+        PersistTokensToSecureStore();
+        return true;
+    }
+
+    /// <summary>Быстрый вход по refresh-токену из DPAPI (без полного login).</summary>
+    public async Task<bool> TryRestoreSessionViaRefreshAsync(string email, CancellationToken ct = default)
+    {
+        var session = OfflineAuthSessionStore.TryLoad();
+        if (session == null
+            || !string.Equals(session.Login, email.Trim(), StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(session.RefreshToken))
+        {
+            return false;
+        }
+
+        RestoreOfflineSession(session);
+        if (!await RefreshAccessAsync(ct).ConfigureAwait(false))
+            return false;
+
+        PersistTokensToSecureStore();
+        return !string.IsNullOrWhiteSpace(AccessToken);
+    }
+
+    private void PersistTokensToSecureStore() =>
+        OfflineAuthSessionStore.UpdateTokens(AccessToken, RefreshToken);
+
+    // Ленивые экземпляры доменных сервисов для делегирования из устаревших методов.
+    private CatalogApiService? _catalogApi;
+    private SalesApiService? _salesApi;
+    private ShiftApiService? _shiftApi;
+
+    internal CatalogApiService Catalog => _catalogApi ??= new CatalogApiService(this);
+    internal SalesApiService Sales => _salesApi ??= new SalesApiService(this);
+    internal ShiftApiService Shift => _shiftApi ??= new ShiftApiService(this);
 
     /// <summary>Проверка доступности API (аналог can_reach_api).</summary>
     public async Task<bool> CanReachApiAsync(CancellationToken ct = default)
@@ -65,21 +122,15 @@ public sealed class NurMarketApiClient : IDisposable
         return false;
     }
 
-    /// <summary>GET /main/agents/me/products/ (список товаров агента).</summary>
-    public async Task<List<JsonElement>> GetAgentProductsAsync(CancellationToken ct = default)
-    {
-        HttpResponseMessage httpResponseMessage = await _http.GetAsync(
-            App.Settings.ApiBaseUrl + "/main/agents/me/products/", ct).ConfigureAwait(false);
-        httpResponseMessage.EnsureSuccessStatusCode();
-        using (JsonDocument jsonDocument = JsonDocument.Parse(
-            await httpResponseMessage.Content.ReadAsStringAsync().ConfigureAwait(false)))
-        {
-            if (jsonDocument.RootElement.TryGetProperty("results", out JsonElement results) &&
-                results.ValueKind == JsonValueKind.Array)
-                return results.EnumerateArray().ToList();
-        }
-        return new List<JsonElement>();
-    }
+    /// <summary>GET список товаров агента с остатками (для склада).</summary>
+    [Obsolete("Используйте ICatalogApiService.GetAgentProductsAsync.")]
+    public Task<List<JsonElement>> GetAgentProductsAsync(CancellationToken ct = default) =>
+        Catalog.GetAgentProductsAsync(ct);
+
+    /// <summary>Синхронизация статуса «избранный» с сайтом.</summary>
+    [Obsolete("Используйте ICatalogApiService.SetProductFavoriteAsync.")]
+    public Task<bool> SetProductFavoriteAsync(string productId, bool isFavorite, CancellationToken ct = default) =>
+        Catalog.SetProductFavoriteAsync(productId, isFavorite, ct);
 
     public async Task<JsonElement> LoginAsync(string email, string password, CancellationToken ct = default)
     {
@@ -99,6 +150,7 @@ public sealed class NurMarketApiClient : IDisposable
             using var doc = JsonDocument.Parse(text);
             var root = doc.RootElement.Clone();
             ApplyLoginResponse(root);
+            PersistTokensToSecureStore();
             return root;
         }
         finally
@@ -125,6 +177,14 @@ public sealed class NurMarketApiClient : IDisposable
             if (root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
             {
                 AccessToken = acc.GetString();
+                if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
+                {
+                    var newRefresh = refr.GetString();
+                    if (!string.IsNullOrWhiteSpace(newRefresh))
+                        RefreshToken = newRefresh;
+                }
+
+                PersistTokensToSecureStore();
                 return true;
             }
 
@@ -142,11 +202,117 @@ public sealed class NurMarketApiClient : IDisposable
         RefreshToken = null;
         UserPayload = default;
         ActiveBranchId = null;
+        CompanyInfoService.Clear();
+    }
+
+    /// <summary>Восстановление сессии из локального кэша (офлайн-вход).</summary>
+    public void RestoreOfflineSession(OfflineAuthSession session)
+    {
+        AccessToken = session.AccessToken;
+        RefreshToken = session.RefreshToken;
+        ActiveBranchId = session.BranchId;
+
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            writer.WriteStartObject();
+            if (!string.IsNullOrWhiteSpace(session.UserId))
+            {
+                writer.WriteString("id", session.UserId);
+                writer.WriteString("pk", session.UserId);
+            }
+
+            writer.WriteString("email", session.Login);
+            writer.WriteString("full_name", session.CashierName);
+            if (!string.IsNullOrWhiteSpace(session.Role))
+                writer.WriteString("role", session.Role);
+            if (!string.IsNullOrWhiteSpace(session.BranchId))
+                writer.WriteString("primary_branch_id", session.BranchId);
+            writer.WriteEndObject();
+        }
+
+        using var doc = JsonDocument.Parse(stream.ToArray());
+        UserPayload = doc.RootElement.Clone();
     }
 
     /// <summary>GET /api/users/profile/</summary>
     public Task<JsonElement> GetProfileAsync(CancellationToken ct = default) =>
         RequestAsync(HttpMethod.Get, "api/users/profile/", null, null, ct);
+
+    /// <summary>GET /api/users/company/</summary>
+    public async Task<CompanyDto?> GetCompanyAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(AccessToken))
+            throw new ApiException(AuthInvalidHintRu, 401);
+
+        await _httpSlots.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var uri = BuildUri("api/users/company/", null);
+            using var req = new HttpRequestMessage(HttpMethod.Get, uri);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+
+            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            var jsonResponse = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            PosLogger.Log($"[API_DEBUG] Данные компании: {jsonResponse}", "API");
+            System.Diagnostics.Debug.WriteLine($"[API_DEBUG] Данные компании: {jsonResponse}");
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                JsonElement? payload = TryParse(jsonResponse);
+                throw new ApiException(ApiErrorParser.Parse(resp, jsonResponse), (int)resp.StatusCode, payload);
+            }
+
+            using var doc = JsonDocument.Parse(jsonResponse);
+            var company = ParseCompanyDto(doc.RootElement);
+            PosLogger.Log($"[API_DEBUG] INN: {company?.Inn}, Address: {company?.Address}", "API");
+            System.Diagnostics.Debug.WriteLine($"[API_DEBUG] INN: {company?.Inn}, Address: {company?.Address}");
+            return company;
+        }
+        finally
+        {
+            _httpSlots.Release();
+        }
+    }
+
+    internal static CompanyDto? ParseCompanyDto(JsonElement root)
+    {
+        var data = root;
+        if (root.ValueKind == JsonValueKind.Object
+            && root.TryGetProperty("data", out var inner)
+            && inner.ValueKind == JsonValueKind.Object)
+        {
+            data = inner;
+        }
+
+        if (data.ValueKind != JsonValueKind.Object)
+            return null;
+
+        return new CompanyDto
+        {
+            Id = ReadTopLevelString(data, "id"),
+            Name = ReadTopLevelString(data, "name"),
+            Inn = TrimToMaxLength(ReadTopLevelString(data, "inn"), 32),
+            Address = ReadTopLevelString(data, "address"),
+        };
+    }
+
+    private static string? ReadTopLevelString(JsonElement obj, string propertyName)
+    {
+        if (!obj.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.String)
+            return null;
+
+        var text = value.GetString()?.Trim();
+        return string.IsNullOrEmpty(text) ? null : text;
+    }
+
+    private static string? TrimToMaxLength(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value))
+            return null;
+
+        return value.Length > maxLength ? value[..maxLength] : value;
+    }
 
     /// <summary>
     /// Универсальный запрос с Bearer и query branch=… (как branch_params() в Python).
@@ -176,9 +342,10 @@ public sealed class NurMarketApiClient : IDisposable
         await _httpSlots.WaitAsync(linked.Token).ConfigureAwait(false);
         try
         {
+            relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
             var uri = BuildUri(relativePath, query);
             using var req = new HttpRequestMessage(method, uri);
-            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+            ApplyBearerAuthorization(req);
             if (jsonBody is not null)
             {
                 var json = JsonSerializer.Serialize(jsonBody, _jsonWrite);
@@ -187,21 +354,8 @@ public sealed class NurMarketApiClient : IDisposable
 
             using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, linked.Token).ConfigureAwait(false);
 
-            // Если 401, пробуем обновить токен и повторить
-            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && !string.IsNullOrEmpty(RefreshToken))
-            {
-                if (await RefreshAccessUnlockedAsync(linked.Token).ConfigureAwait(false))
-                {
-                    // Повторяем запрос с новым токеном
-                    req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
-                    using var retryResp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, linked.Token).ConfigureAwait(false);
-                    retryResp.EnsureSuccessStatusCode();
-                    using var retryStream = await retryResp.Content.ReadAsStreamAsync(linked.Token).ConfigureAwait(false);
-                    return await JsonSerializer.DeserializeAsync<T>(retryStream, _jsonRead, linked.Token).ConfigureAwait(false);
-                }
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
                 ClearSession();
-                throw new ApiException(AuthInvalidHintRu, 401);
-            }
 
             resp.EnsureSuccessStatusCode();
 
@@ -233,7 +387,7 @@ public sealed class NurMarketApiClient : IDisposable
         await _httpSlots.WaitAsync(linked.Token).ConfigureAwait(false);
         try
         {
-            return await SendOnceAsync(method, relativePath, jsonBody, query, retryRefresh: true, linked.Token)
+            return await SendOnceAsync(method, relativePath, jsonBody, query, linked.Token)
                 .ConfigureAwait(false);
         }
         finally
@@ -247,12 +401,12 @@ public sealed class NurMarketApiClient : IDisposable
         string relativePath,
         object? jsonBody,
         IReadOnlyDictionary<string, string>? query,
-        bool retryRefresh,
         CancellationToken ct)
     {
+        relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
         var uri = BuildUri(relativePath, query);
         using var req = new HttpRequestMessage(method, uri);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+        ApplyBearerAuthorization(req);
         if (jsonBody is not null)
         {
             var json = JsonSerializer.Serialize(jsonBody, _jsonWrite);
@@ -262,16 +416,8 @@ public sealed class NurMarketApiClient : IDisposable
         using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
         var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
-        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && retryRefresh && !string.IsNullOrEmpty(RefreshToken))
-        {
-            if (await RefreshAccessUnlockedAsync(ct).ConfigureAwait(false))
-                return await SendOnceAsync(method, relativePath, jsonBody, query, retryRefresh: false, ct).ConfigureAwait(false);
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
             ClearSession();
-        }
-        else if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
-        {
-            ClearSession();
-        }
 
         if (!resp.IsSuccessStatusCode)
         {
@@ -308,6 +454,14 @@ public sealed class NurMarketApiClient : IDisposable
             if (root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
             {
                 AccessToken = acc.GetString();
+                if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
+                {
+                    var newRefresh = refr.GetString();
+                    if (!string.IsNullOrWhiteSpace(newRefresh))
+                        RefreshToken = newRefresh;
+                }
+
+                PersistTokensToSecureStore();
                 return true;
             }
 
@@ -424,612 +578,181 @@ public sealed class NurMarketApiClient : IDisposable
     }
 
     /// <summary>GET /api/construction/cashboxes/ — при 404 возвращает [], как в Python.</summary>
-    public async Task<JsonElement> ConstructionCashboxesListAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            return await RequestAsync(HttpMethod.Get, "api/construction/cashboxes/", null, null, ct).ConfigureAwait(false);
-        }
-        catch (ApiException ex) when (ex.StatusCode == 404)
-        {
-            using var d = JsonDocument.Parse("[]");
-            return d.RootElement.Clone();
-        }
-    }
+    [Obsolete("Используйте IShiftApiService.ConstructionCashboxesListAsync.")]
+    public Task<JsonElement> ConstructionCashboxesListAsync(CancellationToken ct = default) =>
+        Shift.ConstructionCashboxesListAsync(ct);
 
     /// <summary>GET /api/construction/shifts/</summary>
+    [Obsolete("Используйте IShiftApiService.ConstructionShiftsListAsync.")]
     public Task<JsonElement> ConstructionShiftsListAsync(CancellationToken ct = default) =>
-        RequestAsync(HttpMethod.Get, "api/construction/shifts/", null, null, ct);
+        Shift.ConstructionShiftsListAsync(ct);
 
     /// <summary>POST открытия смены — два URL и два варианта тела (как construction_shift_open).</summary>
-    public async Task<JsonElement> ConstructionShiftOpenAsync(
+    [Obsolete("Используйте IShiftApiService.ConstructionShiftOpenAsync.")]
+    public Task<JsonElement> ConstructionShiftOpenAsync(
         string cashboxId,
         string openingCash = "0.00",
-        CancellationToken ct = default)
-    {
-        var paths = new[] { "api/construction/shifts/open/", "api/construction/shift/open/" };
-        var payloads = new[]
-        {
-            new Dictionary<string, string> { ["cashbox"] = cashboxId.Trim(), ["opening_cash"] = openingCash.Trim() },
-            new Dictionary<string, string> { ["cashbox_id"] = cashboxId.Trim(), ["opening_cash"] = openingCash.Trim() },
-        };
-
-        ApiException? last = null;
-        foreach (var path in paths)
-        {
-            for (var i = 0; i < payloads.Length; i++)
-            {
-                try
-                {
-                    return await RequestAsync(HttpMethod.Post, path, payloads[i], null, ct).ConfigureAwait(false);
-                }
-                catch (ApiException e)
-                {
-                    last = e;
-                    if (e.StatusCode == 404)
-                        break;
-                    if (e.StatusCode == 400 && i + 1 < payloads.Length)
-                        continue;
-                    throw;
-                }
-            }
-        }
-
-        if (last != null)
-            throw last;
-        throw new ApiException("Не удалось открыть смену", 404);
-    }
+        CancellationToken ct = default) =>
+        Shift.ConstructionShiftOpenAsync(cashboxId, openingCash, ct);
 
     /// <summary>POST закрытия смены — два URL (как construction_shift_close).</summary>
-    public async Task<JsonElement> ConstructionShiftCloseAsync(
+    [Obsolete("Используйте IShiftApiService.ConstructionShiftCloseAsync.")]
+    public Task<JsonElement> ConstructionShiftCloseAsync(
         string shiftId,
         string? closingCash = null,
-        CancellationToken ct = default)
-    {
-        var sid = Uri.EscapeDataString(shiftId.Trim());
-        var paths = new[]
-        {
-            $"api/construction/shifts/{sid}/close/",
-            $"api/construction/shift/{sid}/close/",
-        };
-
-        var body = new Dictionary<string, string>();
-        if (!string.IsNullOrWhiteSpace(closingCash))
-            body["closing_cash"] = closingCash.Trim();
-
-        ApiException? last = null;
-        foreach (var path in paths)
-        {
-            try
-            {
-                return await RequestAsync(HttpMethod.Post, path, body, null, ct).ConfigureAwait(false);
-            }
-            catch (ApiException e)
-            {
-                last = e;
-                if (e.StatusCode == 404)
-                    continue;
-                throw;
-            }
-        }
-
-        if (last != null)
-            throw last;
-        throw new ApiException("Не удалось закрыть смену", 404);
-    }
+        CancellationToken ct = default) =>
+        Shift.ConstructionShiftCloseAsync(shiftId, closingCash, ct);
 
     /// <summary>POST /api/main/pos/sales/start/</summary>
-    public Task<JsonElement> PosSalesStartAsync(string? cashboxId = null, CancellationToken ct = default)
-    {
-        var body = new Dictionary<string, string>();
-        if (!string.IsNullOrWhiteSpace(cashboxId))
-            body["cashbox_id"] = cashboxId.Trim();
-        return RequestAsync(HttpMethod.Post, "api/main/pos/sales/start/", body, null, ct);
-    }
+    [Obsolete("Используйте ISalesApiService.PosSalesStartAsync.")]
+    public Task<JsonElement> PosSalesStartAsync(string? cashboxId = null, CancellationToken ct = default) =>
+        Sales.PosSalesStartAsync(cashboxId, ct);
+
+    /// <summary>POST /api/main/pos/sales/start/ с произвольным телом (возврат, касса и т.д.).</summary>
+    [Obsolete("Используйте ISalesApiService.PosSalesStartAsync.")]
+    public Task<JsonElement> PosSalesStartAsync(IReadOnlyDictionary<string, string>? body, CancellationToken ct = default) =>
+        Sales.PosSalesStartAsync(body, ct);
 
     /// <summary>GET /api/main/pos/carts/{id}/</summary>
-    public Task<JsonElement> PosCartGetAsync(string cartId, CancellationToken ct = default)
-    {
-        var id = Uri.EscapeDataString(cartId.Trim());
-        return RequestAsync(HttpMethod.Get, $"api/main/pos/carts/{id}/", null, null, ct);
-    }
+    [Obsolete("Используйте ISalesApiService.PosCartGetAsync.")]
+    public Task<JsonElement> PosCartGetAsync(string cartId, CancellationToken ct = default) =>
+        Sales.PosCartGetAsync(cartId, ct);
 
     /// <summary>POST /api/main/pos/sales/{id}/scan/ — таймаут как в Python (3+22 с).</summary>
-    public Task<JsonElement> PosScanAsync(string cartId, string barcode, string? quantity = null, CancellationToken ct = default)
-    {
-        var id = Uri.EscapeDataString(cartId.Trim());
-        var body = new Dictionary<string, string> { ["barcode"] = barcode.Trim() };
-        if (!string.IsNullOrEmpty(quantity))
-            body["quantity"] = quantity;
-        return RequestAsync(HttpMethod.Post, $"api/main/pos/sales/{id}/scan/", body, null, ct, TimeSpan.FromSeconds(22));
-    }
+    [Obsolete("Используйте ISalesApiService.PosScanAsync.")]
+    public Task<JsonElement> PosScanAsync(string cartId, string barcode, string? quantity = null, CancellationToken ct = default) =>
+        Sales.PosScanAsync(cartId, barcode, quantity, ct);
 
     /// <summary>PATCH /api/main/pos/carts/{cart}/items/{item}/</summary>
+    [Obsolete("Используйте ISalesApiService.PosCartItemPatchAsync.")]
     public Task<JsonElement> PosCartItemPatchAsync(
         string cartId,
         string itemId,
         IReadOnlyDictionary<string, string> body,
-        CancellationToken ct = default)
-    {
-        var c = Uri.EscapeDataString(cartId.Trim());
-        var i = Uri.EscapeDataString(itemId.Trim());
-        return RequestAsync(HttpMethod.Patch, $"api/main/pos/carts/{c}/items/{i}/", body, null, ct);
-    }
+        CancellationToken ct = default) =>
+        Sales.PosCartItemPatchAsync(cartId, itemId, body, ct);
 
     /// <summary>DELETE /api/main/pos/carts/{cart}/items/{item}/</summary>
-    public Task<JsonElement> PosCartItemDeleteAsync(string cartId, string itemId, CancellationToken ct = default)
-    {
-        var c = Uri.EscapeDataString(cartId.Trim());
-        var i = Uri.EscapeDataString(itemId.Trim());
-        return RequestAsync(HttpMethod.Delete, $"api/main/pos/carts/{c}/items/{i}/", null, null, ct);
-    }
+    [Obsolete("Используйте ISalesApiService.PosCartItemDeleteAsync.")]
+    public Task<JsonElement> PosCartItemDeleteAsync(string cartId, string itemId, CancellationToken ct = default) =>
+        Sales.PosCartItemDeleteAsync(cartId, itemId, ct);
 
     /// <summary>
     /// POST checkout — два URL, таймаут до 90 с; при 400 без cash_received для безнала — повтор с 0.00 (как pos_checkout).
     /// </summary>
-    public async Task<JsonElement> PosCheckoutAsync(
+    [Obsolete("Используйте ISalesApiService.PosCheckoutAsync.")]
+    public Task<JsonElement> PosCheckoutAsync(
         string cartId,
         Dictionary<string, string> body,
-        CancellationToken ct = default)
-    {
-        var id = Uri.EscapeDataString(cartId.Trim());
-        var paths = new[]
-        {
-            $"api/main/pos/sales/{id}/checkout/",
-            $"api/main/pos/carts/{id}/checkout/",
-        };
-        var timeout = TimeSpan.FromSeconds(90);
-        ApiException? last404 = null;
-
-        foreach (var path in paths)
-        {
-            try
-            {
-                return await RequestAsync(HttpMethod.Post, path, body, null, ct, timeout).ConfigureAwait(false);
-            }
-            catch (ApiException e)
-            {
-                if (e.StatusCode == 404)
-                {
-                    last404 = e;
-                    continue;
-                }
-
-                var pm = body.GetValueOrDefault("payment_method") ?? "";
-                if (e.StatusCode == 400
-                    && !body.ContainsKey("cash_received")
-                    && !string.Equals(pm, "cash", StringComparison.OrdinalIgnoreCase))
-                {
-                    var retry = new Dictionary<string, string>(body) { ["cash_received"] = "0.00" };
-                    try
-                    {
-                        return await RequestAsync(HttpMethod.Post, path, retry, null, ct, timeout).ConfigureAwait(false);
-                    }
-                    catch (ApiException)
-                    {
-                        throw e;
-                    }
-                }
-
-                throw;
-            }
-        }
-
-        if (last404 != null)
-            throw last404;
-        throw new ApiException("Checkout: пустой список путей", 500);
-    }
+        CancellationToken ct = default) =>
+        Sales.PosCheckoutAsync(cartId, body, ct);
 
     /// <summary>GET /api/main/pos/sales/{id}/receipt/ — текст чека для печати.</summary>
-    public Task<JsonElement> PosSaleReceiptAsync(string saleId, CancellationToken ct = default)
-    {
-        var id = Uri.EscapeDataString(saleId.Trim());
-        return RequestAsync(HttpMethod.Get, $"api/main/pos/sales/{id}/receipt/", null, null, ct);
-    }
+    [Obsolete("Используйте ISalesApiService.PosSaleReceiptAsync.")]
+    public Task<JsonElement> PosSaleReceiptAsync(string saleId, CancellationToken ct = default) =>
+        Sales.PosSaleReceiptAsync(saleId, ct);
 
     /// <summary>PATCH /api/main/pos/carts/{id}/ — скидка на чек и др.</summary>
-    public Task<JsonElement> PosCartPatchAsync(string cartId, IReadOnlyDictionary<string, string> body, CancellationToken ct = default)
-    {
-        var c = Uri.EscapeDataString(cartId.Trim());
-        return RequestAsync(HttpMethod.Patch, $"api/main/pos/carts/{c}/", body, null, ct);
-    }
+    [Obsolete("Используйте ISalesApiService.PosCartPatchAsync.")]
+    public Task<JsonElement> PosCartPatchAsync(string cartId, IReadOnlyDictionary<string, string> body, CancellationToken ct = default) =>
+        Sales.PosCartPatchAsync(cartId, body, ct);
 
     /// <summary>POST /api/main/pos/sales/{id}/add-item/ — как pos_add_item (таймаут до 28 с).</summary>
+    [Obsolete("Используйте ISalesApiService.PosAddItemAsync.")]
     public Task<JsonElement> PosAddItemAsync(
         string cartId,
         string productId,
         string? quantity = null,
         string? unitPrice = null,
         string? discountTotal = null,
-        CancellationToken ct = default)
-    {
-        var id = Uri.EscapeDataString(cartId.Trim());
-        var body = new Dictionary<string, string> { ["product_id"] = productId.Trim() };
-        if (!string.IsNullOrWhiteSpace(quantity))
-            body["quantity"] = quantity.Trim();
-        if (!string.IsNullOrWhiteSpace(unitPrice))
-            body["unit_price"] = unitPrice.Trim();
-        if (!string.IsNullOrWhiteSpace(discountTotal))
-            body["discount_total"] = discountTotal.Trim();
-        return RequestAsync(
-            HttpMethod.Post,
-            $"api/main/pos/sales/{id}/add-item/",
-            body,
-            null,
-            ct,
-            TimeSpan.FromSeconds(28));
-    }
+        CancellationToken ct = default) =>
+        Sales.PosAddItemAsync(cartId, productId, quantity, unitPrice, discountTotal, ct);
 
-    /// <summary>Поиск товаров по названию (как products_search).</summary>
+    /// <summary>POST add-item с произвольными полями (возврат, ссылка на строку исходного чека).</summary>
+    [Obsolete("Используйте ISalesApiService.PosAddItemRawAsync.")]
+    public Task<JsonElement> PosAddItemRawAsync(
+        string cartId,
+        IReadOnlyDictionary<string, string> body,
+        CancellationToken ct = default) =>
+        Sales.PosAddItemRawAsync(cartId, body, ct);
+
     /// <summary>Поиск товаров (быстрый, через потоковый парсинг).</summary>
-    public async Task<List<ProductDto>> ProductsSearchAsync(string query, int limit = 40, CancellationToken ct = default)
-    {
-        var q = (query ?? "").Trim();
-        if (q.Length == 0) return new List<ProductDto>();
+    [Obsolete("Используйте ICatalogApiService.ProductsSearchAsync.")]
+    public Task<List<ProductDto>> ProductsSearchAsync(string query, int limit = 40, CancellationToken ct = default) =>
+        Catalog.ProductsSearchAsync(query, limit, ct);
 
-        var qs = new Dictionary<string, string> { ["search"] = q, ["page"] = "1" };
-        var response = await RequestDataAsync<ApiListResponse<ProductDto>>(
-            HttpMethod.Get, "api/main/products/list/", null, qs, ct).ConfigureAwait(false);
+    /// <summary>Лёгкая проверка версии каталога без полной загрузки SKU.</summary>
+    [Obsolete("Используйте ICatalogApiService.ProductsCatalogVersionAsync.")]
+    public Task<CatalogVersionInfo?> ProductsCatalogVersionAsync(CancellationToken ct = default) =>
+        Catalog.ProductsCatalogVersionAsync(ct);
 
-        var list = new List<ProductDto>();
-        if (response?.Results != null)
-        {
-            list.AddRange(response.Results);
-        }
-        return list;
-    }
-
-    /// <summary>Страницы каталога без поиска (как products_catalog). Страница 1 последовательно, 2…N — параллельно.</summary>
-    public async Task<List<JsonElement>> ProductsCatalogAsync(int limit, int maxPages, CancellationToken ct = default)
-    {
-        var outList = new List<JsonElement>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        var paths = new[] { "api/main/products/list/", "api/main/products/" };
-        ApiException? last404 = null;
-        maxPages = Math.Max(1, maxPages);
-
-        foreach (var path in paths)
-        {
-            outList.Clear();
-            seen.Clear();
-            try
-            {
-                var qs1 = new Dictionary<string, string> { ["page"] = "1" };
-                var data1 = await RequestAsync(HttpMethod.Get, path, null, qs1, ct).ConfigureAwait(false);
-                var page1 = UnwrapList(data1);
-                if (page1.Count == 0)
-                    continue;
-
-                foreach (var p in page1)
-                {
-                    var pid = TryProductIdString(p);
-                    if (string.IsNullOrEmpty(pid) || seen.Contains(pid))
-                        continue;
-                    seen.Add(pid);
-                    outList.Add(p);
-                    if (outList.Count >= limit)
-                        return outList;
-                }
-
-                if (maxPages > 1)
-                {
-                    var rest = Enumerable.Range(2, maxPages - 1).ToArray();
-                    var tasks = rest.Select(async page =>
-                    {
-                        try
-                        {
-                            var qs = new Dictionary<string, string>
-                            {
-                                ["page"] = page.ToString(CultureInfo.InvariantCulture),
-                            };
-                            var data = await RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
-                            return UnwrapList(data);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            throw;
-                        }
-                        catch
-                        {
-                            return new List<JsonElement>();
-                        }
-                    });
-
-                    var batches = await Task.WhenAll(tasks).ConfigureAwait(false);
-                    foreach (var items in batches)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        foreach (var p in items)
-                        {
-                            var pid = TryProductIdString(p);
-                            if (string.IsNullOrEmpty(pid) || seen.Contains(pid))
-                                continue;
-                            seen.Add(pid);
-                            outList.Add(p);
-                            if (outList.Count >= limit)
-                                return outList;
-                        }
-                    }
-                }
-
-                if (outList.Count > 0)
-                    return outList;
-            }
-            catch (ApiException e)
-            {
-                last404 = e;
-                if (e.StatusCode != 404)
-                    throw;
-            }
-        }
-
-        if (last404 != null && outList.Count == 0)
-            throw last404;
-        return outList;
-    }
+    /// <summary>Полный каталог с пагинацией (все SKU, до limit).</summary>
+    [Obsolete("Используйте ICatalogApiService.ProductsCatalogAsync.")]
+    public Task<List<JsonElement>> ProductsCatalogAsync(int limit, int maxPages, CancellationToken ct = default) =>
+        Catalog.ProductsCatalogAsync(limit, maxPages, ct);
 
     /// <summary>Карточка товара с картинками (как products_detail).</summary>
-    public async Task<JsonElement?> ProductsDetailAsync(string productId, CancellationToken ct = default)
-    {
-        var pid = Uri.EscapeDataString(productId.Trim());
-        if (pid.Length == 0)
-            return null;
-        foreach (var path in new[] { $"api/main/products/{pid}/", $"api/main/products/list/{pid}/" })
-        {
-            try
-            {
-                var data = await RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
-                if (data.ValueKind != JsonValueKind.Object)
-                    continue;
-                if (data.TryGetProperty("data", out var inner) && inner.ValueKind == JsonValueKind.Object &&
-                    inner.TryGetProperty("id", out _))
-                    return inner.Clone();
-                if (data.TryGetProperty("id", out _))
-                    return data.Clone();
-            }
-            catch (ApiException e)
-            {
-                if (e.StatusCode is 404 or 405 or 410)
-                    continue;
-                return null;
-            }
-        }
-
-        return null;
-    }
+    [Obsolete("Используйте ICatalogApiService.ProductsDetailAsync.")]
+    public Task<JsonElement?> ProductsDetailAsync(string productId, CancellationToken ct = default) =>
+        Catalog.ProductsDetailAsync(productId, ct);
 
     /// <summary>Список продаж (для выбора чека возврата). Пробует типовые GET с пагинацией.</summary>
-    public async Task<List<JsonElement>> PosSalesListAsync(
+    [Obsolete("Используйте ISalesApiService.PosSalesListAsync.")]
+    public Task<List<JsonElement>> PosSalesListAsync(
         int page,
         int pageSize,
         string? cashboxId = null,
-        CancellationToken ct = default)
-    {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 5, 80);
-        var pageStr = page.ToString(CultureInfo.InvariantCulture);
-        var sizeStr = pageSize.ToString(CultureInfo.InvariantCulture);
-
-        var queries = new List<Dictionary<string, string>>
-        {
-            new() { ["page"] = pageStr, ["page_size"] = sizeStr },
-            new() { ["page"] = pageStr, ["limit"] = sizeStr },
-            new() { ["page"] = pageStr, ["page_size"] = sizeStr, ["ordering"] = "-created_at" },
-            new() { ["page"] = pageStr, ["page_size"] = sizeStr, ["ordering"] = "-id" },
-        };
-
-        if (!string.IsNullOrWhiteSpace(cashboxId))
-        {
-            var cb = cashboxId.Trim();
-            queries.Add(new Dictionary<string, string> { ["page"] = pageStr, ["page_size"] = sizeStr, ["cashbox_id"] = cb });
-            queries.Add(new Dictionary<string, string> { ["page"] = pageStr, ["limit"] = sizeStr, ["cashbox_id"] = cb });
-        }
-
-        var paths = new[] { "api/main/pos/sales/", "api/main/pos/sales/list/", "api/main/pos/sale/list/" };
-
-        ApiException? last = null;
-        var sawEmptySuccess = false;
-        foreach (var path in paths)
-        {
-            foreach (var qs in queries)
-            {
-                try
-                {
-                    var data = await RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
-                    var root = UnwrapListRootElement(data);
-                    var list = UnwrapList(root);
-                    if (list.Count > 0)
-                        return list;
-                    sawEmptySuccess = true;
-                }
-                catch (ApiException e)
-                {
-                    last = e;
-                    if (e.StatusCode is 404 or 405 or 410)
-                        break;
-                    if (e.StatusCode == 400)
-                        continue;
-                    throw;
-                }
-            }
-        }
-
-        if (sawEmptySuccess)
-            return new List<JsonElement>();
-        if (last != null)
-            throw last;
-        return new List<JsonElement>();
-    }
-
-    private static JsonElement UnwrapListRootElement(JsonElement data)
-    {
-        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var inner))
-        {
-            if (inner.ValueKind is JsonValueKind.Array or JsonValueKind.Object)
-                return inner.Clone();
-        }
-
-        return data.Clone();
-    }
+        CancellationToken ct = default) =>
+        Sales.PosSalesListAsync(page, pageSize, cashboxId, ct);
 
     /// <summary>GET карточки продажи со строками (типовые пути).</summary>
-    public async Task<JsonElement> PosSaleGetAsync(string saleId, CancellationToken ct = default)
-    {
-        var id = Uri.EscapeDataString(saleId.Trim());
-        if (id.Length == 0)
-            throw new ApiException("Укажите номер продажи (UUID или id из чека).", 400);
+    [Obsolete("Используйте ISalesApiService.PosSaleGetAsync.")]
+    public Task<JsonElement> PosSaleGetAsync(string saleId, CancellationToken ct = default) =>
+        Sales.PosSaleGetAsync(saleId, ct);
 
-        var paths = new[]
-        {
-            $"api/main/pos/sales/{id}/",
-            $"api/main/pos/sales/{id}",
-        };
+    /// <summary>GET /api/main/pos/cart-item-deletions/get/</summary>
+    [Obsolete("Используйте ISalesApiService.PosCartItemDeletionsGetAsync.")]
+    public Task<JsonElement> PosCartItemDeletionsGetAsync(CancellationToken ct = default) =>
+        Sales.PosCartItemDeletionsGetAsync(ct);
 
-        ApiException? last = null;
-        foreach (var path in paths)
-        {
-            try
-            {
-                var data = await RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
-                return UnwrapDataObject(data);
-            }
-            catch (ApiException e)
-            {
-                last = e;
-                if (e.StatusCode is 404 or 405 or 410)
-                    continue;
-                throw;
-            }
-        }
+    /// <summary>Регистрация возврата через cart-item-deletions/get (для оплаченных чеков).</summary>
+    [Obsolete("Используйте ISalesApiService.TryPosCartItemDeletionReturnAsync.")]
+    public Task<bool> TryPosCartItemDeletionReturnAsync(
+        string saleId,
+        string? cartId,
+        PosRefundLineRequest line,
+        string? reason,
+        CancellationToken ct = default) =>
+        Sales.TryPosCartItemDeletionReturnAsync(saleId, cartId, line, reason, ct);
 
-        if (last != null)
-            throw last;
-        throw new ApiException("Чек не найден.", 404);
-    }
+    /// <summary>PATCH /api/main/pos/sales/{id}/</summary>
+    [Obsolete("Используйте ISalesApiService.PosSalePatchAsync.")]
+    public Task<JsonElement> PosSalePatchAsync(
+        string saleId,
+        IReadOnlyDictionary<string, string> body,
+        CancellationToken ct = default) =>
+        Sales.PosSalePatchAsync(saleId, body, ct);
 
-    private static JsonElement UnwrapDataObject(JsonElement data)
-    {
-        if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("data", out var inner) &&
-            inner.ValueKind == JsonValueKind.Object)
-            return inner.Clone();
-        return data.Clone();
-    }
-
-    /// <summary>Возврат одной позиции чека (частичный возврат по строке).</summary>
-    public async Task<JsonElement> PosSaleLineRefundAsync(string saleId, string lineItemId, string? note, CancellationToken ct = default)
-    {
-        var sid = Uri.EscapeDataString(saleId.Trim());
-        var lid = Uri.EscapeDataString(lineItemId.Trim());
-        if (sid.Length == 0 || lid.Length == 0)
-            throw new ApiException("Укажите продажу и строку чека.", 400);
-
-        var n = (note ?? "").Trim();
-        var bodyVariants = new List<Dictionary<string, string>>
-        {
-            new() { ["note"] = n, ["reason"] = n, ["comment"] = n },
-            new() { ["reason"] = n, ["note"] = n },
-            new() { ["note"] = n },
-            new() { ["reason"] = n },
-            new() { ["comment"] = n },
-            new(),
-        };
-
-        // Тело с id строки (для эндпоинтов без id в пути)
-        bodyVariants.Add(new Dictionary<string, string> { ["line_item_id"] = lineItemId.Trim(), ["note"] = n, ["reason"] = n });
-        bodyVariants.Add(new Dictionary<string, string> { ["item_id"] = lineItemId.Trim(), ["note"] = n });
-        bodyVariants.Add(new Dictionary<string, string> { ["sale_line_id"] = lineItemId.Trim(), ["reason"] = n });
-
-        var paths = new[]
-        {
-            $"api/main/pos/sales/{sid}/items/{lid}/refund/",
-            $"api/main/pos/sales/{sid}/items/{lid}/return/",
-            $"api/main/pos/sales/{sid}/lines/{lid}/refund/",
-            $"api/main/pos/sales/{sid}/line-items/{lid}/refund/",
-            $"api/main/pos/sales/{sid}/refund-line/",
-            $"api/main/pos/sales/{sid}/return-line/",
-            $"api/main/pos/sale-lines/{lid}/refund/",
-            $"api/main/pos/sale-items/{lid}/refund/",
-        };
-
-        var timeout = TimeSpan.FromSeconds(90);
-        ApiException? last = null;
-        foreach (var path in paths)
-        {
-            foreach (var body in bodyVariants)
-            {
-                try
-                {
-                    return await RequestAsync(HttpMethod.Post, path, body, null, ct, timeout).ConfigureAwait(false);
-                }
-                catch (ApiException e)
-                {
-                    last = e;
-                    if (e.StatusCode is 404 or 405 or 410)
-                        break;
-                    if (e.StatusCode == 400)
-                        continue;
-                    throw;
-                }
-            }
-        }
-
-        if (last != null)
-            throw last;
-        throw new ApiException("Возврат строки: ни один из известных адресов API не ответил успешно.", 500);
-    }
+    /// <summary>DELETE /api/main/pos/sales/{id}/</summary>
+    [Obsolete("Используйте ISalesApiService.PosSaleDeleteAsync.")]
+    public Task<JsonElement> PosSaleDeleteAsync(string saleId, CancellationToken ct = default) =>
+        Sales.PosSaleDeleteAsync(saleId, ct);
 
     /// <summary>
-    /// Пробует оформить возврат / аннуляцию продажи по типовым путям API (совместимость с разными версиями CRM).
+    /// Возврат позиции по API Nur CRM: регистрация удаления (если нужно) → PATCH (частично) → DELETE строки корзины.
     /// </summary>
-    public async Task<JsonElement> PosSaleRefundOrVoidAsync(string saleId, string? note, CancellationToken ct = default)
-    {
-        var id = Uri.EscapeDataString(saleId.Trim());
-        if (id.Length == 0)
-            throw new ApiException("Укажите номер продажи (UUID или id из чека).", 400);
+    [Obsolete("Используйте ISalesApiService.PosReturnCartLineAsync.")]
+    public Task<JsonElement> PosReturnCartLineAsync(
+        string cartId,
+        PosRefundLineRequest line,
+        string? reason,
+        CancellationToken ct = default) =>
+        Sales.PosReturnCartLineAsync(cartId, line, reason, ct);
 
-        var n = (note ?? "").Trim();
-        var bodyVariants = new[]
-        {
-            new Dictionary<string, string> { ["note"] = n, ["reason"] = n },
-            new Dictionary<string, string> { ["note"] = n },
-            new Dictionary<string, string> { ["reason"] = n },
-            new Dictionary<string, string>(),
-        };
-
-        var paths = new[]
-        {
-            $"api/main/pos/sales/{id}/refund/",
-            $"api/main/pos/sales/{id}/void/",
-            $"api/main/pos/sales/{id}/return/",
-            $"api/main/pos/sales/{id}/cancel/",
-        };
-
-        ApiException? last = null;
-        foreach (var path in paths)
-        {
-            foreach (var body in bodyVariants)
-            {
-                try
-                {
-                    return await RequestAsync(HttpMethod.Post, path, body, null, ct, TimeSpan.FromSeconds(90))
-                        .ConfigureAwait(false);
-                }
-                catch (ApiException e)
-                {
-                    last = e;
-                    if (e.StatusCode is 404 or 405 or 410)
-                        break;
-                    if (e.StatusCode == 400)
-                        continue;
-                    throw;
-                }
-            }
-        }
-
-        if (last != null)
-            throw last;
-        throw new ApiException("Возврат: ни один из известных адресов API не ответил успешно.", 500);
-    }
+    /// <summary>Полный возврат чека: PATCH с причиной, затем DELETE продажи.</summary>
+    [Obsolete("Используйте ISalesApiService.PosReturnWholeSaleAsync.")]
+    public Task<JsonElement> PosReturnWholeSaleAsync(string saleId, string? reason, CancellationToken ct = default) =>
+        Sales.PosReturnWholeSaleAsync(saleId, reason, ct);
 
     /// <summary>Скачивание бинарника с авторизацией (превью с того же API).</summary>
     public async Task<byte[]?> DownloadAuthorizedAsync(string absoluteUrl, CancellationToken ct = default)
@@ -1055,7 +778,8 @@ public sealed class NurMarketApiClient : IDisposable
         }
     }
 
-    private static List<JsonElement> UnwrapList(JsonElement data)
+    /// <summary>Разворачивает ответ (массив или {results:[…]}) в список элементов. Используется доменными сервисами.</summary>
+    internal static List<JsonElement> UnwrapList(JsonElement data)
     {
         var list = new List<JsonElement>();
         if (data.ValueKind == JsonValueKind.Array)
@@ -1076,25 +800,12 @@ public sealed class NurMarketApiClient : IDisposable
         return list;
     }
 
-    public async Task<JsonElement> GetAsync(string relativePath, IReadOnlyDictionary<string, string>? query = null, CancellationToken ct = default)
-    {
-        return await RequestAsync(HttpMethod.Get, relativePath, null, query, ct).ConfigureAwait(false);
-    }
-
-    private static string? TryProductIdString(JsonElement p)
-    {
-        if (p.ValueKind != JsonValueKind.Object || !p.TryGetProperty("id", out var id))
-            return null;
-        return id.ValueKind switch
-        {
-            JsonValueKind.String => string.IsNullOrWhiteSpace(id.GetString()) ? null : id.GetString(),
-            JsonValueKind.Number => id.GetRawText(),
-            _ => null,
-        };
-    }
+    public Task<JsonElement> GetAsync(string relativePath, IReadOnlyDictionary<string, string>? query = null, CancellationToken ct = default) =>
+        RequestAsync(HttpMethod.Get, relativePath, null, query, ct);
 
     public void Dispose()
     {
+        _http.Dispose();
         _loginMutex.Dispose();
         _httpSlots.Dispose();
         _refreshSync.Dispose();

@@ -11,4 +11,7 @@ public sealed class DeferredCartEntry
 
     /// <summary>Снимок ответа API корзины (JSON).</summary>
     public string CartJson { get; set; } = "{}";
+
+    /// <summary>ID серверной корзины на момент откладывания (для изоляции чеков).</summary>
+    public string? ServerCartId { get; set; }
 }

@@ -1,0 +1,32 @@
+<Window x:Class="NurMarketKassa.Views.Dialogs.PaymentStockBlockedDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Оплата невозможна"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        WindowState="Maximized"
+        Background="#99000000"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Loaded="Window_Loaded">
+    <Grid>
+        <Border Width="460" HorizontalAlignment="Center" VerticalAlignment="Center"
+                Background="White" CornerRadius="16" Padding="28,24">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" Color="Black" Opacity="0.2" ShadowDepth="0"/>
+            </Border.Effect>
+            <StackPanel>
+                <TextBlock Text="Оплата невозможна"
+                           FontWeight="Bold" FontSize="22" Foreground="#111827"
+                           HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                <TextBlock x:Name="BodyText"
+                           TextWrapping="Wrap" FontSize="14" Foreground="#374151"
+                           LineHeight="22" Margin="0,0,0,20"/>
+                <Button Content="ОК" Height="44" FontSize="15" FontWeight="SemiBold"
+                        Background="#FFD600" Foreground="Black" BorderThickness="0"
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

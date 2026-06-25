@@ -6,7 +6,7 @@ internal static class OrderDiscountHelper
 {
     public static string NormalizeDecimal(string raw) => (raw ?? "").Trim().Replace(',', '.');
 
-    /// <summary>Пустая строка или число ≈0 — поле считается «не задано» (второе поле с 0.00 не мешает %).</summary>
+    /// <summary>Пустая строка или число ≈0 — поле считается «не задано».</summary>
     public static bool IsEmptyOrZeroLike(string? raw)
     {
         var n = NormalizeDecimal(raw ?? "");
@@ -16,6 +16,42 @@ internal static class OrderDiscountHelper
             double.IsInfinity(v))
             return false;
         return Math.Abs(v) < 1e-9;
+    }
+
+    /// <summary>Тело patch: только одно поле скидки или пустой словарь, если скидка не задана.</summary>
+    public static Dictionary<string, string> BuildPatchBody(bool isPercent, string? rawInput)
+    {
+        var normalized = NormalizeDecimal(rawInput ?? "");
+        if (IsEmptyOrZeroLike(normalized))
+            return new Dictionary<string, string>();
+
+        return isPercent
+            ? new Dictionary<string, string> { ["order_discount_percent"] = normalized }
+            : new Dictionary<string, string> { ["order_discount_total"] = normalized };
+    }
+
+    /// <summary>Сброс скидки: только ранее использованное поле, никогда оба сразу.</summary>
+    public static Dictionary<string, string> BuildClearPatchBody(string? existingPercent, string? existingSum)
+    {
+        if (!IsEmptyOrZeroLike(existingPercent))
+            return new Dictionary<string, string> { ["order_discount_percent"] = "0" };
+        if (!IsEmptyOrZeroLike(existingSum))
+            return new Dictionary<string, string> { ["order_discount_total"] = "0" };
+        return new Dictionary<string, string>();
+    }
+
+    /// <summary>Оставляет не более одного поля скидки.</summary>
+    public static Dictionary<string, string> SanitizePatchBody(Dictionary<string, string> body, bool isClear = false)
+    {
+        if (body.TryGetValue("order_discount_percent", out var pct)
+            && (isClear || !IsEmptyOrZeroLike(pct)))
+            return new Dictionary<string, string> { ["order_discount_percent"] = NormalizeDecimal(pct) };
+
+        if (body.TryGetValue("order_discount_total", out var total)
+            && (isClear || !IsEmptyOrZeroLike(total)))
+            return new Dictionary<string, string> { ["order_discount_total"] = NormalizeDecimal(total) };
+
+        return new Dictionary<string, string>();
     }
 
     public static string? ValidatePercent(string raw)

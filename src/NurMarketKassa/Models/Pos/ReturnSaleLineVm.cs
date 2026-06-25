@@ -15,6 +15,12 @@ public sealed class ReturnSaleLineVm : INotifyPropertyChanged
 
     public required string LineSumText { get; init; }
 
+    public string? ProductId { get; init; }
+
+    public double Quantity { get; init; }
+
+    public double OriginalQuantity { get; init; }
+
     public bool CanReturn { get; init; }
 
     public bool IsSelected

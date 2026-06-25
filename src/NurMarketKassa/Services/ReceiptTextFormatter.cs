@@ -5,7 +5,8 @@ namespace NurMarketKassa.Services;
 
 internal static class ReceiptTextFormatter
 {
-    internal static string FormatForPrinter(string text, int width = 32)
+    /// <param name="rightMarginChars">Защитный отступ справа (графика: 2, ESC/POS: 1).</param>
+    internal static string FormatForPrinter(string text, int width = 32, int rightMarginChars = 1)
     {
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
@@ -38,16 +39,32 @@ internal static class ReceiptTextFormatter
                 continue;
             }
 
-            if (TryFormatSummaryLine(line, width, out var summaryLine))
+            var collapsed = CollapseInnerWhitespace(line.Trim());
+
+            if (IsPlainPaymentMethodLine(collapsed))
             {
-                output.Add(summaryLine);
+                output.Add(collapsed);
+                continue;
+            }
+
+            if (TryFormatSummaryLine(line, width, rightMarginChars, out var summaryLines))
+            {
+                output.AddRange(summaryLines);
                 continue;
             }
 
             if (ShouldCenter(line, width))
             {
                 foreach (var wrapped in WrapLine(line.Trim(), width))
-                    output.Add(Center(wrapped, width));
+                    output.Add(ReceiptLineLayout.Center(wrapped, width));
+                continue;
+            }
+
+            var upperLine = line.Trim().ToUpperInvariant();
+            if (upperLine.EndsWith("СОМ", StringComparison.Ordinal) ||
+                upperLine.EndsWith("COM", StringComparison.Ordinal))
+            {
+                output.Add(ReceiptLineLayout.RightAlignWithMargin(line.Trim(), width, rightMarginChars));
                 continue;
             }
 
@@ -58,7 +75,7 @@ internal static class ReceiptTextFormatter
                 continue;
             }
 
-            foreach (var wrapped in WrapLine(CollapseInnerWhitespace(line.Trim()), width))
+            foreach (var wrapped in WrapLine(collapsed, width))
                 output.Add(wrapped);
         }
 
@@ -68,13 +85,23 @@ internal static class ReceiptTextFormatter
         return string.Join("\n", output);
     }
 
-    private static bool TryFormatSummaryLine(string line, int width, out string formatted)
+    private static bool IsPlainPaymentMethodLine(string normalized) =>
+        normalized.StartsWith("Способ оплаты:", StringComparison.OrdinalIgnoreCase)
+        || normalized.StartsWith("СПОСОБ ОПЛАТЫ", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryFormatSummaryLine(
+        string line,
+        int width,
+        int rightMarginChars,
+        out List<string> formattedLines)
     {
-        formatted = string.Empty;
+        formattedLines = new List<string>();
         var normalized = CollapseInnerWhitespace(line);
         var summaryPrefixes = new[]
         {
-            "ИТОГО К ОПЛАТЕ", "К ОПЛАТЕ", "ИТОГО", "ИТОГ", "СДАЧА", "НАЛИЧНЫМИ", "БЕЗНАЛ", "СКИДКА",
+            "ПРОМЕЖУТОЧНЫЙ ИТОГ", "ИТОГО К ОПЛАТЕ", "К ОПЛАТЕ", "ИТОГО", "ИТОГ", "ПОДИТОГ",
+            "СДАЧА", "ВНЕСЕНО", "СКИДКА ПОЗИЦИЙ", "СКИДКА НА ЧЕК", "СКИДКА",
+            "НДС", "РЕЖИМ ПЕЧАТИ",
         };
 
         foreach (var prefix in summaryPrefixes)
@@ -85,12 +112,14 @@ internal static class ReceiptTextFormatter
             var value = ExtractValue(normalized[prefix.Length..]);
             if (string.IsNullOrEmpty(value))
             {
-                formatted = normalized;
+                formattedLines.Add(normalized);
                 return true;
             }
 
             var left = prefix.EndsWith(':') ? prefix : prefix + ":";
-            formatted = PadBoth(left, value, width);
+            var appendSom = !prefix.StartsWith("РЕЖИМ ПЕЧАТИ", StringComparison.OrdinalIgnoreCase);
+            formattedLines.AddRange(
+                ReceiptLineLayout.FormatStackedLabelAmount(left, value, width, appendSom, rightMarginChars));
             return true;
         }
 
@@ -118,17 +147,20 @@ internal static class ReceiptTextFormatter
 
     private static bool ShouldCenter(string line, int width)
     {
-        if (line.Length > width)
+        var trimmed = line.Trim();
+        if (trimmed.Length > width)
             return false;
 
-        var upper = line.ToUpperInvariant();
+        var upper = trimmed.ToUpperInvariant();
         return upper.Contains("НУР МАРКЕТ", StringComparison.Ordinal) ||
                upper.Contains("MARKET PLUS", StringComparison.Ordinal) ||
                upper.Contains("СПАСИБО", StringComparison.Ordinal) ||
                upper.Contains("ДОБРО ПОЖАЛОВАТЬ", StringComparison.Ordinal) ||
                upper.StartsWith("ОФФЛАЙН", StringComparison.Ordinal) ||
                upper.StartsWith("ЧЕК", StringComparison.Ordinal) ||
-               upper.StartsWith("ДАТА:", StringComparison.Ordinal);
+               upper.StartsWith("ДАТА:", StringComparison.Ordinal) ||
+               upper.StartsWith("ИНН:", StringComparison.Ordinal) ||
+               upper.StartsWith("АДРЕС:", StringComparison.Ordinal);
     }
 
     private static IEnumerable<string> WrapLine(string line, int width)
@@ -185,22 +217,4 @@ internal static class ReceiptTextFormatter
 
     private static string CollapseInnerWhitespace(string value) =>
         Regex.Replace(value.Trim(), @"\s+", " ");
-
-    private static string Center(string s, int width)
-    {
-        if (s.Length >= width)
-            return s;
-
-        var total = width - s.Length;
-        var left = total / 2;
-        return s.PadLeft(s.Length + left).PadRight(width);
-    }
-
-    private static string PadBoth(string left, string right, int width)
-    {
-        var gap = width - left.Length - right.Length;
-        if (gap <= 1)
-            return left + " " + right;
-        return left + new string(' ', gap) + right;
-    }
 }

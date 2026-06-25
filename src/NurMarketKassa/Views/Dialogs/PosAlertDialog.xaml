@@ -1,0 +1,19 @@
+<dialogs:PosDialogWindowBase x:Class="NurMarketKassa.Views.Dialogs.PosAlertDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="clr-namespace:NurMarketKassa.Views.Dialogs">
+    <Grid x:Name="RootGrid" Opacity="0">
+        <Border Background="#66000000" />
+        <Border x:Name="DialogCard" Style="{StaticResource PosDialogCardBorder}">
+            <StackPanel>
+                <TextBlock x:Name="TitleText" Style="{StaticResource PosDialogTitleText}" />
+                <TextBlock x:Name="MessageText" Style="{StaticResource PosDialogMessageText}" />
+                <Button x:Name="OkButton"
+                        Style="{StaticResource PosDialogPrimaryButton}"
+                        HorizontalAlignment="Stretch"
+                        IsDefault="True"
+                        Click="OkButton_Click" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</dialogs:PosDialogWindowBase>

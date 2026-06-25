@@ -1,5 +1,15 @@
+using MediatR;
+using System.IO;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using NurMarketKassa.Configuration;
+using NurMarketKassa.Core.Application;
+using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Interfaces;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
+using NurMarketKassa.ViewModels;
 using NurMarketKassa.Services.Hardware;
 using System;
 using System.Net.Http;
@@ -13,17 +23,26 @@ namespace NurMarketKassa
     public partial class App : Application
     {
         private static ScalePrinterAgentService? _agentService;
+
+        public static IHost? AppHost { get; private set; }
+
+        // Временный мост для существующего кода (Фаза P0): постепенная миграция с static App.*
         public static AppSettings Settings { get; private set; } = null!;
         public static NurMarketApiClient Api { get; private set; } = null!;
-        public static CartSession Cart { get; } = new();
+        public static IAuthApiService AuthApi { get; private set; } = null!;
+        public static ICatalogApiService CatalogApi { get; private set; } = null!;
+        public static ISalesApiService SalesApi { get; private set; } = null!;
+        public static IShiftApiService ShiftApi { get; private set; } = null!;
         public static OfflineSalesSyncService OfflineSync { get; private set; } = null!;
+        public static CatalogBackgroundSyncService CatalogBackgroundSync { get; private set; } = null!;
+        public static MySqlAuditService AuditDb { get; private set; } = null!;
         public static string? CurrentUserId { get; set; }
         public static string? PosCashboxId { get; set; }
         internal static bool ExitWithoutLoginRedirect { get; set; }
         public static string? PosCashboxDisplayName { get; set; }
         public static string? ActiveShiftId { get; set; }
-
-        private HttpClient? _http;
+        public static bool IsOfflineBootstrap { get; set; }
+        public static string? OfflineBootstrapMessage { get; set; }
 
         static App()
         {
@@ -34,77 +53,151 @@ namespace NurMarketKassa
                 handledEventsToo: true);
         }
 
+        public static T GetRequiredService<T>() where T : notnull =>
+            AppHost!.Services.GetRequiredService<T>();
+
+        private static readonly Uri PosDialogThemeUri =
+            new("Views/Dialogs/PosDialogTheme.xaml", UriKind.Relative);
+
         public static void ApplyTheme(bool dark)
         {
-            var uri = new Uri(dark ? "Themes/AppThemeDark.xaml" : "Themes/AppThemeLight.xaml", UriKind.Relative);
-            var dict = new ResourceDictionary { Source = uri };
-            Current.Resources.MergedDictionaries.Clear();
-            Current.Resources.MergedDictionaries.Add(dict);
+            var themeUri = new Uri(
+                dark ? "Themes/AppThemeDark.xaml" : "Themes/AppThemeLight.xaml",
+                UriKind.Relative);
+            var merged = Current.Resources.MergedDictionaries;
+            merged.Clear();
+            merged.Add(new ResourceDictionary { Source = themeUri });
+            merged.Add(new ResourceDictionary { Source = PosDialogThemeUri });
         }
 
-        protected override void OnStartup(StartupEventArgs e)
+        protected override async void OnStartup(StartupEventArgs e)
         {
-            // Инициализация служб
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             Settings = AppSettings.Load();
             UserPreferences.LoadFromDiskAndMergeDefaults(Settings);
             ApplyTheme(UserPreferences.Instance.DarkTheme);
             AutostartHelper.SyncFromPreference(UserPreferences.Instance.Autostart);
 
-            _http = new HttpClient { Timeout = TimeSpan.FromSeconds(55) };
-            Api = new NurMarketApiClient(_http, Settings);
-            OfflineSync = new OfflineSalesSyncService(Api);
-
-            // Фоновая проверка обновлений
-            _ = Task.Run(async () =>
-            {
-                try
+            AppHost = Host.CreateDefaultBuilder()
+                .ConfigureServices((_, services) =>
                 {
-                    string? manifestUrl = Settings?.Updates?.ManifestUrl;
-                    if (string.IsNullOrWhiteSpace(manifestUrl))
-                        manifestUrl = Environment.GetEnvironmentVariable("DESKTOP_MARKET_UPDATE_MANIFEST_URL");
+                    services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(
+                        typeof(IPosSessionService).Assembly,
+                        typeof(App).Assembly));
 
-                    if (!string.IsNullOrWhiteSpace(manifestUrl))
+                    services.AddSingleton(Settings);
+
+                    if (HardwareModeHelper.UsePhysicalScale())
+                        services.AddSingleton<IWeightScaleService, ComWeightScaleService>();
+                    else if (HardwareModeHelper.UseDemoHardware(Settings))
+                        services.AddSingleton<IWeightScaleService, VirtualWeightScaleService>();
+                    else
+                        services.AddSingleton<IWeightScaleService, ComWeightScaleService>();
+
+                    if (HardwareModeHelper.UsePhysicalPrinter())
+                        services.AddSingleton<IReceiptPrinterService, LptReceiptPrinterService>();
+                    else if (HardwareModeHelper.UseDemoHardware(Settings))
+                        services.AddSingleton<IReceiptPrinterService, VirtualReceiptPrinterService>();
+                    else
+                        services.AddSingleton<IReceiptPrinterService, LptReceiptPrinterService>();
+
+                    services.AddSingleton<MySqlSettings>(sp =>
+                        sp.GetRequiredService<AppSettings>().MySql);
+                    services.AddSingleton<MySqlAuditService>(sp =>
                     {
-                        var updateService = new UpdateService(manifestUrl);
-                        var manifest = await updateService.CheckAsync();
-                        if (manifest != null)
-                        {
-                            Dispatcher.Invoke(() =>
-                            {
-                                if (MessageBox.Show($"Доступна новая версия: {manifest.LatestVersion}. Установить?",
-                                    "Обновление", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-                                {
-                                    _ = updateService.DownloadAndRunAsync(manifest.DownloadUrl)
-                                        .ContinueWith(t =>
-                                        {
-                                            if (t.Result)
-                                            {
-                                                Task.Delay(500).Wait();
-                                                Environment.Exit(0);
-                                            }
-                                        }, TaskScheduler.Default);
-                                }
-                            });
-                        }
-                    }
-                }
-                catch
-                {
-                    // игнорируем
-                }
-            });
+                        var audit = new MySqlAuditService(sp.GetRequiredService<MySqlSettings>());
+                        audit.Initialize();
+                        return audit;
+                    });
+                    services.AddSingleton<PostgreSqlSettings>(sp =>
+                        PostgreSqlConnectionStringResolver.ResolveRuntimeSettings(
+                            sp.GetRequiredService<AppSettings>().PostgreSql,
+                            UserPreferences.Instance));
+                    services.AddSingleton<ProductSearchService>();
+                    services.AddSingleton<ICartService, CartService>();
+                    services.AddSingleton<NurMarketApiClient>();
+                    services.AddSingleton<IAuthApiService, AuthApiService>();
+                    services.AddSingleton<ICatalogApiService, CatalogApiService>();
+                    services.AddSingleton<ISalesApiService, SalesApiService>();
+                    services.AddSingleton<IShiftApiService, ShiftApiService>();
+                    services.AddSingleton<IUserPrompts, WpfUserPrompts>();
+                    services.AddSingleton<IBarcodeInputService, KeyboardWedgeBarcodeService>();
+                    services.AddSingleton<IShiftStateService, ShiftStateService>();
+                    services.AddSingleton<IShiftOpenCoordinator, WpfShiftOpenCoordinator>();
+                    services.AddSingleton<IPosCartGateway, WpfPosCartGateway>();
+                    services.AddSingleton<IProductCatalogLookup, WpfProductCatalogLookup>();
+                    services.AddSingleton<ScaleWeightProvider>();
+                    services.AddSingleton<IScaleWeightProvider>(sp => sp.GetRequiredService<ScaleWeightProvider>());
+                    services.AddSingleton<IWeightInputPrompt, WpfWeightInputPrompt>();
+                    services.AddSingleton<IMySqlConnectionSettings, WpfMySqlConnectionSettings>();
+                    services.AddSingleton<IOfflinePosStateStore, OfflinePosStateStoreAdapter>();
+                    services.AddSingleton<ICashShiftService, CashShiftService>();
+                    services.AddSingleton<IStockService, Core.Application.StockService>();
+                    services.AddSingleton<IInventoryService, Core.Application.InventoryService>();
+                    services.AddSingleton<IStockAuditWriter, WpfStockAuditWriter>();
+                    services.AddSingleton<ILocalStockProvider, WpfLocalStockProvider>();
+                    services.AddSingleton<ILocalStockLedger, Core.Application.LocalStockLedger>();
+                    services.AddSingleton<IServerStockGateway, WpfServerStockGateway>();
+                    services.AddSingleton<IStockCatalogUpdater, WpfStockCatalogUpdater>();
+                    services.AddSingleton<ISyncConflictResolver, Core.Application.SyncConflictResolver>();
+                    services.AddSingleton<IPosBarcodeScanner, Core.Application.PosBarcodeScannerService>();
+                    services.AddSingleton<IPosSessionService, PosSessionService>();
+                    services.AddTransient<WarehouseViewModel>();
+                    services.AddTransient<Views.WarehouseWindow>();
+                    services.AddTransient<Views.MainWindow>();
+                    services.AddTransient<Views.LoginWindow>();
+                })
+                .Build();
 
-            // Обработчик ошибок UI
+            await AppHost.StartAsync();
+
+            if (HardwareModeHelper.UsePhysicalScale())
+            {
+                var scale = AppHost.Services.GetRequiredService<IWeightScaleService>();
+                scale.Start();
+                var sp = UserPreferences.Instance;
+                PosLogger.Log(
+                    $"Физические весы: фоновое чтение запущено при старте приложения ({sp.ScaleComPort} @ {sp.ScaleBaudRate})",
+                    "SCALE");
+            }
+
+            // Мост: существующие сервисы продолжают работать через static App.*
+            Api = AppHost.Services.GetRequiredService<NurMarketApiClient>();
+            AuthApi = AppHost.Services.GetRequiredService<IAuthApiService>();
+            CatalogApi = AppHost.Services.GetRequiredService<ICatalogApiService>();
+            SalesApi = AppHost.Services.GetRequiredService<ISalesApiService>();
+            ShiftApi = AppHost.Services.GetRequiredService<IShiftApiService>();
+            OfflineSync = new OfflineSalesSyncService(
+                SalesApi,
+                AuthApi,
+                AppHost.Services.GetRequiredService<ISyncConflictResolver>());
+            CatalogBackgroundSync = new CatalogBackgroundSyncService();
+            AuditDb = AppHost.Services.GetRequiredService<MySqlAuditService>();
+            CatalogCacheService.EnsureLocalDatabase();
+            OfflineDatabase.EnsureSchema();
+            _ = LocalProductRepository.Instance.WarmUpCacheAsync();
+            AppHost.Services.GetRequiredService<IStockService>().Initialize();
+
+            _ = UpdateService.CheckAndPerformUpdateAsync();
+
             DispatcherUnhandledException += (_, args) =>
             {
-                PosLogger.Log(
-                    $"DispatcherUnhandledException: {args.Exception.GetType().FullName}: {args.Exception.Message} | {args.Exception.StackTrace}",
-                    "ERROR");
+                var ex = args.Exception;
+                var msg = $"[{DateTime.Now:HH:mm:ss}] {ex.GetType().FullName}: {ex.Message}\n{ex.StackTrace}";
+
+                // В файл
+                File.AppendAllText("crash.log", msg + "\n\n");
+
+                // В Output (окно отладки Visual Studio)
+                System.Diagnostics.Debug.WriteLine(msg);
+
+                // В PosLogger (если он тоже пишет куда-то)
+                PosLogger.Log(msg, "ERROR");
+
                 try
                 {
-                    MessageBox.Show(
-                        "Ошибка интерфейса:\n\n" + args.Exception.Message + "\n\n" + args.Exception.GetType().FullName,
+                    PosMessageBox.Show(
+                        "Критическая ошибка:\n\n" + ex.Message + "\n\nСтек записан в crash.log и Output",
                         "Nur Market — Касса",
                         MessageBoxButton.OK,
                         MessageBoxImage.Error);
@@ -113,29 +206,55 @@ namespace NurMarketKassa
                 args.Handled = true;
             };
 
-            // Автосинхронизация офлайн-чеков
             System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, args) =>
             {
                 if (args.IsAvailable)
+                {
                     Dispatcher.InvokeAsync(() => OfflineSync.TriggerSyncNowAsync());
+                    Dispatcher.InvokeAsync(() => App.CatalogBackgroundSync.CheckNowAsync());
+                }
             };
 
             base.OnStartup(e);
 
-            var login = new Views.LoginWindow();
+            var login = GetRequiredService<Views.LoginWindow>();
             login.Show();
 
-            _ = Dispatcher.BeginInvoke(() => OfflineSync.Start(), System.Windows.Threading.DispatcherPriority.Background);
+            _ = Dispatcher.BeginInvoke(() =>
+            {
+                OfflineSync.Start();
+                CatalogBackgroundSync.Start();
+            }, System.Windows.Threading.DispatcherPriority.Background);
             _agentService = new ScalePrinterAgentService();
             _agentService.Start();
         }
 
-        protected override void OnExit(ExitEventArgs e)
+        protected override async void OnExit(ExitEventArgs e)
         {
-            Cart.Dispose();
+            foreach (Window window in Current.Windows)
+                window.Hide();
+
             OfflineSync.Dispose();
+            CatalogBackgroundSync.Dispose();
+            AuditDb.Dispose();
             Api.Dispose();
-            _http?.Dispose();
+
+            if (AppHost != null)
+            {
+                try
+                {
+                    AppHost.Services.GetService<IWeightScaleService>()?.Stop();
+                }
+                catch
+                {
+                    /* ignore */
+                }
+
+                await AppHost.StopAsync();
+                AppHost.Dispose();
+                AppHost = null;
+            }
+
             _agentService?.Dispose();
             base.OnExit(e);
         }

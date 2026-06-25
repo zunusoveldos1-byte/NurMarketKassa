@@ -1,0 +1,115 @@
+<Window x:Class="NurMarketKassa.Views.Dialogs.DeferredCartsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Отложенные корзины"
+        Width="720"
+        Height="560"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Border CornerRadius="12"
+            Background="#FFFFFF"
+            BorderBrush="#E2E8F0"
+            BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.15" Color="#000000"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0"
+                  Height="48"
+                  Background="#F8FAFC"
+                  MouseLeftButtonDown="Window_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="Отложенные корзины"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="#0F172A"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"/>
+                <Button Grid.Column="1"
+                        Width="36"
+                        Height="36"
+                        Margin="0,0,8,0"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="CloseButton_Click">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="closeBd" Background="{TemplateBinding Background}" CornerRadius="18">
+                                <TextBlock Text="✕" FontSize="18" Foreground="#DC2626"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="closeBd" Property="Background" Value="#FEE2E2"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+
+            <DockPanel Grid.Row="1" Margin="18">
+                <Border DockPanel.Dock="Top"
+                        Style="{StaticResource ElevatedCardBorder}"
+                        CornerRadius="12"
+                        Padding="18"
+                        Margin="0,0,0,14">
+                    <StackPanel>
+                        <TextBlock x:Name="SummaryText"
+                                   Foreground="{StaticResource BrushAccent}"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock TextWrapping="Wrap"
+                                   Foreground="{StaticResource BrushTextSoft}"
+                                   FontSize="12"
+                                   Margin="0,8,0,0"
+                                   Text="Выберите одну или несколько корзин. Можно открыть отдельный чек или добавить позиции в текущую продажу."/>
+                    </StackPanel>
+                </Border>
+                <Border DockPanel.Dock="Bottom"
+                        Style="{StaticResource ModernSectionBorder}"
+                        Margin="0,14,0,0">
+                    <WrapPanel HorizontalAlignment="Right">
+                        <Button x:Name="DeleteSelectedButton"
+                                Content="Удалить выбранные"
+                                Style="{StaticResource TouchDangerButton}"
+                                Margin="0,0,10,10"
+                                Click="DeleteSelected_Click"/>
+                        <Button x:Name="MergeIntoCurrentButton"
+                                Content="Добавить в текущий чек"
+                                Style="{StaticResource TouchSecondaryButton}"
+                                Margin="0,0,10,10"
+                                Click="MergeIntoCurrent_Click"/>
+                        <Button x:Name="LoadAsSeparateButton"
+                                Content="Открыть как отдельный чек"
+                                Style="{StaticResource TouchPrimaryButton}"
+                                Margin="0,0,10,10"
+                                Click="LoadAsSeparate_Click"/>
+                    </WrapPanel>
+                </Border>
+                <ListBox x:Name="CartListBox"
+                         SelectionMode="Extended"
+                         Background="{StaticResource BrushWindowAlt}"
+                         BorderBrush="{StaticResource BrushBorder}"
+                         Foreground="{StaticResource BrushText}"
+                         BorderThickness="1"
+                         Padding="10"
+                         FontSize="14"/>
+            </DockPanel>
+        </Grid>
+    </Border>
+</Window>

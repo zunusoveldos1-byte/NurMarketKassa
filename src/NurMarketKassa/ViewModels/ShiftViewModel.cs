@@ -52,17 +52,17 @@ namespace NurMarketKassa.ViewModels
         public ICommand OpenShiftCommand { get; }
         public ICommand CloseShiftCommand { get; }
 
-        public async Task CheckActiveShiftAsync()
+        public Task CheckActiveShiftAsync()
         {
             IsShiftOpen = !string.IsNullOrEmpty(App.ActiveShiftId);
-            await Task.CompletedTask;
+            return Task.CompletedTask;
         }
 
         private async Task OpenShiftAsync()
         {
             if (IsBusy) return;
             var owner = Application.Current.MainWindow;
-            if (MessageBox.Show(owner, "Открыть новую смену?", "Смена",
+            if (PosMessageBox.Show(owner, "Открыть новую смену?", "Смена",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
 
@@ -83,7 +83,7 @@ namespace NurMarketKassa.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(owner, ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Hand);
+                PosMessageBox.Show(owner, ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Hand);
             }
             finally
             {
@@ -95,7 +95,7 @@ namespace NurMarketKassa.ViewModels
         {
             if (IsBusy) return;
             var owner = Application.Current.MainWindow;
-            if (MessageBox.Show(owner, "Закрыть текущую смену?", "Смена",
+            if (PosMessageBox.Show(owner, "Вы действительно хотите закрыть смену?", "Закрытие смены",
                     MessageBoxButton.YesNo, MessageBoxImage.Exclamation) != MessageBoxResult.Yes)
                 return;
 
@@ -116,7 +116,7 @@ namespace NurMarketKassa.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(owner, ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Hand);
+                PosMessageBox.Show(owner, ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Hand);
             }
             finally
             {

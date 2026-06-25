@@ -1,8 +1,5 @@
 using System.IO;
 using System.Text;
-using Microsoft.Win32.SafeHandles;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
 using NurMarketKassa.Configuration;
 
 namespace NurMarketKassa.Services;
@@ -60,37 +57,34 @@ public static class EscPosSelfCheckPrinter
 }
 
 /// <summary>
-/// Печать готового текста на ESC/POS через LPT (упрощённый аналог print_receipt_text в receipt_printer.py).
+/// Печать готового текста на ESC/POS через LPT/COM.
 /// </summary>
 public static class EscPosTextReceiptPrinter
 {
-    /// <summary>DESKTOP_MARKET_RECEIPT_NO_ESC_PCT=1 — не слать ESC % 0.</summary>
     private static bool NoEscPct() =>
         Environment.GetEnvironmentVariable("DESKTOP_MARKET_RECEIPT_NO_ESC_PCT")?.Trim().ToLowerInvariant() is "1" or "true" or "yes" or "on";
 
-    /// <summary>Для старых LPT-принтеров сначала пробуем copy /b, потом прямую запись.</summary>
-    private static bool PreferCopyCommand() =>
-        Environment.GetEnvironmentVariable("DESKTOP_MARKET_RECEIPT_PREFER_COPY")?.Trim().ToLowerInvariant() is not ("0" or "false" or "no" or "off");
+    public static void Print(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
+    {
+        ArgumentNullException.ThrowIfNull(cfg);
+        ValidateSettings(cfg);
 
-    public static void Print(ReceiptPrinterSettings cfg, string text)
+        var port = NormalizeDevicePath(HardwarePortHelper.NormalizeLptPort(cfg.DevicePath));
+        var payload = BuildEscPosPayload(cfg, text, charWidth);
+
+        PosLogger.Log($"EscPos Print: port={port}, encoding={cfg.TextEncoding}, bytes={payload.Length}", "PRINTER");
+        PrinterPortService.SendRawBytes(port, payload, cfg.RetryCount);
+    }
+
+    public static byte[] BuildEscPosPayload(ReceiptPrinterSettings cfg, string text, int? charWidth = null)
     {
         ArgumentNullException.ThrowIfNull(cfg);
         var prepared = ReceiptSanitizer.StripShiftCashboxAndEnsureWelcome(text ?? string.Empty);
-        var w = ReceiptLayout.CharWidth;
+        var w = charWidth ?? ReceiptLayout.CharWidth;
         var raw = ReceiptTextFormatter.FormatForPrinter(prepared, w).Trim().ToUpperInvariant();
         if (raw.Length == 0)
             throw new InvalidOperationException("Пустой текст чека.");
 
-        ValidateSettings(cfg);
-
-        PosLogger.Log($"EscPos Print: LPT={(cfg.DevicePath ?? "").Trim()}, encoding={cfg.TextEncoding}, len={raw.Length}",
-            "PRINTER");
-
-        var dev = HardwarePortHelper.NormalizeLptPort(cfg.DevicePath);
-        if (dev.Length == 0)
-            throw new InvalidOperationException("Не указан принтер (ReceiptPrinter.DevicePath).");
-
-        var path = NormalizeDevicePath(dev);
         var encName = MapToDotNetEncoding(cfg.TextEncoding);
         Encoding encoding;
         try
@@ -103,87 +97,13 @@ public static class EscPosTextReceiptPrinter
         }
 
         var table = cfg.EscPosTableByte ?? DefaultEscPosTableByte(encName);
-        var retries = Math.Clamp(cfg.RetryCount, 1, 8);
-        Exception? last = null;
-
-        for (var i = 0; i < retries; i++)
-        {
-            try
-            {
-                var payload = BuildReceiptBytes(encoding, raw, table, cfg.EscRByte, NoEscPct());
-                TryWritePayload(path, payload);
-                return;
-            }
-            catch (Exception ex)
-            {
-                last = ex;
-                Thread.Sleep(70 + 60 * i);
-            }
-        }
-
-        throw new InvalidOperationException($"Не удалось напечатать чек: {last?.Message}", last);
-    }
-
-    private static Stream OpenPort(string path)
-    {
-        try
-        {
-            return OpenDeviceStream(path);
-        }
-        catch (Exception ex)
-        {
-            /* Python receipt_printer: open("LPT1") — иногда без префикса \\.\ срабатывает иначе */
-            if (path.StartsWith(@"\\.\", StringComparison.Ordinal) && path.Length > 4)
-            {
-                try
-                {
-                    return OpenDeviceStream(path[4..]);
-                }
-                catch
-                {
-                    /* fall through */
-                }
-            }
-
-            throw new InvalidOperationException($"Не удалось открыть порт принтера «{path}».", ex);
-        }
-    }
-
-    private static Stream OpenDeviceStream(string path)
-    {
-        try
-        {
-            return new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 4096, FileOptions.WriteThrough);
-        }
-        catch
-        {
-            var nativePath = path.StartsWith("LPT", StringComparison.OrdinalIgnoreCase)
-                ? $@"\\.\{path}"
-                : path;
-            var handle = CreateFile(
-                nativePath,
-                NativeGenericWrite,
-                FileShare.ReadWrite,
-                IntPtr.Zero,
-                OpenExisting,
-                0,
-                IntPtr.Zero);
-
-            if (handle.IsInvalid)
-            {
-                var err = Marshal.GetLastWin32Error();
-                handle.Dispose();
-                throw new IOException($"Windows не дал открыть устройство ({nativePath}), код {err}.");
-            }
-
-            return new FileStream(handle, FileAccess.Write);
-        }
+        return BuildReceiptBytes(encoding, raw, table, cfg.EscRByte, NoEscPct());
     }
 
     public static void ValidateSettings(ReceiptPrinterSettings cfg)
     {
-        if (!HardwarePortHelper.LooksLikeLptPort(cfg.DevicePath))
-            throw new InvalidOperationException("Для принтера укажите корректный LPT-порт, например LPT1.");
+        if (string.IsNullOrWhiteSpace(cfg.DevicePath))
+            throw new InvalidOperationException("Укажите порт принтера: LPT1, COM3 или имя очереди Windows.");
 
         if (cfg.RetryCount < 1)
             throw new InvalidOperationException("Количество повторов печати должно быть не меньше 1.");
@@ -196,103 +116,23 @@ public static class EscPosTextReceiptPrinter
         return ms.ToArray();
     }
 
-    private static void TryWritePayload(string path, byte[] payload)
-    {
-        if (PreferCopyCommand())
-        {
-            try
-            {
-                TryWritePayloadViaCopyCommand(path, payload);
-                return;
-            }
-            catch (Exception ex)
-            {
-                PosLogger.Log($"LPT copy preferred failed, fallback to direct: {path} :: {ex.Message}", "PRINTER");
-            }
-        }
-
-        try
-        {
-            using var stream = OpenPort(path);
-            Thread.Sleep(20);
-            stream.Write(payload, 0, payload.Length);
-            stream.Flush();
-            PosLogger.Log($"LPT direct write OK: {path}, bytes={payload.Length}", "PRINTER");
-            return;
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"LPT direct write failed: {path} :: {ex.Message}", "PRINTER");
-        }
-
-        TryWritePayloadViaCopyCommand(path, payload);
-    }
-
-    private static void TryWritePayloadViaCopyCommand(string path, byte[] payload)
-    {
-        var target = path.StartsWith(@"\\.\", StringComparison.Ordinal) ? path[4..] : path;
-        var tempFile = Path.Combine(Path.GetTempPath(), $"NurMarketKassa-print-{Guid.NewGuid():N}.bin");
-        try
-        {
-            File.WriteAllBytes(tempFile, payload);
-            using var proc = Process.Start(new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = $"/c copy /b \"{tempFile}\" \"{target}\" >nul",
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                WindowStyle = ProcessWindowStyle.Hidden,
-            });
-
-            proc?.WaitForExit(8000);
-            if (proc == null)
-                throw new InvalidOperationException("Не удалось запустить copy /b.");
-
-            if (proc.ExitCode != 0)
-                throw new InvalidOperationException($"copy /b вернул код {proc.ExitCode}.");
-
-            PosLogger.Log($"LPT copy /b OK: {target}, bytes={payload.Length}", "PRINTER");
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"LPT copy /b failed: {target} :: {ex.Message}", "PRINTER");
-            throw new InvalidOperationException(
-                $"Не удалось отправить чек на {target}. Попробовали прямую запись и copy /b.",
-                ex);
-        }
-        finally
-        {
-            try
-            {
-                if (File.Exists(tempFile))
-                    File.Delete(tempFile);
-            }
-            catch
-            {
-                /* ignore */
-            }
-        }
-    }
-
     private static void WriteReceipt(Stream s, Encoding encoding, string text, int tableByte, int? escRByte, bool noEscPct)
     {
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
 
-        // ESC @ init
-        s.WriteByte(0x1B);
-        s.WriteByte(0x40);
+        EscPosCommands.WriteInitialize(s);
+        EscPosCommands.WriteCodePage(s, tableByte, escRByte, noEscPct);
+        EscPosCommands.WriteDefaultLineSpacing(s);
 
-        ApplyCodePage(s, tableByte, escRByte, noEscPct);
         var boldFirst = true;
         foreach (var line in lines)
         {
             if (boldFirst && !string.IsNullOrWhiteSpace(line))
             {
-                // ESC/POS: жирный шрифт для первой непустой строки (приветствие)
                 s.WriteByte(0x1B);
                 s.WriteByte(0x45);
                 s.WriteByte(0x01);
-                s.Write(encoding.GetBytes(line + "\r\n"));
+                WriteTextLine(s, encoding, line);
                 s.WriteByte(0x1B);
                 s.WriteByte(0x45);
                 s.WriteByte(0x00);
@@ -300,36 +140,19 @@ public static class EscPosTextReceiptPrinter
                 continue;
             }
 
-            s.Write(encoding.GetBytes(line + "\r\n"));
+            WriteTextLine(s, encoding, line);
         }
 
-        s.WriteByte(0x0D);
-        s.WriteByte(0x0A);
-        s.WriteByte(0x0D);
-        s.WriteByte(0x0A);
-        s.WriteByte(0x0D);
-        s.WriteByte(0x0A);
+        EscPosCommands.WriteLineFeed(s);
+        EscPosCommands.WriteFeedAndCut(s);
     }
 
-    private static void ApplyCodePage(Stream s, int tableByte, int? escRByte, bool noEscPct)
+    private static void WriteTextLine(Stream s, Encoding encoding, string line)
     {
-        if (!noEscPct)
-        {
-            s.WriteByte(0x1B);
-            s.WriteByte(0x25);
-            s.WriteByte(0x00);
-        }
+        if (!string.IsNullOrEmpty(line))
+            s.Write(encoding.GetBytes(line));
 
-        if (escRByte is >= 0 and <= 255)
-        {
-            s.WriteByte(0x1B);
-            s.WriteByte(0x52);
-            s.WriteByte((byte)(escRByte.Value & 0xFF));
-        }
-
-        s.WriteByte(0x1B);
-        s.WriteByte(0x74);
-        s.WriteByte((byte)(tableByte & 0xFF));
+        EscPosCommands.WriteLineFeed(s);
     }
 
     private static string NormalizeDevicePath(string raw)
@@ -362,17 +185,4 @@ public static class EscPosTextReceiptPrinter
             return 34;
         return 17;
     }
-
-    private const uint NativeGenericWrite = 0x40000000;
-    private const uint OpenExisting = 3;
-
-    [DllImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern SafeFileHandle CreateFile(
-        string lpFileName,
-        uint dwDesiredAccess,
-        FileShare dwShareMode,
-        IntPtr lpSecurityAttributes,
-        uint dwCreationDisposition,
-        uint dwFlagsAndAttributes,
-        IntPtr hTemplateFile);
 }

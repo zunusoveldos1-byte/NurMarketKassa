@@ -57,7 +57,7 @@ namespace NurMarketKassa.Models.Pos
             set { _pricePerKgHint = value; OnPropertyChanged(); }
         }
 
-        // --- Свойства скидки ---
+        // --- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ ---
         public string? DiscountType
         {
             get => _discountType;
@@ -82,7 +82,7 @@ namespace NurMarketKassa.Models.Pos
             }
         }
 
-        // Вычисляемое свойство для отображения (красный, жирный)
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ)
         public string DiscountDisplay
         {
             get
@@ -92,13 +92,46 @@ namespace NurMarketKassa.Models.Pos
                 if (DiscountType == "percent")
                     return $"-{DiscountValue.Value:0.##}%";
                 if (DiscountType == "sum")
-                    return $"-{DiscountValue.Value:0.##} сом";
+                    return $"-{DiscountValue.Value:0.##} пїЅпїЅпїЅ";
                 return "";
             }
         }
 
-        // Вспомогательное свойство для привязки видимости
+        // ??????????????? ???????? ??? ???????? ?????????
         public bool HasDiscount => !string.IsNullOrEmpty(DiscountDisplay);
+
+        public string ProductId { get; set; } = "";
+
+        public bool InsufficientStock
+        {
+            get => _insufficientStock;
+            set
+            {
+                _insufficientStock = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasStockWarning));
+            }
+        }
+
+        private bool _insufficientStock;
+
+        public bool HasStockWarning => InsufficientStock;
+
+        public string StockWarningText
+        {
+            get => _stockWarningText;
+            set { _stockWarningText = value; OnPropertyChanged(); }
+        }
+
+        private string _stockWarningText = "";
+
+        public string StockAvailableText
+        {
+            get => _stockAvailableText;
+            set { _stockAvailableText = value; OnPropertyChanged(); }
+        }
+
+        private string _stockAvailableText = "";
 
         public event PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

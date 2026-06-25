@@ -1,17 +1,34 @@
 using System.Text.Json;
+using NurMarketKassa.Interfaces;
 
 namespace NurMarketKassa.Services;
 
 /// <summary>Извлечение корзины из ответа scan/patch (как _cart_from_patch_response + ответ scan).</summary>
 internal static class CartResponseHelper
 {
-    public static bool TryUpdateCartSession(JsonElement response, CartSession session)
+    public static bool TryUpdateCartSession(JsonElement response, ICartService session)
     {
         var cart = ExtractCart(response);
         if (cart == null)
             return false;
-        session.SetCart(cart.Value);
-        return true;
+
+        if (cart.Value.ValueKind != JsonValueKind.Object)
+        {
+            session.Clear();
+            return false;
+        }
+
+        try
+        {
+            session.SetCart(cart.Value);
+            CartInPlaceRecalculator.EnsureRecalculated(session);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            session.Clear();
+            return false;
+        }
     }
 
     private static JsonElement? ExtractCart(JsonElement root)

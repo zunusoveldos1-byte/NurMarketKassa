@@ -1,124 +1,144 @@
-﻿using System;
+﻿using Octokit;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Net.Http;
-using System.Net.Http.Json;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace NurMarketKassa.Services
+namespace NurMarketKassa.Services;
+
+public sealed class UpdateInfo
 {
-    public class UpdateManifest
+    public string Version { get; init; } = "";
+    public string DownloadUrl { get; init; } = "";
+    public string FileName { get; init; } = "";
+}
+
+public static class UpdateService
+{
+    private const string Owner = "";
+    private const string Repo = "";
+
+    private static readonly Version CurrentVersion = GetCurrentVersion();
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(10) };
+
+    public static async Task CheckAndPerformUpdateAsync()
     {
-        public string LatestVersion { get; set; } = "";
-        public string DownloadUrl { get; set; } = "";
+        try
+        {
+            var update = await CheckForUpdateAsync().ConfigureAwait(false);
+            if (update == null)
+                return;
+
+            if (!await DownloadAndInstallAsync(update).ConfigureAwait(false))
+                return;
+
+            System.Windows.Application.Current.Dispatcher.Invoke(System.Windows.Application.Current.Shutdown);
+        }
+        catch
+        {
+            // Тихо продолжаем работу при отсутствии сети или ошибках GitHub API.
+        }
     }
 
-    public class UpdateService
+    public static async Task<UpdateInfo?> CheckForUpdateAsync()
     {
-        private readonly HttpClient _http;
-        private readonly string _manifestUrl;
-
-        public UpdateService(string manifestUrl, bool ignoreSsl = false)
+        try
         {
-            _manifestUrl = manifestUrl;
-            var handler = new HttpClientHandler();
-            if (ignoreSsl)
-            {
-                handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
-            }
-            _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
-        }
-
-        public async Task<UpdateManifest?> CheckAsync()
-        {
-            if (string.IsNullOrWhiteSpace(_manifestUrl))
+            if (string.IsNullOrWhiteSpace(Owner) || string.IsNullOrWhiteSpace(Repo))
                 return null;
 
-            try
-            {
-                // Создаём отдельный запрос с запретом кэширования
-                using var request = new HttpRequestMessage(HttpMethod.Get, _manifestUrl);
-                request.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
-                {
-                    NoCache = true,
-                    NoStore = true
-                };
+            var client = new GitHubClient(new ProductHeaderValue("NurMarketKassa"));
+            var release = await client.Repository.Release.GetLatest(Owner, Repo).ConfigureAwait(false);
 
-                using var response = await _http.SendAsync(request, CancellationToken.None);
+            if (!TryParseVersion(release.TagName, out var releaseVersion) || releaseVersion <= CurrentVersion)
+                return null;
+
+            var installerAsset = release.Assets
+                .FirstOrDefault(asset => asset.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+
+            if (installerAsset == null || string.IsNullOrWhiteSpace(installerAsset.BrowserDownloadUrl))
+                return null;
+
+            return new UpdateInfo
+            {
+                Version = releaseVersion.ToString(3),
+                DownloadUrl = installerAsset.BrowserDownloadUrl,
+                FileName = installerAsset.Name
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static async Task<bool> DownloadAndInstallAsync(UpdateInfo update, IProgress<double>? progress = null)
+    {
+        try
+        {
+            var installerPath = Path.Combine(Path.GetTempPath(), update.FileName);
+
+            using (var response = await Http.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
+            {
                 response.EnsureSuccessStatusCode();
-                var manifest = await response.Content.ReadFromJsonAsync<UpdateManifest>();
 
-                if (manifest == null || string.IsNullOrWhiteSpace(manifest.LatestVersion))
-                    return null;
+                var totalBytes = response.Content.Headers.ContentLength;
+                await using var contentStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                await using var fileStream = File.Create(installerPath);
 
-                var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                if (currentVersion == null || !Version.TryParse(manifest.LatestVersion, out var latestVersion))
-                    return null;
+                var buffer = new byte[81920];
+                long totalRead = 0;
+                int bytesRead;
 
-                return latestVersion > currentVersion ? manifest : null;
+                while ((bytesRead = await contentStream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead)).ConfigureAwait(false);
+                    totalRead += bytesRead;
+
+                    if (totalBytes.HasValue && totalBytes.Value > 0)
+                        progress?.Report(totalRead * 100.0 / totalBytes.Value);
+                }
             }
-            catch
+
+            Process.Start(new ProcessStartInfo
             {
-                return null;
-            }
-        }
+                FileName = installerPath,
+                Arguments = "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+                UseShellExecute = true
+            });
 
-        public async Task<bool> DownloadAndRunAsync(string url, IProgress<double>? progress = null)
+            return true;
+        }
+        catch
         {
-            try
-            {
-                // 1. Скачиваем архив во временную папку
-                string tempZip = Path.Combine(Path.GetTempPath(), $"nur_update_{Guid.NewGuid():N}.zip");
-                using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
-                {
-                    var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-                    response.EnsureSuccessStatusCode();
-                    long? totalBytes = response.Content.Headers.ContentLength;
-                    using var stream = await response.Content.ReadAsStreamAsync();
-                    using var fileStream = File.Create(tempZip);
-                    byte[] buffer = new byte[8192];
-                    long totalRead = 0;
-                    int bytesRead;
-                    while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                    {
-                        await fileStream.WriteAsync(buffer, 0, bytesRead);
-                        totalRead += bytesRead;
-                        if (totalBytes.HasValue)
-                            progress?.Report((double)totalRead / totalBytes.Value * 100);
-                    }
-                }
-
-                // 2. Распаковываем в папку Update внутри каталога приложения
-                string appFolder = AppDomain.CurrentDomain.BaseDirectory;
-                string updateFolder = Path.Combine(appFolder, "Update");
-                if (Directory.Exists(updateFolder))
-                    Directory.Delete(updateFolder, true);
-                ZipFile.ExtractToDirectory(tempZip, updateFolder);
-                File.Delete(tempZip);
-
-                // 3. Запускаем новую версию
-                string newExe = Path.Combine(updateFolder, "NurMarketKassa.exe");
-                if (File.Exists(newExe))
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = newExe,
-                        WorkingDirectory = updateFolder,
-                        UseShellExecute = true
-                    });
-                    // Возвращаем true, чтобы вызывающий код закрыл приложение
-                    return true;
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Update error: {ex.Message}");
-                return false;
-            }
+            return false;
         }
+    }
+
+    private static Version GetCurrentVersion()
+    {
+        var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
+        if (assemblyVersion != null)
+            return new Version(assemblyVersion.Major, assemblyVersion.Minor, assemblyVersion.Build);
+
+        return new Version(1, 2, 9);
+    }
+
+    private static bool TryParseVersion(string? tag, out Version version)
+    {
+        version = new Version(0, 0, 0);
+
+        if (string.IsNullOrWhiteSpace(tag))
+            return false;
+
+        var normalized = tag.Trim();
+        if (normalized.StartsWith('v') || normalized.StartsWith('V'))
+            normalized = normalized[1..];
+
+        var plusIndex = normalized.IndexOf('+', StringComparison.Ordinal);
+        if (plusIndex >= 0)
+            normalized = normalized[..plusIndex];
+
+        return Version.TryParse(normalized, out version!);
     }
 }

@@ -11,6 +11,8 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     private string? _barcode;
     private string? _stockInfo;
     private bool _isFavorite;
+    private bool _isUnitInvalid;
+    private bool _isLowStock;
     private double _quantity;
     private ImageSource? _thumb;
 
@@ -26,6 +28,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         PriceLine = priceLine;
         MustWeigh = mustWeigh;
         ImageUrl = imageUrl;
+        OnPropertyChanged(nameof(MustWeigh));
     }
 
     // ────────── существующие свойства ──────────
@@ -34,7 +37,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     public string Id { get; }
     public string Title { get; }
     public string PriceLine { get; }
-    public bool MustWeigh { get; }
+    public bool MustWeigh { get; set; }
     public string? ImageUrl { get; }
     public string? StatusDisplay { get; set; }
     public string? HotkeyGroupName { get; set; }
@@ -77,6 +80,19 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         }
     }
 
+    /// <summary>true — единица измерения в БД заполнена с ошибкой (не «кг»/«шт»).</summary>
+    public bool IsUnitInvalid
+    {
+        get => _isUnitInvalid;
+        set
+        {
+            if (_isUnitInvalid == value)
+                return;
+            _isUnitInvalid = value;
+            OnPropertyChanged(nameof(IsUnitInvalid));
+        }
+    }
+
     public double Quantity
     {
         get => _quantity;
@@ -84,6 +100,19 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         {
             _quantity = value;
             OnPropertyChanged(nameof(Quantity));
+        }
+    }
+
+    /// <summary>true — остаток меньше 3 (кг или шт.), близок к лимиту.</summary>
+    public bool IsLowStock
+    {
+        get => _isLowStock;
+        set
+        {
+            if (_isLowStock == value)
+                return;
+            _isLowStock = value;
+            OnPropertyChanged(nameof(IsLowStock));
         }
     }
 

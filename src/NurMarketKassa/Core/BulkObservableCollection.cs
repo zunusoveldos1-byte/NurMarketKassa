@@ -20,6 +20,5 @@ namespace NurMarketKassa.Core
             OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 
-        /// <summary>Заменяет элементы из ReadOnlySpan (без аллокаций).</summary
     }
 }

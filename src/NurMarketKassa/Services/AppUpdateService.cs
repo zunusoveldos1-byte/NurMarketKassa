@@ -41,7 +41,7 @@ internal static class AppUpdateService
     {
         if (string.IsNullOrWhiteSpace(cfg.ManifestUrl))
         {
-            MessageBox.Show(
+            PosMessageBox.Show(
                 owner,
                 "Обновления не настроены: в appsettings.json не задан Updates.ManifestUrl (или переменная DESKTOP_MARKET_UPDATE_MANIFEST_URL).",
                 "Обновление",
@@ -53,7 +53,7 @@ internal static class AppUpdateService
         if (!Uri.TryCreate(cfg.ManifestUrl.Trim(), UriKind.Absolute, out var manifestUri) ||
             manifestUri.Scheme != Uri.UriSchemeHttps)
         {
-            MessageBox.Show(
+            PosMessageBox.Show(
                 owner,
                 "Некорректный URL манифеста обновлений (нужен https).",
                 "Обновление",
@@ -77,7 +77,7 @@ internal static class AppUpdateService
             PosLogger.Log($"Update manifest fetch failed: {ex.Message}", "UPDATE");
             if (force)
             {
-                MessageBox.Show(
+                PosMessageBox.Show(
                     owner,
                     "Не удалось получить манифест обновлений:\n" + ex.Message,
                     "Обновление",
@@ -92,7 +92,7 @@ internal static class AppUpdateService
             string.IsNullOrWhiteSpace(manifest.DownloadUrl))
         {
             if (force)
-                MessageBox.Show(owner, "В манифесте нет версии или ссылки на загрузку.", "Обновление", MessageBoxButton.OK,
+                PosMessageBox.Show(owner, "В манифесте нет версии или ссылки на загрузку.", "Обновление", MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             return;
         }
@@ -101,7 +101,7 @@ internal static class AppUpdateService
             downloadUri.Scheme != Uri.UriSchemeHttps)
         {
             if (force)
-                MessageBox.Show(owner, "В манифесте указана некорректная ссылка загрузки (нужен https).", "Обновление",
+                PosMessageBox.Show(owner, "В манифесте указана некорректная ссылка загрузки (нужен https).", "Обновление",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -112,7 +112,7 @@ internal static class AppUpdateService
             WriteLastCheckUtc();
             if (force)
             {
-                MessageBox.Show(
+                PosMessageBox.Show(
                     owner,
                     $"Установлена актуальная версия ({current}).",
                     "Обновление",
@@ -124,7 +124,7 @@ internal static class AppUpdateService
         }
 
         var notes = string.IsNullOrWhiteSpace(manifest.ReleaseNotes) ? "" : "\n\n" + manifest.ReleaseNotes.Trim();
-        var ask = MessageBox.Show(
+        var ask = PosMessageBox.Show(
             owner,
             $"Доступна новая версия: {manifest.LatestVersion} (у вас {current}).{notes}\n\nУстановить сейчас? Касса закроется и запустится установщик.",
             "Обновление Nur Market Kassa",
@@ -150,7 +150,7 @@ internal static class AppUpdateService
             if (!string.IsNullOrWhiteSpace(manifest.Sha256Hex) &&
                 !VerifySha256(targetPath, manifest.Sha256Hex))
             {
-                MessageBox.Show(
+                PosMessageBox.Show(
                     owner,
                     "Контрольная сумма загруженного файла не совпала. Обновление отменено.",
                     "Обновление",
@@ -163,7 +163,7 @@ internal static class AppUpdateService
         catch (Exception ex)
         {
             Mouse.OverrideCursor = null;
-            MessageBox.Show(owner, "Не удалось скачать обновление:\n" + ex.Message, "Обновление", MessageBoxButton.OK,
+            PosMessageBox.Show(owner, "Не удалось скачать обновление:\n" + ex.Message, "Обновление", MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return;
         }
@@ -178,7 +178,7 @@ internal static class AppUpdateService
         }
         catch (Exception ex)
         {
-            MessageBox.Show(owner, "Не удалось запустить установщик:\n" + ex.Message, "Обновление", MessageBoxButton.OK,
+            PosMessageBox.Show(owner, "Не удалось запустить установщик:\n" + ex.Message, "Обновление", MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return;
         }

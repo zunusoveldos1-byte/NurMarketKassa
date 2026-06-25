@@ -65,16 +65,14 @@ namespace NurMarketKassa.Services.Hardware
         {
             try
             {
-                ReceiptPrinterSettings settings = UserPreferences.Instance.ToReceiptPrinterSettings();
+                var settings = UserPreferences.Instance.ToReceiptPrinterSettings();
                 if (!settings.Enabled || string.IsNullOrWhiteSpace(settings.DevicePath))
                 {
                     Send("ERROR: принтер не настроен");
+                    return;
                 }
-                else
-                {
-                    EscPosTextReceiptPrinter.ValidateSettings(settings);
-                    EscPosTextReceiptPrinter.Print(settings, text);
-                }
+
+                ReceiptPrintService.PrintText(settings, text);
             }
             catch (Exception ex)
             {

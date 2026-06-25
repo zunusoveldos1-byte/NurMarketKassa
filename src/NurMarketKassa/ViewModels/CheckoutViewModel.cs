@@ -1,5 +1,6 @@
 ﻿using NurMarketKassa.Services;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -17,30 +18,135 @@ namespace NurMarketKassa.ViewModels
 
     public class CheckoutViewModel : INotifyPropertyChanged
     {
-        private readonly double _totalDue;
+        private readonly double _subtotal;
+        private readonly double _lineDiscounts;
+        private readonly string _initialPercent;
+        private readonly string _initialSum;
+
         private string _paymentMethod = "cash";
         private string _cashReceived = "";
         private string _errorMessage = "";
         private bool _isPrintReceiptEnabled = true;
         private BankAccount? _selectedBank;
         private ObservableCollection<BankAccount> _banks = new();
-        private string _changeDisplay = "";
 
-        public CheckoutViewModel(double totalDue)
+        private bool _isDiscountPercent = true;
+        private string _discountInput = "0";
+        private double _orderDiscountAmount;
+        private double _effectiveTotalDue;
+        private double _changeAmount;
+        private bool _isInsufficientCash;
+        private bool _discountDirty;
+
+        public CheckoutViewModel(
+            CartTotalsCalculator.CartTotals totals,
+            string initialPercent,
+            string initialSum)
         {
-            _totalDue = totalDue;
-            TotalDueString = $"К оплате: {totalDue.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-            CashReceived = totalDue.ToString("0.00", CultureInfo.InvariantCulture);
+            _subtotal = totals.Subtotal;
+            _lineDiscounts = totals.LineDiscounts;
+            _effectiveTotalDue = totals.TotalDue;
+            _initialPercent = initialPercent ?? "";
+            _initialSum = initialSum ?? "";
 
-            PayCommand = new RelayCommand(ExecutePay, () => CanExecutePay(null)); // ← исправлено
+            if (!string.IsNullOrWhiteSpace(_initialPercent) && !OrderDiscountHelper.IsEmptyOrZeroLike(_initialPercent))
+            {
+                _isDiscountPercent = true;
+                _discountInput = _initialPercent;
+            }
+            else if (!string.IsNullOrWhiteSpace(_initialSum) && !OrderDiscountHelper.IsEmptyOrZeroLike(_initialSum))
+            {
+                _isDiscountPercent = false;
+                _discountInput = _initialSum;
+            }
+
+            CashReceived = totals.TotalDue.ToString("0.00", CultureInfo.InvariantCulture);
+            _isPrintReceiptEnabled = UserPreferences.Instance.ReceiptEnabled;
+
+            PayCommand = new RelayCommand(ExecutePay, () => CanExecutePay(null));
             CancelCommand = new RelayCommand(() => RequestClose?.Invoke(false));
+            AddCash100Command = new RelayCommand(() => SetCash(100), () => IsCashMode);
+            AddCash200Command = new RelayCommand(() => SetCash(200), () => IsCashMode);
+            AddCash500Command = new RelayCommand(() => SetCash(500), () => IsCashMode);
+            AddCash1000Command = new RelayCommand(() => SetCash(1000), () => IsCashMode);
+            ExactCashCommand = new RelayCommand(SetExactCash, () => IsCashMode);
+            ClearCashCommand = new RelayCommand(ClearCash, () => IsCashMode);
 
             LoadBanks();
+            RecalculateTotals();
             UpdatePaymentMode();
         }
 
-        // ---------- Свойства ----------
-        public string TotalDueString { get; }
+        public double EffectiveTotalDue => _effectiveTotalDue;
+
+        public string BigTotalDisplay =>
+            _effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture);
+
+        public string SubtotalDisplay =>
+            $"{_subtotal.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+
+        public string DiscountSummaryDisplay =>
+            $"{_orderDiscountAmount.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+
+        public string PayableDisplay =>
+            $"{_effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+
+        public string PayButtonText =>
+            $"Оплатить {_effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+
+        public string ChangeAmountDisplay =>
+            _changeAmount.ToString("0.00", CultureInfo.InvariantCulture);
+
+        public string ChangeStatusText =>
+            IsCashMode
+                ? _isInsufficientCash
+                    ? "Недостаточно средств"
+                    : _changeAmount > 1e-9
+                        ? "Сдача будет выдана клиенту"
+                        : "Точная сумма"
+                : "";
+
+        public bool ShowChangeBlock => IsCashMode;
+        public bool ChangeStatusIsOk => IsCashMode && !_isInsufficientCash;
+        public bool ChangeStatusIsWarn => IsCashMode && _isInsufficientCash;
+
+        public bool IsDiscountPercent
+        {
+            get => _isDiscountPercent;
+            set
+            {
+                if (_isDiscountPercent == value)
+                    return;
+                _isDiscountPercent = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsDiscountSum));
+                OnPropertyChanged(nameof(DiscountInputSuffix));
+                RecalculateTotals();
+            }
+        }
+
+        public bool IsDiscountSum
+        {
+            get => !_isDiscountPercent;
+            set { if (value) IsDiscountPercent = false; }
+        }
+
+        public string DiscountInputSuffix => _isDiscountPercent ? "%" : "сом";
+
+        public string DiscountInput
+        {
+            get => _discountInput;
+            set
+            {
+                if (_discountInput == value)
+                    return;
+                _discountInput = value;
+                OnPropertyChanged();
+                RecalculateTotals();
+            }
+        }
+
+        public string DiscountAmountPreview => DiscountSummaryDisplay;
 
         public bool IsCash
         {
@@ -59,12 +165,13 @@ namespace NurMarketKassa.ViewModels
             get => _paymentMethod;
             private set
             {
-                if (_paymentMethod == value) return;
+                if (_paymentMethod == value)
+                    return;
                 _paymentMethod = value;
                 OnPropertyChanged();
                 UpdatePaymentMode();
                 ErrorMessage = "";
-                CommandManager.InvalidateRequerySuggested(); // обновить кнопку
+                CommandManager.InvalidateRequerySuggested();
             }
         }
 
@@ -73,19 +180,14 @@ namespace NurMarketKassa.ViewModels
             get => _cashReceived;
             set
             {
-                if (_cashReceived == value) return;
+                if (_cashReceived == value)
+                    return;
                 _cashReceived = value;
                 OnPropertyChanged();
-                UpdateChangeDisplay();
+                UpdateCashState();
                 ErrorMessage = "";
                 CommandManager.InvalidateRequerySuggested();
             }
-        }
-
-        public string ChangeDisplay
-        {
-            get => _changeDisplay;
-            private set { _changeDisplay = value; OnPropertyChanged(); }
         }
 
         public string ErrorMessage
@@ -132,37 +234,159 @@ namespace NurMarketKassa.ViewModels
             string.IsNullOrEmpty(SelectedBank?.QrCodeImagePath) ? null : SelectedBank.QrCodeImagePath;
 
         public bool HasQrCode => !string.IsNullOrEmpty(QrCodePath);
-        public bool HasChangeDisplay => !string.IsNullOrEmpty(ChangeDisplay);
         public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
-        // Команды
         public ICommand PayCommand { get; }
         public ICommand CancelCommand { get; }
+        public ICommand AddCash100Command { get; }
+        public ICommand AddCash200Command { get; }
+        public ICommand AddCash500Command { get; }
+        public ICommand AddCash1000Command { get; }
+        public ICommand ExactCashCommand { get; }
+        public ICommand ClearCashCommand { get; }
 
         public event Action<bool>? RequestClose;
+
+        public Dictionary<string, string>? PendingOrderDiscountBody
+        {
+            get
+            {
+                if (!_discountDirty)
+                    return null;
+
+                var body = OrderDiscountHelper.BuildPatchBody(_isDiscountPercent, _discountInput);
+                if (body.Count > 0)
+                    return body;
+
+                var clear = OrderDiscountHelper.BuildClearPatchBody(_initialPercent, _initialSum);
+                return clear.Count > 0 ? clear : null;
+            }
+        }
+
+        private void SetCash(double amount) =>
+            CashReceived = amount.ToString("0.00", CultureInfo.InvariantCulture);
+
+        private void SetExactCash() =>
+            CashReceived = _effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture);
+
+        private void ClearCash() => CashReceived = "";
+
+        private void RecalculateTotals()
+        {
+            var previousTotal = _effectiveTotalDue;
+            _orderDiscountAmount = ComputeOrderDiscountAmount();
+            _effectiveTotalDue = Math.Max(0, _subtotal - _lineDiscounts - _orderDiscountAmount);
+            _discountDirty = IsDiscountChangedFromInitial();
+
+            OnPropertyChanged(nameof(BigTotalDisplay));
+            OnPropertyChanged(nameof(SubtotalDisplay));
+            OnPropertyChanged(nameof(DiscountSummaryDisplay));
+            OnPropertyChanged(nameof(DiscountAmountPreview));
+            OnPropertyChanged(nameof(PayableDisplay));
+            OnPropertyChanged(nameof(PayButtonText));
+
+            if (IsCashMode)
+            {
+                var cash = ParseCash();
+                if (cash == null || Math.Abs(cash.Value - previousTotal) < 1e-9)
+                    CashReceived = _effectiveTotalDue.ToString("0.00", CultureInfo.InvariantCulture);
+            }
+
+            UpdateCashState();
+            CommandManager.InvalidateRequerySuggested();
+        }
+
+        private double ComputeOrderDiscountAmount()
+        {
+            var normalized = OrderDiscountHelper.NormalizeDecimal(_discountInput);
+            if (string.IsNullOrWhiteSpace(normalized) || OrderDiscountHelper.IsEmptyOrZeroLike(normalized))
+                return 0;
+
+            if (!double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var val) || val <= 0)
+                return 0;
+
+            if (_isDiscountPercent)
+            {
+                var baseAmount = Math.Max(0, _subtotal - _lineDiscounts);
+                return Math.Min(baseAmount, baseAmount * val / 100.0);
+            }
+
+            return Math.Min(Math.Max(0, _subtotal - _lineDiscounts), val);
+        }
+
+        private bool IsDiscountChangedFromInitial()
+        {
+            var normalized = OrderDiscountHelper.NormalizeDecimal(_discountInput);
+            if (_isDiscountPercent)
+            {
+                var init = OrderDiscountHelper.NormalizeDecimal(_initialPercent);
+                return !string.Equals(normalized, init, StringComparison.Ordinal);
+            }
+
+            var initSum = OrderDiscountHelper.NormalizeDecimal(_initialSum);
+            return !string.Equals(normalized, initSum, StringComparison.Ordinal);
+        }
+
+        private void UpdateCashState()
+        {
+            if (!IsCashMode)
+            {
+                _changeAmount = 0;
+                _isInsufficientCash = false;
+            }
+            else
+            {
+                var cash = ParseCash();
+                if (cash == null)
+                {
+                    _changeAmount = 0;
+                    _isInsufficientCash = true;
+                }
+                else if (cash.Value + 1e-9 < _effectiveTotalDue)
+                {
+                    _changeAmount = 0;
+                    _isInsufficientCash = true;
+                }
+                else
+                {
+                    _changeAmount = cash.Value - _effectiveTotalDue;
+                    _isInsufficientCash = false;
+                }
+            }
+
+            OnPropertyChanged(nameof(ChangeAmountDisplay));
+            OnPropertyChanged(nameof(ChangeStatusText));
+            OnPropertyChanged(nameof(ChangeStatusIsOk));
+            OnPropertyChanged(nameof(ChangeStatusIsWarn));
+            OnPropertyChanged(nameof(ShowChangeBlock));
+        }
+
+        private double? ParseCash()
+        {
+            var normalized = CheckoutValidation.NormalizeDecimal(CashReceived);
+            if (string.IsNullOrEmpty(normalized))
+                return null;
+            return double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out var cash)
+                ? cash
+                : null;
+        }
 
         private bool CanExecutePay(object? _)
         {
             if (PaymentMethod == "cash")
             {
-                // наличные: сумма ≥ итого
-                string normalized = CheckoutValidation.NormalizeDecimal(CashReceived);
-                if (string.IsNullOrEmpty(normalized) ||
-                    !double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out double cash))
-                    return false;
-                return cash >= _totalDue - 1E-09;
+                var cash = ParseCash();
+                return cash is { } c && c + 1e-9 >= _effectiveTotalDue;
             }
-            else // безнал
-            {
-                return SelectedBank != null && HasQrCode;
-            }
+
+            return SelectedBank != null && HasQrCode;
         }
 
         private void ExecutePay()
         {
             if (PaymentMethod == "cash")
             {
-                string? error = CheckoutValidation.ValidateCashReceived(CashReceived, _totalDue);
+                var error = CheckoutValidation.ValidateCashReceived(CashReceived, _effectiveTotalDue);
                 if (error != null)
                 {
                     ErrorMessage = error;
@@ -176,12 +400,15 @@ namespace NurMarketKassa.ViewModels
                     ErrorMessage = "Выберите банк для безналичной оплаты.";
                     return;
                 }
+
                 if (!HasQrCode)
                 {
-                    ErrorMessage = $"Для банка \"{SelectedBank.BankName}\" не загружен QR‑код.\nПожалуйста, загрузите QR‑код в настройках.";
+                    ErrorMessage =
+                        $"Для банка \"{SelectedBank.BankName}\" не загружен QR‑код.\nПожалуйста, загрузите QR‑код в настройках.";
                     return;
                 }
             }
+
             RequestClose?.Invoke(true);
         }
 
@@ -191,37 +418,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(IsTransfer));
             OnPropertyChanged(nameof(IsCashMode));
             OnPropertyChanged(nameof(IsBankSelectionVisible));
-            UpdateChangeDisplay();
-        }
-
-        private void UpdateChangeDisplay()
-        {
-            if (!IsCash)
-            {
-                ChangeDisplay = "";
-                OnPropertyChanged(nameof(HasChangeDisplay));
-                return;
-            }
-
-            string normalized = CheckoutValidation.NormalizeDecimal(CashReceived);
-            if (string.IsNullOrEmpty(normalized) ||
-                !double.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out double cash))
-            {
-                ChangeDisplay = "";
-                OnPropertyChanged(nameof(HasChangeDisplay));
-                return;
-            }
-
-            if (cash > _totalDue + 1E-09)
-            {
-                double change = cash - _totalDue;
-                ChangeDisplay = $"Сдача: {change.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-            }
-            else
-            {
-                ChangeDisplay = "";
-            }
-            OnPropertyChanged(nameof(HasChangeDisplay));
+            UpdateCashState();
         }
 
         private void LoadBanks()
@@ -234,20 +431,20 @@ namespace NurMarketKassa.ViewModels
             {
                 { "Элкарт", "Elkart-logo.png" },
                 { "MBank", "Mbank-logo.png" },
-                { "ФинкаБанк", "Finca-logo.png" }
+                { "ФинкаБанк", "Finca-logo.png" },
             };
 
             var list = new ObservableCollection<BankAccount>();
             foreach (var name in bankNames)
             {
-                string qrPath = prefs.BankQrPaths.TryGetValue(name, out var path) ? path : "";
-                string logoPath = $"pack://application:,,,/Assets/{logoNames[name]}";
+                var qrPath = prefs.BankQrPaths.TryGetValue(name, out var path) ? path : "";
+                var logoPath = $"pack://application:,,,/Assets/{logoNames[name]}";
 
                 list.Add(new BankAccount
                 {
                     BankName = name,
                     QrCodeImagePath = qrPath,
-                    LogoPath = logoPath
+                    LogoPath = logoPath,
                 });
             }
 
@@ -256,8 +453,8 @@ namespace NurMarketKassa.ViewModels
                 SelectedBank = Banks[0];
         }
 
-        // INPC
         public event PropertyChangedEventHandler? PropertyChanged;
+
         protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }

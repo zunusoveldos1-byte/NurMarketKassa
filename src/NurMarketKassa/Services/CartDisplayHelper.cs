@@ -28,6 +28,56 @@ internal static class CartDisplayHelper
         return JsonScalarToString(id);
     }
 
+    /// <summary>
+    /// Идентификаторы для POST checkout: cart id, sale id, cart_id из JSON (как в PosRefundService).
+    /// </summary>
+    public static IReadOnlyList<string> CollectCheckoutTargetIds(JsonElement cart, string? primaryCartId)
+    {
+        var ids = new List<string>();
+        void Add(string? id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return;
+            id = id.Trim();
+            if (!ids.Contains(id, StringComparer.OrdinalIgnoreCase))
+                ids.Add(id);
+        }
+
+        Add(primaryCartId);
+        if (cart.ValueKind != JsonValueKind.Object)
+            return ids;
+
+        Add(TryCartId(cart));
+        Add(TryResolveCartIdFromSale(cart));
+        if (cart.TryGetProperty("sale_id", out var saleIdProp))
+            Add(JsonScalarToString(saleIdProp));
+
+        return ids;
+    }
+
+    /// <summary>cart_id из ответа продажи (вложенный cart или поле cart_id), без подмены id продажи.</summary>
+    public static string? TryResolveCartIdFromSale(JsonElement sale)
+    {
+        if (sale.ValueKind != JsonValueKind.Object)
+            return null;
+
+        if (sale.TryGetProperty("cart_id", out var cartIdProp))
+        {
+            var cartId = JsonScalarToString(cartIdProp);
+            if (!string.IsNullOrEmpty(cartId))
+                return cartId;
+        }
+
+        if (sale.TryGetProperty("cart", out var cart) && cart.ValueKind == JsonValueKind.Object)
+        {
+            var nestedId = TryCartId(cart);
+            if (!string.IsNullOrEmpty(nestedId))
+                return nestedId;
+        }
+
+        return null;
+    }
+
     /// <summary>shift_id или shift.id из корзины POS.</summary>
     public static string? TryShiftIdFromCart(JsonElement cart)
     {
@@ -312,28 +362,8 @@ internal static class CartDisplayHelper
         return FormatMoney(0);
     }
 
-    public static double TotalDue(JsonElement cart)
-    {
-        if (cart.ValueKind != JsonValueKind.Object)
-            return 0;
-
-        foreach (var src in new[] { cart, TryTotals(cart) })
-        {
-            if (src.ValueKind != JsonValueKind.Object)
-                continue;
-            foreach (var key in new[]
-                     {
-                         "total", "grand_total", "total_amount", "amount_due", "payable_total",
-                         "order_total", "total_to_pay", "amount_total",
-                     })
-            {
-                if (TryDouble(src, key) is { } v)
-                    return v;
-            }
-        }
-
-        return 0;
-    }
+    public static double TotalDue(JsonElement cart) =>
+        CartTotalsCalculator.Calculate(cart).TotalDue;
 
     private static JsonElement TryTotals(JsonElement cart) =>
         cart.TryGetProperty("totals", out var t) && t.ValueKind == JsonValueKind.Object ? t : default;
@@ -344,19 +374,7 @@ internal static class CartDisplayHelper
     {
         if (obj.ValueKind != JsonValueKind.Object || !obj.TryGetProperty(prop, out var v))
             return null;
-        return JsonNumberToDouble(v);
-    }
-
-    private static double? JsonNumberToDouble(JsonElement v)
-    {
-        return v.ValueKind switch
-        {
-            JsonValueKind.Number => v.TryGetDouble(out var d) ? d : null,
-            JsonValueKind.String => double.TryParse(v.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var x)
-                ? x
-                : null,
-            _ => null,
-        };
+        return JsonNumericReader.TryToDouble(v, out var d) ? d : null;
     }
 
     private static string? JsonScalarToString(JsonElement v) =>
@@ -385,6 +403,69 @@ internal static class CartDisplayHelper
         }
 
         return null;
+    }
+
+    /// <summary>ID строки возврата по product_id в ответе продажи/корзины.</summary>
+    public static string? TryRefundLineIdForProduct(JsonElement sale, string? productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return null;
+
+        foreach (var line in EnumerateSaleLineItems(sale))
+        {
+            var pid = TryProductId(line);
+            if (!string.Equals(pid, productId.Trim(), StringComparison.OrdinalIgnoreCase))
+                continue;
+            var lineId = TryRefundLineId(line);
+            if (!string.IsNullOrEmpty(lineId))
+                return lineId;
+        }
+
+        return null;
+    }
+
+    /// <summary>ID строки для возврата: cart_item_id / sale_line_id, не путать с product_id.</summary>
+    public static string? TryRefundLineId(JsonElement it)
+    {
+        if (it.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var productId = TryProductId(it);
+        foreach (var key in new[]
+                 {
+                     "cart_item_id", "sale_line_id", "line_id", "item_id", "pos_line_id", "sale_item_id",
+                 })
+        {
+            if (!it.TryGetProperty(key, out var v))
+                continue;
+            var s = JsonScalarToString(v);
+            if (!string.IsNullOrEmpty(s))
+                return s;
+        }
+
+        if (it.TryGetProperty("id", out var idEl))
+        {
+            var id = JsonScalarToString(idEl);
+            if (!string.IsNullOrEmpty(id)
+                && (string.IsNullOrEmpty(productId)
+                    || !string.Equals(id, productId, StringComparison.OrdinalIgnoreCase)))
+                return id;
+        }
+
+        return null;
+    }
+
+    /// <summary>Количество, доступное к возврату (с учётом уже возвращённого).</summary>
+    public static double RefundableQuantity(JsonElement it)
+    {
+        var qty = LineQuantity(it);
+        var returned = TryDouble(it, "quantity_refunded")
+                       ?? TryDouble(it, "returned_quantity")
+                       ?? TryDouble(it, "qty_returned")
+                       ?? TryDouble(it, "refunded_quantity")
+                       ?? 0;
+        var left = qty - returned;
+        return left > 1e-6 ? left : 0;
     }
 
     /// <summary>ID товара для POST add-item: product_id или product.id.</summary>
@@ -436,13 +517,13 @@ internal static class CartDisplayHelper
         return d > 1e-6 ? FormatMoney(d) : null;
     }
 
-    /// <summary>Шаг 0.1 (кг) или 1 (шт) — как _cart_line_must_weigh без локального _pos_unit_mode.</summary>
+    /// <summary>Шаг 0.05 (кг) или 1 (шт).</summary>
     public static bool LineMustWeigh(JsonElement it)
     {
         if (it.ValueKind != JsonValueKind.Object)
             return false;
 
-        if (TruthyBool(it, "is_wait") || TruthyBool(it, "is_weight"))
+        if (TruthyBool(it, "is_wait") || TruthyBool(it, "is_weigh") || TruthyBool(it, "is_weight"))
             return true;
 
         // Частые имена полей в ответах API для весовой строки
@@ -486,7 +567,8 @@ internal static class CartDisplayHelper
 
     /// <summary>Как _product_must_weigh в main.py — для каталога и диалога взвешивания.</summary>
     public static bool ProductMustWeigh(JsonElement p) =>
-        TruthyBool(p, "is_wait") || TruthyBool(p, "is_weight") || TruthyBool(p, "is_weight_product") ||
+        TruthyBool(p, "is_wait") || TruthyBool(p, "is_weigh") || TruthyBool(p, "is_weight") ||
+        TruthyBool(p, "is_weight_product") ||
         TruthyBool(p, "sale_as_weight") || TruthyBool(p, "sells_by_weight") || DictHasKgUnit(p) ||
         ProductTypeImpliesWeight(p);
 
@@ -606,8 +688,19 @@ internal static class CartDisplayHelper
             return s is "1" or "true" or "yes" or "on";
         }
 
-        if (v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var d))
-            return Math.Abs(d) > double.Epsilon;
+        if (v.ValueKind == JsonValueKind.String)
+        {
+            var s = v.GetString()?.Trim().ToLowerInvariant();
+            return s is "1" or "true" or "yes" or "on";
+        }
+
+        if (v.ValueKind == JsonValueKind.Number)
+            return JsonNumericReader.TryToDouble(v, out var d) && Math.Abs(d) > double.Epsilon;
+
         return false;
     }
+
+    public static double WeightStepKg => (double)JsonNumericReader.WeightStepKg;
+
+    public static string FormatWeightQuantity(double kg) => JsonNumericReader.FormatWeightDisplay(kg);
 }

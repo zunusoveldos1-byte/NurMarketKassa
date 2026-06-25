@@ -14,7 +14,9 @@ internal static class ReceiptSanitizer
         {
             if (IsShiftOrCashboxLine(line))
                 continue;
-            list.Add(line);
+
+            var paymentLine = TryNormalizePaymentMethodLine(line);
+            list.Add(paymentLine ?? line);
         }
 
         while (list.Count > 0 && string.IsNullOrWhiteSpace(list[0]))
@@ -60,6 +62,37 @@ internal static class ReceiptSanitizer
 
         return false;
     }
+
+    private static string? TryNormalizePaymentMethodLine(string line)
+    {
+        var t = line.Trim();
+        if (t.Length == 0)
+            return null;
+
+        var upper = t.ToUpperInvariant();
+        if (upper.StartsWith("СПОСОБ ОПЛАТЫ", StringComparison.Ordinal)
+            && !ContainsMoneyTail(upper))
+            return null;
+
+        if (upper.StartsWith("ОПЛАТА", StringComparison.Ordinal)
+            || (upper.StartsWith("НАЛИЧНЫМИ", StringComparison.Ordinal) && ContainsMoneyTail(upper))
+            || (upper.StartsWith("БЕЗНАЛ", StringComparison.Ordinal) && ContainsMoneyTail(upper)))
+        {
+            if (upper.Contains("НАЛИЧ", StringComparison.Ordinal) || upper.Contains("CASH", StringComparison.Ordinal))
+                return "Способ оплаты: Наличными";
+            if (upper.Contains("БЕЗНАЛ", StringComparison.Ordinal)
+                || upper.Contains("CARD", StringComparison.Ordinal)
+                || upper.Contains("TRANSFER", StringComparison.Ordinal))
+                return "Способ оплаты: Безналичными";
+        }
+
+        return null;
+    }
+
+    private static bool ContainsMoneyTail(string upperLine) =>
+        upperLine.Contains("СОМ", StringComparison.Ordinal)
+        || upperLine.Contains("COM", StringComparison.Ordinal)
+        || upperLine.Any(char.IsDigit);
 
     private static bool IsShiftOrCashboxLine(string line)
     {

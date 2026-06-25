@@ -1,6 +1,8 @@
+#nullable enable
+
 namespace NurMarketKassa.Services;
 
-/// <summary>Ширина текста чека в символах под термоленту 58 мм (стандартно 32 колонки ESC/POS).</summary>
+/// <summary>Ширина текста чека в символах (32 для 58 мм, 48 для 80 мм).</summary>
 internal static class ReceiptLayout
 {
     internal static int CharWidth
@@ -10,7 +12,7 @@ internal static class ReceiptLayout
             try
             {
                 var v = Environment.GetEnvironmentVariable("DESKTOP_MARKET_RECEIPT_WIDTH")?.Trim();
-                if (int.TryParse(v, out var w) && w is >= 24 and <= 48)
+                if (int.TryParse(v, out var w) && w is >= 24 and <= 56)
                     return w;
             }
             catch
@@ -18,7 +20,10 @@ internal static class ReceiptLayout
                 /* ignore */
             }
 
-            return 32;
+            return ReceiptPaperProfile.GetCharWidth(UserPreferences.Instance.ReceiptPaperWidthMm);
         }
     }
+
+    internal static int RasterWidthPixels =>
+        ReceiptPaperProfile.GetRasterWidthPixels(UserPreferences.Instance.ReceiptPaperWidthMm);
 }

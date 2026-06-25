@@ -128,7 +128,7 @@ namespace NurMarketKassa.Views
 
         private async Task<List<SaleItem>> FetchSalesPageAsync(int page, int pageSize, CancellationToken token)
         {
-            var raw = await App.Api.PosSalesListAsync(page, pageSize, null, CancellationToken.None);
+            var raw = await App.SalesApi.PosSalesListAsync(page, pageSize, null, CancellationToken.None);
             token.ThrowIfCancellationRequested();
             var result = new List<SaleItem>(raw.Count);
             foreach (JsonElement el in raw)
@@ -210,7 +210,7 @@ namespace NurMarketKassa.Views
                 token.ThrowIfCancellationRequested();
                 try
                 {
-                    var json = await App.Api.PosSaleGetAsync(sale.Id, CancellationToken.None);
+                    var json = await App.SalesApi.PosSaleGetAsync(sale.Id, CancellationToken.None);
                     if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var line in items.EnumerateArray())
@@ -264,7 +264,7 @@ namespace NurMarketKassa.Views
             if (string.IsNullOrEmpty(receiptId)) return;
             try
             {
-                var json = await App.Api.PosSaleGetAsync(receiptId, CancellationToken.None);
+                var json = await App.SalesApi.PosSaleGetAsync(receiptId, CancellationToken.None);
                 var items = new List<string>();
                 if (json.TryGetProperty("items", out var arr) && arr.ValueKind == JsonValueKind.Array)
                 {

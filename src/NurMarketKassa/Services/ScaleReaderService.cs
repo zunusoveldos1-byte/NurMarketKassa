@@ -97,6 +97,7 @@ public sealed class ScaleReaderService : IDisposable
                     Handshake = Handshake.None,
                 };
                 ser.Open();
+                PosLogger.Log($"COM открыт: {portName} @ {_cfg.BaudRate} (DTR/RTS включены)", "SCALE");
                 try
                 {
                     ser.DiscardInBuffer();
@@ -183,29 +184,38 @@ public sealed class ScaleReaderService : IDisposable
                             buf.Clear();
                         }
                     }
-                    catch (IOException)
+                    catch (IOException ex)
                     {
                         if (_stop)
                             break;
-                        SetStatus($"COM потерян: {portName}. Переподключение…");
+                        var msg = $"COM потерян: {portName}. Переподключение… ({ex.Message})";
+                        PosLogger.Log(msg, "SCALE");
+                        SetStatus(msg);
                         break;
                     }
-                    catch (InvalidOperationException)
+                    catch (InvalidOperationException ex)
                     {
                         if (_stop)
                             break;
-                        SetStatus($"COM закрыт: {portName}. Переподключение…");
+                        var msg = $"COM закрыт: {portName}. Переподключение… ({ex.Message})";
+                        PosLogger.Log(msg, "SCALE");
+                        SetStatus(msg);
                         break;
                     }
                 }
             }
             catch (UnauthorizedAccessException)
             {
-                SetStatus($"COM занят или доступ запрещён: {HardwarePortHelper.NormalizeComPort(_cfg.ComPort)}.");
+                var port = HardwarePortHelper.NormalizeComPort(_cfg.ComPort);
+                var msg = $"COM занят или доступ запрещён: {port}.";
+                PosLogger.Log(msg, "SCALE");
+                SetStatus(msg);
             }
             catch (Exception ex)
             {
-                SetStatus($"COM недоступен: {ex.Message}");
+                var msg = $"COM недоступен: {ex.Message}";
+                PosLogger.Log(msg, "SCALE");
+                SetStatus(msg);
             }
             finally
             {
@@ -222,6 +232,41 @@ public sealed class ScaleReaderService : IDisposable
 
             if (!_stop)
                 Thread.Sleep(1200);
+        }
+    }
+
+    public enum ScalePortState { NotSpecified, NotFound, Busy, Available }
+
+    public sealed record ScaleProbeResult(bool IsAvailable, string Message, ScalePortState State);
+
+    /// <summary>
+    /// Лёгкая проверка COM-порта весов: существование (GetPortNames) и занятость
+    /// (быстрое open/close). НЕ держит порт открытым — фоновое чтение веса не блокируется.
+    /// </summary>
+    public static ScaleProbeResult ProbePort(string? rawPort)
+    {
+        var port = HardwarePortHelper.NormalizeComPort(rawPort, "");
+        if (string.IsNullOrWhiteSpace(port) || !HardwarePortHelper.LooksLikeComPort(port))
+            return new ScaleProbeResult(false, "○ COM-порт не выбран", ScalePortState.NotSpecified);
+
+        var names = SerialPort.GetPortNames();
+        if (!names.Any(p => string.Equals(p, port, StringComparison.OrdinalIgnoreCase)))
+            return new ScaleProbeResult(false, "○ COM-порт не найден", ScalePortState.NotFound);
+
+        try
+        {
+            using var sp = new SerialPort(port);
+            sp.Open();
+            sp.Close();
+            return new ScaleProbeResult(true, "● Доступен (Весы)", ScalePortState.Available);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new ScaleProbeResult(false, "○ Порт занят другим приложением", ScalePortState.Busy);
+        }
+        catch (Exception ex)
+        {
+            return new ScaleProbeResult(false, $"○ Порт недоступен: {ex.Message}", ScalePortState.NotFound);
         }
     }
 
@@ -296,19 +341,30 @@ public sealed class ScaleReaderService : IDisposable
         lock (_lock)
             _lastRaw = dec;
 
+        PosLogger.Log($"COM строка: «{dec}»", "SCALE");
+
         var w = ScaleWeightParser.ParseWeightLine(line);
         if (w is not null)
         {
             lock (_lock)
                 _lastWeight = w;
+            PosLogger.Log($"COM разбор веса: {w.Value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)} кг из «{dec}»", "SCALE");
             SetStatus($"OK {HardwarePortHelper.NormalizeComPort(_cfg.ComPort)} {_cfg.BaudRate}");
+        }
+        else
+        {
+            PosLogger.Log($"COM разбор веса: не удалось извлечь число из «{dec}»", "SCALE");
         }
     }
 
     private void SetStatus(string msg)
     {
         lock (_lock)
+        {
+            if (_status != msg)
+                PosLogger.Log($"COM статус: {msg}", "SCALE");
             _status = msg;
+        }
     }
 
     private void MaybeSendRequest(SerialPort ser)

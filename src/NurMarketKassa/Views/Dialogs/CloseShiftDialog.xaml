@@ -1,0 +1,53 @@
+<dialogs:AppOverlayDialogBase x:Class="NurMarketKassa.Views.Dialogs.CloseShiftDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="clr-namespace:NurMarketKassa.Views.Dialogs"
+        Title="Закрыть смену">
+    <Grid x:Name="RootGrid" Opacity="0">
+        <Border Background="#66000000"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch" />
+        <Border x:Name="DialogCard"
+                Style="{StaticResource ElevatedCardBorder}"
+                CornerRadius="12"
+                Padding="20"
+                Width="472"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <StackPanel>
+                <TextBlock Text="Закрыть смену (Z-отчёт)"
+                           Style="{StaticResource DialogTitleText}" Margin="0,0,0,8"/>
+                <TextBlock Text="Пересчитайте наличные в кассе и укажите фактический остаток."
+                           Style="{StaticResource DialogLabelText}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                <Border Padding="12" CornerRadius="8" Margin="0,0,0,14"
+                        Background="{DynamicResource BrushPanel}"
+                        BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Остаток по системе" FontSize="12"
+                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                        <TextBlock x:Name="SystemBalanceText" FontSize="18" FontWeight="Bold"
+                                   Foreground="{DynamicResource BrushAccent}" Margin="0,4,0,0"
+                                   Text="—"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="Фактический остаток в кассе"
+                           Foreground="{DynamicResource BrushTextSoft}"
+                           FontSize="13" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBox x:Name="ClosingCashBox"
+                         Style="{StaticResource TouchTextBox}"
+                         Height="40" FontSize="16"
+                         Margin="0,0,0,24"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Отмена"
+                            Style="{StaticResource TouchSecondaryButton}"
+                            Width="100" Height="38" Margin="0,0,12,0"
+                            Click="Cancel_Click"/>
+                    <Button Content="Закрыть смену" IsDefault="True"
+                            Style="{StaticResource TouchPrimaryButton}"
+                            Width="140" Height="38"
+                            Click="Ok_Click"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</dialogs:AppOverlayDialogBase>

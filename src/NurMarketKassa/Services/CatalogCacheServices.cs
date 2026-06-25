@@ -1,225 +1,356 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.IO;
+﻿using System.Collections.ObjectModel;
+
+using System.Net.Http;
+
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
+
 using System.Windows;
+
+using NurMarketKassa.Models;
+
 using NurMarketKassa.Models.Pos;
-using NurMarketKassa.Services;
+
 using NurMarketKassa.Views;
-using System.Linq;
+
+
 
 #nullable enable
-namespace NurMarketKassa.Services
+
+
+
+namespace NurMarketKassa.Services;
+
+
+
+public static class CatalogCacheService
+
 {
-    public static class CatalogCacheService
+
+    private static readonly LocalProductRepository Repository = LocalProductRepository.Instance;
+
+
+
+    public static ObservableCollection<CatalogProductTileVm> Products { get; } = new();
+
+
+
+    public static DateTime? LastSyncTime { get; private set; }
+
+
+
+    public static string? LocalCatalogVersionToken => Repository.GetCatalogVersionToken();
+
+
+
+    public static void EnsureLocalDatabase()
+
     {
-        private static readonly string CacheDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
-        private static readonly string CacheFilePath = Path.Combine(CacheDirectory, "products_cache.json");
-        private static readonly TimeSpan BackgroundSyncInterval = TimeSpan.FromMinutes(10.0);
-        private static CancellationTokenSource? _backgroundCts;
-        private static Task? _backgroundTask;
 
-        public static ObservableCollection<CatalogProductTileVm> Products { get; } = new ObservableCollection<CatalogProductTileVm>();
+        Repository.EnsureSchema();
 
-        public static DateTime? LastSyncTime { get; private set; }
-
-        public static async Task InitializeAsync()
-        {
-            if (!LoadFromFile())
-            {
-                ShowToastInMainWindow("Загрузка данных из облака...", false);
-                await RefreshFromApiAsync();
-            }
-            else
-            {
-                ShowToastInMainWindow("Каталог загружен из локального кэша", false);
-            }
-
-            StartBackgroundSync();
-        }
-
-        public static async Task RefreshFromApiAsync()
-        {
-            try
-            {
-                var rawItems = await App.Api.ProductsCatalogAsync(
-                    App.Settings.Catalog.QuickCatalogLimit,
-                    App.Settings.Catalog.CatalogMaxPages);
-
-                string apiBaseUrl = App.Settings.ApiBaseUrl;
-                var newList = new List<CatalogProductTileVm>();
-
-                foreach (JsonElement el in rawItems)
-                {
-                    var vm = ProductCatalogMapper.TryTile(el, apiBaseUrl);
-                    if (vm != null)
-                        newList.Add(vm);
-                }
-
-                // Единый вызов UI-потока
-                await Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    Products.Clear();
-                    foreach (var vm in newList)
-                        Products.Add(vm);
-
-                    // Обновляем индикатор кэша, если главное окно доступно
-                    if (Application.Current.MainWindow is MainWindow mainWindow)
-                        mainWindow.UpdateCacheStatus();
-                });
-
-                SaveToFile();
-                LastSyncTime = DateTime.UtcNow;
-            }
-            catch
-            {
-                ShowToastInMainWindow("Ошибка загрузки каталога.", true);
-            }
-        }
-
-
-        private static HashSet<string>? _favoriteIds;
-        private static readonly string FavoritesFilePath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "favorites.json");
-
-        public static HashSet<string> FavoriteIds
-        {
-            get
-            {
-                if (_favoriteIds == null)
-                    LoadFavoriteIds();
-                return _favoriteIds!;
-            }
-        }
-
-        public static void LoadFavoriteIds()
-        {
-            try
-            {
-                if (File.Exists(FavoritesFilePath))
-                {
-                    var json = File.ReadAllText(FavoritesFilePath);
-                    _favoriteIds = JsonSerializer.Deserialize<HashSet<string>>(json) ?? new HashSet<string>();
-                }
-                else
-                {
-                    _favoriteIds = new HashSet<string>();
-                }
-            }
-            catch
-            {
-                _favoriteIds = new HashSet<string>();
-            }
-        }
-
-        public static void SaveFavoriteIds()
-        {
-            try
-            {
-                var json = JsonSerializer.Serialize(FavoriteIds);
-                File.WriteAllText(FavoritesFilePath, json);
-            }
-            catch { /* игнорируем */ }
-        }
-
-        public static bool LoadFromFile()
-        {
-            try
-            {
-                if (!File.Exists(CacheFilePath))
-                    return false;
-
-                string json = File.ReadAllText(CacheFilePath);
-                var list = JsonSerializer.Deserialize<List<CatalogProductTileVm>>(json);
-
-                if (list == null)
-                    return false;
-
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    Products.Clear();
-                    foreach (var vm in list)
-                        Products.Add(vm);
-                });
-
-                LastSyncTime = File.GetLastWriteTimeUtc(CacheFilePath);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        // В начале класса CatalogCacheService
-        private static readonly JsonSerializerOptions PrettyJsonOptions = new()
-        {
-            WriteIndented = true
-        };
-
-        // Метод SaveToFile
-        public static void SaveToFile()
-        {
-            try
-            {
-                if (!Directory.Exists(CacheDirectory))
-                    Directory.CreateDirectory(CacheDirectory);
-
-                var list = Products.ToList();
-                string json = JsonSerializer.Serialize(list, PrettyJsonOptions);
-                File.WriteAllText(CacheFilePath, json);
-            }
-            catch { /* игнорируем */ }
-        }
-        private static void StartBackgroundSync()
-        {
-            StopBackgroundSync();
-            _backgroundCts = new CancellationTokenSource();
-            CancellationToken token = _backgroundCts.Token;
-
-            _backgroundTask = Task.Run(async () =>
-            {
-                while (!token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        await Task.Delay(BackgroundSyncInterval, token);
-                        await RefreshFromApiAsync();
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        break;
-                    }
-                    catch
-                    {
-                        // ignore background errors
-                    }
-                }
-            }, token);
-        }
-
-        public static void StopBackgroundSync()
-        {
-            if (_backgroundCts != null)
-            {
-                _backgroundCts.Cancel();
-                _backgroundCts.Dispose();
-                _backgroundCts = null;
-            }
-        }
-
-        private static void ShowToastInMainWindow(string message, bool isWarning)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                if (Application.Current.MainWindow is MainWindow mainWindow)
-                {
-                    mainWindow.ShowToast(message, isWarning);
-                }
-            });
-        }
     }
+
+
+
+    public static HashSet<string> FavoriteIds => Repository.GetFavoriteIds();
+
+
+
+    public static void SetFavorite(string productId, bool isFavorite)
+
+    {
+
+        Repository.SetFavorite(productId, isFavorite);
+
+    }
+
+
+
+    public static bool LoadFromDatabase()
+
+    {
+
+        try
+
+        {
+
+            var tiles = Repository.LoadAllTiles();
+
+            SetProducts(tiles);
+
+            LastSyncTime = Repository.GetLastSyncTime();
+
+            return tiles.Count > 0;
+
+        }
+
+        catch
+
+        {
+
+            return false;
+
+        }
+
+    }
+
+
+
+    public static void SetProducts(IEnumerable<CatalogProductTileVm> products)
+
+    {
+
+        Application.Current.Dispatcher.Invoke(() =>
+
+        {
+
+            Products.Clear();
+
+            foreach (var vm in products)
+
+                Products.Add(vm);
+
+        });
+
+    }
+
+
+
+    /// <summary>Очищает in-memory коллекцию каталога (без обращения к SQLite).</summary>
+
+    public static void ClearInMemory()
+
+    {
+
+        Application.Current.Dispatcher.Invoke(() => Products.Clear());
+
+        LastSyncTime = null;
+
+    }
+
+
+
+    public static IReadOnlyList<CatalogProductTileVm> ApplySqlFilter(FilterCriteria criteria)
+
+    {
+
+        var tiles = Repository.QueryFiltered(criteria);
+
+        SetProducts(tiles);
+
+        return tiles;
+
+    }
+
+
+
+    public static async Task<CatalogVersionInfo?> FetchRemoteVersionAsync(CancellationToken cancellationToken = default)
+
+    {
+
+        return await App.CatalogApi.ProductsCatalogVersionAsync(cancellationToken).ConfigureAwait(false);
+
+    }
+
+
+
+    public static void SaveLocalVersionToken(string token) =>
+        Repository.SetCatalogVersionToken(token);
+
+    public static bool IsSameVersion(CatalogVersionInfo remote)
+
+    {
+
+        var local = LocalCatalogVersionToken;
+
+        if (string.IsNullOrWhiteSpace(local))
+
+            return false;
+
+        return string.Equals(local, remote.Token, StringComparison.Ordinal);
+
+    }
+
+
+
+    public static async Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default)
+
+    {
+
+        if (OfflineModeHelper.UseLocalOperations)
+
+            return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+
+
+
+        try
+
+        {
+
+            var remoteVersion = await FetchRemoteVersionAsync(cancellationToken).ConfigureAwait(false);
+
+
+
+            var rawItems = await App.CatalogApi.ProductsCatalogAsync(
+
+                App.Settings.Catalog.QuickCatalogLimit,
+
+                App.Settings.Catalog.CatalogMaxPages,
+
+                cancellationToken).ConfigureAwait(false);
+
+
+
+            string apiBaseUrl = App.Settings.ApiBaseUrl;
+
+            var newList = new List<CatalogProductTileVm>();
+
+
+
+            foreach (JsonElement el in rawItems)
+
+            {
+
+                var vm = ProductCatalogMapper.TryTile(el, apiBaseUrl);
+
+                if (vm != null)
+
+                    newList.Add(vm);
+
+            }
+
+
+
+            await StockSyncService.OverlayAgentStockAsync(newList, cancellationToken).ConfigureAwait(false);
+
+            var (added, changed, deleted) = Repository.SyncReplaceAllWithDiff(newList);
+
+
+
+            if (remoteVersion != null && !remoteVersion.IsEmpty)
+
+                Repository.SetCatalogVersionToken(remoteVersion.Token);
+
+
+
+            LastSyncTime = DateTime.UtcNow;
+
+            Repository.SetLastSyncTime(LastSyncTime.Value);
+
+            App.AuditDb.LogEvent("catalog", "refresh", new { count = newList.Count, added, changed, deleted });
+
+
+
+            PosLogger.Log(
+
+                $"CATALOG sync: added={added}, changed={changed}, deleted={deleted}, total={newList.Count}, version={remoteVersion?.Token}",
+
+                "CATALOG");
+
+
+
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+
+            {
+
+                Products.Clear();
+
+                foreach (var vm in newList)
+
+                    Products.Add(vm);
+
+
+
+                if (Application.Current.MainWindow is MainWindow mainWindow)
+
+                    mainWindow.UpdateCacheStatus();
+
+            });
+
+
+
+            return CatalogSyncResult.Ok(added, changed, deleted, remoteVersion);
+
+        }
+
+        catch (OperationCanceledException)
+
+        {
+
+            throw;
+
+        }
+
+        catch (ApiException ex)
+
+        {
+
+            return CatalogSyncResult.Failed(ex.Message);
+
+        }
+
+        catch (HttpRequestException ex)
+
+        {
+
+            return CatalogSyncResult.Failed(string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message);
+
+        }
+
+        catch (Exception ex)
+
+        {
+
+            return CatalogSyncResult.Failed(ex.Message);
+
+        }
+
+    }
+
+
+
+    /// <summary>Обратная совместимость — полная синхронизация.</summary>
+
+    public static async Task RefreshFromApiAsync(CancellationToken cancellationToken = default)
+
+    {
+
+        var result = await SyncCatalogFullAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!result.Success && !string.IsNullOrWhiteSpace(result.ErrorMessage))
+
+            ShowToastInMainWindow(result.ErrorMessage, true);
+
+    }
+
+
+
+    public static void PersistProductStock(string productId, double quantity, bool mustWeigh)
+
+    {
+
+        Repository.UpdateStock(productId, quantity, mustWeigh);
+
+    }
+
+
+
+    private static void ShowToastInMainWindow(string message, bool isWarning)
+
+    {
+
+        Application.Current.Dispatcher.Invoke(() =>
+
+        {
+
+            if (Application.Current.MainWindow is MainWindow mainWindow)
+
+                mainWindow.ShowToast(message, isWarning);
+
+        });
+
+    }
+
 }
+
+

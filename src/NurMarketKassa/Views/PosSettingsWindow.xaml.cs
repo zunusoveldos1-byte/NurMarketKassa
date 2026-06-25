@@ -1,13 +1,15 @@
 using NurMarketKassa.Configuration;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
-using System;
+using NurMarketKassa.Views.Dialogs;
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
+using System.Windows.Media;
 
 #nullable enable
 
@@ -15,10 +17,8 @@ namespace NurMarketKassa.Views
 {
     public partial class PosSettingsWindow : Window
     {
-        private readonly UpdateService _updateService;
-
-        private string? _recommendedEncoding;
-        private string? _recommendedEscTable;
+        //private string? _recommendedEncoding;
+        //private string? _recommendedEscTable;   
 
         private ObservableCollection<BankQrSetting> _bankSettings;
         private readonly string[] _banks = { "Элкарт", "MBank", "ФинкаБанк" };
@@ -53,18 +53,35 @@ namespace NurMarketKassa.Views
             ReceiptEscRBox.Text = prefs.ReceiptEscR?.ToString() ?? "";
             ReceiptRetryBox.Text = prefs.ReceiptRetryCount.ToString();
 
+            SelectComboByTag(ReceiptPaperWidthCombo, prefs.ReceiptPaperWidthMm.ToString(CultureInfo.InvariantCulture));
+            ApplyPaperWidthToUi(prefs.ReceiptPaperWidthMm);
+
             FullscreenCheck.IsChecked = prefs.Fullscreen;
             AutostartCheck.IsChecked = prefs.Autostart || AutostartHelper.IsEnabled();
             AutoTouchKeyboardCheck.IsChecked = prefs.AutoShowTouchKeyboard;
+            // Загрузка названия магазина
+            StoreNameBox.Text = prefs.StoreName;
+            StoreAddressBox.Text = prefs.StoreAddress;
+            ShowInnCheck.IsChecked = prefs.ShowInn;
+            // Загрузка элементов чека
+            ShowStoreNameCheck.IsChecked = prefs.ShowStoreName;
+            ShowAddressCheck.IsChecked = prefs.ShowAddress;
+            ShowReceiptNumberCheck.IsChecked = prefs.ShowReceiptNumber;
+            ShowDateCheck.IsChecked = prefs.ShowDate;
+            ShowItemsCheck.IsChecked = prefs.ShowItems;
+            ShowTotalCheck.IsChecked = prefs.ShowTotal;
+            ShowQrCodeCheck.IsChecked = prefs.ShowQrCode;
 
             DoubleClickToCartRadio.IsChecked = !prefs.SingleClickToCart;
             SingleClickToCartRadio.IsChecked = prefs.SingleClickToCart;
+            ResetManualAddQtyCheck.IsChecked = prefs.ResetManualAddQtyAfterAdd;
 
             var ports = ScaleReaderService.GetAvailablePorts().ToList();
             if (!ports.Contains(prefs.ScaleComPort, StringComparer.OrdinalIgnoreCase))
                 ports.Insert(0, prefs.ScaleComPort);
             ScaleComCombo.ItemsSource = ports;
-            ScaleComCombo.Text = prefs.ScaleComPort;
+            SelectScaleComPort(prefs.ScaleComPort);
+            RefreshScalePortStatus();
 
             SelectComboByTag(ReceiptEncCombo, prefs.ReceiptEncoding.ToLowerInvariant());
             string tableTag = prefs.ReceiptEscPosTable?.ToString() ?? "";
@@ -79,17 +96,183 @@ namespace NurMarketKassa.Views
             if (ReceiptTableCombo.SelectedItem == null && ReceiptTableCombo.Items.Count > 0)
                 ReceiptTableCombo.SelectedIndex = 0;
 
-            string? manifestUrl = App.Settings.Updates.ManifestUrl;
-            if (string.IsNullOrWhiteSpace(manifestUrl))
-                manifestUrl = Environment.GetEnvironmentVariable("DESKTOP_MARKET_UPDATE_MANIFEST_URL");
-            _updateService = new UpdateService(manifestUrl ?? "");
+            // === Загрузка настроек графического чека ===
+            GraphicReceiptEnabledCheck.IsChecked = prefs.GraphicReceiptEnabled;
+            TextModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Text;
+            GraphicModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Graphic;
+
+            SelectComboByTag(GraphicFontCombo, TestReceiptLineBuilder.FontFamily);
+
+            string savedFont = prefs.GraphicFontFamily;
+            foreach (ComboBoxItem item in GraphicFontCombo.Items)
+            {
+                if (item.Tag?.ToString() == savedFont)
+                {
+                    GraphicFontCombo.SelectedItem = item;
+                    break;
+                }
+            }
+            if (GraphicFontCombo.SelectedItem == null)
+                GraphicFontCombo.SelectedIndex = 0;
+
+            // Загрузка размера шрифта
+            var fontSize = prefs.GraphicFontSize > 0 ? prefs.GraphicFontSize : TestReceiptLineBuilder.DefaultFontSizePt;
+            if (prefs.GraphicFontSize <= 0)
+                prefs.GraphicFontSize = TestReceiptLineBuilder.DefaultFontSizePt;
+
+            SelectGraphicFontSizeCombo(fontSize);
+
+            if (!string.IsNullOrEmpty(prefs.QrCodePath))
+                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {System.IO.Path.GetFileName(prefs.QrCodePath)}";
+            else
+                GraphicQrStatusText.Text = "QR-код не загружен";
+
             AppVersionText.Text = "Текущая версия: " + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "неизвестно");
+            RefreshCatalogDiagnostics();
+
+            RefreshPrinterPortStatus();
+        }
+
+        private void ReceiptLptBox_TextChanged(object sender, TextChangedEventArgs e) =>
+            RefreshPrinterPortStatus();
+
+        private void ReceiptPaperWidthCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ReceiptPaperWidthCombo?.SelectedItem is ComboBoxItem item
+                && int.TryParse(item.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int mm))
+            {
+                ApplyPaperWidthToUi(mm);
+            }
+        }
+
+        private void ApplyPaperWidthToUi(int paperWidthMm)
+        {
+            var normalized = ReceiptPaperProfile.NormalizePaperWidthMm(paperWidthMm);
+            if (GraphicWidthBox != null)
+                GraphicWidthBox.Text = ReceiptPaperProfile.GetRasterWidthPixels(normalized).ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static int ReadPaperWidthMmFromUi(ComboBox combo)
+        {
+            if (combo.SelectedItem is ComboBoxItem item
+                && int.TryParse(item.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int mm))
+            {
+                return ReceiptPaperProfile.NormalizePaperWidthMm(mm);
+            }
+
+            return ReceiptPaperProfile.Paper58mm;
+        }
+
+        private void RefreshPrinterPortStatus()
+        {
+            if (StatusPortText == null)
+                return;
+
+            var probe = PrinterPortService.ProbePort(ReceiptLptBox.Text);
+            StatusPortText.Text = probe.Message;
+            StatusPortText.Foreground = probe.IsAvailable
+                ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+        }
+
+        private void ClearPrintError()
+        {
+            if (TxtPrintErrorDetails != null)
+                TxtPrintErrorDetails.Text = "";
+            if (PrintErrorPanel != null)
+                PrintErrorPanel.Visibility = Visibility.Collapsed;
+        }
+
+        private void ShowPrintError(Exception ex, string devicePath)
+        {
+            if (TxtPrintErrorDetails == null || PrintErrorPanel == null)
+                return;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Порт: {devicePath}");
+
+            var current = ex;
+            int level = 0;
+            while (current != null)
+            {
+                var prefix = level == 0 ? "Ошибка: " : new string(' ', level * 2) + "↳ ";
+                sb.AppendLine($"{prefix}{current.GetType().Name}: {current.Message}");
+
+                if (current is System.ComponentModel.Win32Exception w32)
+                    sb.AppendLine($"  Win32-код: {w32.NativeErrorCode}");
+
+                current = current.InnerException;
+                level++;
+            }
+
+            TxtPrintErrorDetails.Text = sb.ToString().TrimEnd();
+            PrintErrorPanel.Visibility = Visibility.Visible;
+        }
+
+        private void BtnPhysicalPrint_Click(object sender, RoutedEventArgs e)
+        {
+            var devicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
+            if (string.IsNullOrWhiteSpace(devicePath))
+            {
+                StatusText.Text = "❌ Укажите порт принтера (LPT1, COM3 или имя очереди Windows).";
+                return;
+            }
+
+            var probe = PrinterPortService.ProbePort(devicePath);
+            if (!probe.IsAvailable)
+            {
+                StatusText.Text = $"❌ Порт недоступен: {probe.Message}";
+                RefreshPrinterPortStatus();
+                return;
+            }
+
+            ClearPrintError();
+
+            try
+            {
+                var cfg = BuildReceiptSettingsFromUi();
+                var contentSettings = BuildGraphicSettingsFromUi(devicePath);
+                var storeName = StoreNameBox.Text;
+                int retry = cfg.RetryCount;
+
+                if (GraphicModeRadio.IsChecked == true)
+                {
+                    if (GraphicReceiptEnabledCheck.IsChecked != true)
+                    {
+                        StatusText.Text = "❌ Графический чек выключен. Включите «Включить графический чек».";
+                        return;
+                    }
+
+                    var settings = BuildGraphicSettingsFromUi(devicePath);
+                    var bytes = GraphicReceiptGenerator.GenerateTestReceiptImage(settings, storeName);
+                    ReceiptPrintService.SendRawBytes(devicePath, bytes, retry);
+                    StatusText.Text = $"✅ Графический чек ({bytes.Length} байт) отправлен на {devicePath}";
+                }
+                else
+                {
+                    var testText = ReceiptPdfPreviewService.BuildTextTestReceipt(contentSettings, storeName);
+                    var charWidth = ReceiptPaperProfile.GetCharWidth(ReadPaperWidthMmFromUi(ReceiptPaperWidthCombo));
+                    var payload = EscPosTextReceiptPrinter.BuildEscPosPayload(cfg, testText, charWidth);
+                    ReceiptPrintService.SendRawBytes(devicePath, payload, retry);
+                    StatusText.Text = $"✅ Текстовый ESC/POS чек ({payload.Length} байт) отправлен на {devicePath}";
+                }
+
+                RefreshPrinterPortStatus();
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"❌ Ошибка печати в порт: {ex.Message}";
+                ShowPrintError(ex, devicePath);
+                PosLogger.Log($"Физическая печать: {ex}", "PRINTER");
+                RefreshPrinterPortStatus();
+            }
         }
 
         private void ClickToCartMode_Changed(object sender, RoutedEventArgs e)
         {
             var prefs = UserPreferences.Instance;
             prefs.SingleClickToCart = SingleClickToCartRadio.IsChecked == true;
+            prefs.ResetManualAddQtyAfterAdd = ResetManualAddQtyCheck.IsChecked == true;
             prefs.SaveToDisk();
         }
 
@@ -140,186 +323,6 @@ namespace NurMarketKassa.Views
             prefs.SaveToDisk();  // ← обязательно сохраняем на диск
         }
 
-        private void PrinterDiagnostic_Click(object sender, RoutedEventArgs e)
-        {
-            PrinterDiagnosticText.Text = "Запуск диагностики...\n";
-            var prefs = UserPreferences.Instance;
-            string? devicePath = prefs.ReceiptDevicePath?.Trim();
-
-            if (string.IsNullOrEmpty(devicePath))
-            {
-                PrinterDiagnosticText.Text += "❌ Не указан порт принтера.\n" +
-                    "Перейдите на вкладку «Печать» и укажите LPT-порт или COM-порт.";
-                return;
-            }
-
-            // Определяем тип порта
-            bool isCom = devicePath.StartsWith("COM", StringComparison.OrdinalIgnoreCase);
-            bool isLpt = devicePath.StartsWith("LPT", StringComparison.OrdinalIgnoreCase);
-            bool isUsb = devicePath.StartsWith("USB", StringComparison.OrdinalIgnoreCase) ||
-                         devicePath.Contains("VID_", StringComparison.OrdinalIgnoreCase); // USB-идентификатор
-
-            if (isCom)
-            {
-                // ========== COM-порт – полная диагностика ==========
-                try
-                {
-                    string portName = devicePath.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries)[0];
-                    int baudRate = prefs.ScaleBaudRate;
-                    using (var serial = new System.IO.Ports.SerialPort(portName, baudRate))
-                    {
-                        serial.ReadTimeout = 1000;
-                        serial.WriteTimeout = 1000;
-                        serial.Open();
-
-                        // 1. Запрос статуса (DLE EOT 1)
-                        byte[] request = new byte[] { 0x10, 0x04, 0x01 };
-                        serial.Write(request, 0, request.Length);
-                        try
-                        {
-                            int status = serial.ReadByte();
-                            PrinterDiagnosticText.Text += $"📟 Принтер ответил. Статус: 0x{status:X2}\n";
-                            if ((status & 0x04) != 0) PrinterDiagnosticText.Text += "• Обнаружена ошибка принтера (конец бумаги?).\n";
-                            if ((status & 0x08) != 0) PrinterDiagnosticText.Text += "• Принтер в режиме off-line.\n";
-                            if ((status & 0x20) != 0) PrinterDiagnosticText.Text += "• Крышка открыта.\n";
-                            if ((status & 0x40) != 0) PrinterDiagnosticText.Text += "• Бумага подана.\n";
-                        }
-                        catch (TimeoutException)
-                        {
-                            PrinterDiagnosticText.Text += "⚠️ Принтер не ответил на запрос статуса (таймаут).\n";
-                        }
-
-                        // 2. Запрос ID (GS I)
-                        byte[] gsI = new byte[] { 0x1D, 0x49, 0x01 };
-                        serial.Write(gsI, 0, gsI.Length);
-                        System.Threading.Thread.Sleep(200);
-                        byte[] buffer = new byte[256];
-                        int bytesRead = 0;
-                        try { bytesRead = serial.Read(buffer, 0, buffer.Length); }
-                        catch (TimeoutException) { }
-
-                        if (bytesRead > 0)
-                        {
-                            string id = System.Text.Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                            PrinterDiagnosticText.Text += $"🆔 ID принтера: {id.Trim()}\n";
-                            if (id.Contains("RP") || id.Contains("Rongta"))
-                            {
-                                PrinterDiagnosticText.Text += "💡 Рекомендуется кодировка wpc1251 и таблица ESC t = 46.\n";
-                                _recommendedEncoding = "wpc1251";
-                                _recommendedEscTable = "46";
-                                ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Visible;
-                            }
-                            else
-                            {
-                                PrinterDiagnosticText.Text += "💡 Попробуйте кодировку wpc1251 или cp866; если не поможет — utf-8, koi8-r, iso-8859-5.\n";
-                                ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Collapsed;
-                            }
-                        }
-                        else
-                        {
-                            PrinterDiagnosticText.Text += "• ID принтера не получен.\n";
-                            PrinterDiagnosticText.Text += "💡 Рекомендуется перебрать кодировки: wpc1251, cp866, utf-8, koi8-r, iso-8859-5.\n";
-                            PrinterDiagnosticText.Text += "   Для каждой меняйте таблицу ESC t: Авто, 46, 17, 0, 53, 26.\n";
-                            ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Collapsed;
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    PrinterDiagnosticText.Text += $"❌ Ошибка диагностики: {ex.Message}\n";
-                }
-            }
-            else
-            {
-                // ========== LPT / USB / файловый порт – подсказка ==========
-                string portType = isLpt ? "LPT" : (isUsb ? "USB" : "файловый");
-                PrinterDiagnosticText.Text += $"⚠️ Принтер подключен через {portType}. Автоматический опрос невозможен.\n\n";
-                PrinterDiagnosticText.Text += "Надёжная схема настройки:\n";
-                PrinterDiagnosticText.Text += "1) Нажмите кнопку ниже, чтобы установить кодировку wpc1251.\n";
-                PrinterDiagnosticText.Text += "2) Нажмите «Тест печати».\n";
-                PrinterDiagnosticText.Text += "3) Если текст нечитаемый, вручную выберите cp866 в поле «Кодировка текста» и снова «Тест печати».\n";
-                PrinterDiagnosticText.Text += "4) Если и это не помогло – переберите остальные кодировки (utf-8, koi8-r, iso-8859-5).\n";
-                PrinterDiagnosticText.Text += "   Для каждой меняйте таблицу ESC t: Авто, 46, 17, 0, 53, 26.\n";
-                PrinterDiagnosticText.Text += "5) Убедитесь, что кабель подключён, а порт правильно указан в Windows.\n";
-
-                // Предлагаем применить wpc1251 как самый частый вариант
-                _recommendedEncoding = "wpc1251";
-                _recommendedEscTable = "46";
-                ApplyRecommendedPrinterSettingsButton.Visibility = Visibility.Visible;
-            }
-        }
-
-        private void TestCyrillic_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
-                if (string.IsNullOrWhiteSpace(cfg.DevicePath))
-                {
-                    MessageBox.Show("Не указан порт принтера.\nЗайдите в настройки и укажите порт (например, LPT1).",
-                        "Принтер", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                // Тестовый текст (как в вашем примере, только без прямой работы с портом)
-                string testText = string.Join("\n",
-                    new[]
-                    {
-                new string('=', ReceiptLayout.CharWidth),
-                "        NUR MARKET KASSA        ",
-                new string('=', ReceiptLayout.CharWidth),
-                "Проверка печати кириллицы!",
-                "Тест русского языка прошел успешно.",
-                "Работает без прошивки через 46!",
-                "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ",
-                "абвгдежзийклмнопрстуфхцчшщъыьэюя",
-                new string('=', ReceiptLayout.CharWidth),
-                ""
-                    });
-
-                // Создаём копию настроек вручную (метода Clone нет)
-                var cfgCopy = new ReceiptPrinterSettings
-                {
-                    DevicePath = cfg.DevicePath,
-                    TextEncoding = "windows-1251",   // <--- принудительно кириллица
-                    Enabled = cfg.Enabled,
-                    EscPosTableByte = cfg.EscPosTableByte,
-                    EscRByte = cfg.EscRByte,
-                    RetryCount = cfg.RetryCount
-                };
-
-                EscPosTextReceiptPrinter.Print(cfgCopy, testText);
-                MessageBox.Show("Пробный чек отправлен на принтер.", "Успех",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Ошибка печати:\n\n" + ex.Message, "Принтер",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void ApplyRecommendedPrinterSettings_Click(object sender, RoutedEventArgs e)
-        {
-            if (_recommendedEncoding != null)
-            {
-                SelectComboByTag(ReceiptEncCombo, _recommendedEncoding);
-            }
-            if (_recommendedEscTable != null)
-            {
-                foreach (ComboBoxItem item in ReceiptTableCombo.Items)
-                {
-                    if (item?.Tag?.ToString() == _recommendedEscTable)
-                    {
-                        ReceiptTableCombo.SelectedItem = item;
-                        break;
-                    }
-                }
-            }
-
-            PrinterDiagnosticText.Text += "\n✅ Рекомендованные настройки установлены. Нажмите «Тест печати» для проверки.\n" +
-                "Если текст читается правильно, нажмите «Сохранить» внизу окна.";
-        }
 
         private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
         {
@@ -331,15 +334,15 @@ namespace NurMarketKassa.Views
 
             try
             {
-                var manifest = await _updateService.CheckAsync();
-                if (manifest == null)
+                var update = await UpdateService.CheckForUpdateAsync();
+                if (update == null)
                 {
                     UpdateStatusText.Text = "Обновлений нет или не удалось проверить.";
                     return;
                 }
 
-                if (MessageBox.Show(
-                        $"Доступна новая версия: {manifest.LatestVersion}\nСкачать и установить обновление?",
+                if (PosMessageBox.Show(
+                        $"Доступна новая версия: {update.Version}\nСкачать и установить обновление?",
                         "Обновление",
                         MessageBoxButton.YesNo,
                         MessageBoxImage.Question) == MessageBoxResult.Yes)
@@ -354,13 +357,12 @@ namespace NurMarketKassa.Views
                         });
                     });
 
-                    bool success = await _updateService.DownloadAndRunAsync(manifest.DownloadUrl, progress);
+                    bool success = await UpdateService.DownloadAndInstallAsync(update, progress);
                     if (success)
                     {
-                        MessageBox.Show("Обновление загружено. Приложение будет перезапущено.", "Успех",
+                        PosMessageBox.Show("Обновление загружено. Приложение будет перезапущено.", "Успех",
                             MessageBoxButton.OK, MessageBoxImage.Information);
-                        await Task.Delay(500);
-                        Environment.Exit(0);
+                        Application.Current.Shutdown();
                     }
                     else
                     {
@@ -401,6 +403,35 @@ namespace NurMarketKassa.Views
             if (box.Items.Count > 0) box.SelectedIndex = 0;
         }
 
+        private void SelectGraphicFontSizeCombo(float fontSize)
+        {
+            foreach (ComboBoxItem item in GraphicFontSizeCombo.Items)
+            {
+                if (item.Tag != null
+                    && float.TryParse(item.Tag.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out float val)
+                    && Math.Abs(val - fontSize) < 0.01f)
+                {
+                    GraphicFontSizeCombo.SelectedItem = item;
+                    return;
+                }
+            }
+
+            GraphicFontSizeCombo.SelectedIndex = 2;
+        }
+
+        private float ReadGraphicFontSizeFromUi()
+        {
+            if (GraphicFontSizeCombo.SelectedItem is ComboBoxItem sizeItem
+                && sizeItem.Tag != null
+                && float.TryParse(sizeItem.Tag.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out float size)
+                && size > 0)
+            {
+                return size;
+            }
+
+            return TestReceiptLineBuilder.DefaultFontSizePt;
+        }
+
         private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
         private void Save_Click(object sender, RoutedEventArgs e)
@@ -408,7 +439,7 @@ namespace NurMarketKassa.Views
             var prefs = UserPreferences.Instance;
 
             prefs.ScaleEnabled = ScaleEnabledCheck.IsChecked == true;
-            prefs.ScaleComPort = HardwarePortHelper.NormalizeComPort(ScaleComCombo.Text);
+            prefs.ScaleComPort = GetSelectedScaleComPort();
             int.TryParse(ScaleBaudBox.Text.Trim(), out int baud);
             prefs.ScaleBaudRate = baud > 0 ? baud : 9600;
             prefs.ScaleRequestHex = string.IsNullOrWhiteSpace(ScaleHexBox.Text) ? null : ScaleHexBox.Text.Trim();
@@ -417,6 +448,8 @@ namespace NurMarketKassa.Views
 
             prefs.ReceiptEnabled = ReceiptEnabledCheck.IsChecked == true;
             prefs.ReceiptDevicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
+            prefs.ReceiptPaperWidthMm = ReadPaperWidthMmFromUi(ReceiptPaperWidthCombo);
+            prefs.GraphicPaperWidthPixels = ReceiptPaperProfile.GetRasterWidthPixels(prefs.ReceiptPaperWidthMm);
             prefs.ReceiptEncoding = (ReceiptEncCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "wpc1251";
 
             prefs.ReceiptEscPosTable = null;
@@ -436,7 +469,7 @@ namespace NurMarketKassa.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Настройки кассы", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                PosMessageBox.Show(ex.Message, "Настройки кассы", MessageBoxButton.OK, MessageBoxImage.Exclamation);
                 return;
             }
 
@@ -446,10 +479,186 @@ namespace NurMarketKassa.Views
             prefs.SaveToDisk();
             AutostartHelper.SyncFromPreference(prefs.Autostart);
 
+            // Сохранение элементов чека
+            prefs.ShowStoreName = ShowStoreNameCheck.IsChecked == true;
+            prefs.ShowAddress = ShowAddressCheck.IsChecked == true;
+            prefs.ShowReceiptNumber = ShowReceiptNumberCheck.IsChecked == true;
+            prefs.ShowDate = ShowDateCheck.IsChecked == true;
+            prefs.ShowItems = ShowItemsCheck.IsChecked == true;
+            prefs.ShowTotal = ShowTotalCheck.IsChecked == true;
+            prefs.ShowQrCode = ShowQrCodeCheck.IsChecked == true;
+
+            // Сохранение названия магазина
+            prefs.StoreName = StoreNameBox.Text.Trim();
+            if (string.IsNullOrEmpty(prefs.StoreName))
+                prefs.StoreName = "MARKET PLUS";
+            prefs.StoreAddress = StoreAddressBox.Text.Trim();
+            prefs.ShowInn = ShowInnCheck.IsChecked == true;
+
             if (Owner is MainWindow mainWindow)
                 mainWindow.ApplyHardwareAndUiPreferences();
 
+            // === Сохранение графических настроек ===
+            prefs.GraphicReceiptEnabled = GraphicReceiptEnabledCheck.IsChecked == true;
+
+            // Сохранение размера шрифта
+            prefs.GraphicFontSize = ReadGraphicFontSizeFromUi();
+
+            // Сохранение выбранного режима печати
+            if (TextModeRadio.IsChecked == true)
+                prefs.SelectedPrintMode = PrintMode.Text;
+            else if (GraphicModeRadio.IsChecked == true)
+                prefs.SelectedPrintMode = PrintMode.Graphic;
+
+            // Ширина бумаги синхронизируется с комбобоксом «Ширина ленты»
+            prefs.GraphicPaperWidthPixels = ReceiptPaperProfile.GetRasterWidthPixels(prefs.ReceiptPaperWidthMm);
+
+            // Шрифт
+            var fontItem = GraphicFontCombo.SelectedItem as ComboBoxItem;
+            prefs.GraphicFontFamily = fontItem?.Tag?.ToString() ?? "Consolas";
+            // QrCodePath сохраняется отдельно в LoadGraphicQrCode_Click
+
             DialogResult = true;
+        }
+
+        // --- Обработчики графического чека ---
+
+        private void LoadGraphicQrCode_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp",
+                Title = "Выберите QR-код (сохранится для будущего)"
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                var prefs = UserPreferences.Instance;
+                prefs.QrCodePath = dlg.FileName;
+                prefs.SaveToDisk();
+                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {System.IO.Path.GetFileName(dlg.FileName)}";
+            }
+        }
+
+        private void DeleteGraphicQrCode_Click(object sender, RoutedEventArgs e)
+        {
+            var prefs = UserPreferences.Instance;
+            prefs.QrCodePath = "";
+            prefs.SaveToDisk();
+            GraphicQrStatusText.Text = "QR-код не загружен";
+        }
+
+        private void TestGraphicPrint_Click(object sender, RoutedEventArgs e)
+        {
+            if (!GraphicReceiptEnabledCheck.IsChecked == true)
+            {
+                StatusText.Text = "❌ Графический чек выключен. Включите его в настройках (чекбокс «Включить графический чек»).";
+                return;
+            }
+
+            if (GraphicModeRadio.IsChecked != true)
+            {
+                StatusText.Text = "❌ Сейчас выбран текстовый режим. Переключите на графический в настройках.";
+                return;
+            }
+
+            try
+            {
+                var devicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
+                var settings = BuildGraphicSettingsFromUi(devicePath);
+                var storeName = StoreNameBox.Text;
+                var tempPdfPath = Path.Combine(Path.GetTempPath(), $"test_graphic_{Guid.NewGuid():N}.pdf");
+
+                ReceiptPdfPreviewService.GenerateGraphicReceiptPdf(tempPdfPath, settings, storeName);
+
+                var dialog = new ReceiptPreviewDialog("Предпросмотр: Графический чек", tempPdfPath) { Owner = this };
+                dialog.ShowDialog();
+                StatusText.Text = "Предпросмотр графического чека готов. Для физической печати нажмите «Печать в сам порт».";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"❌ Ошибка: {ex.Message}";
+            }
+        }
+
+        private void TestTextPrint_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var cfg = BuildReceiptSettingsFromUi();
+                var contentSettings = BuildGraphicSettingsFromUi(cfg.DevicePath);
+                var storeName = StoreNameBox.Text;
+                var encoding = (ReceiptEncCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "wpc1251";
+                int? escTable = null;
+                if (ReceiptTableCombo.SelectedItem is ComboBoxItem tableItem
+                    && int.TryParse(tableItem.Tag?.ToString(), out int tableByte))
+                {
+                    escTable = tableByte;
+                }
+
+                var testText = ReceiptPdfPreviewService.BuildTextTestReceipt(contentSettings, storeName);
+                var tempPdfPath = Path.Combine(Path.GetTempPath(), $"test_pos_{Guid.NewGuid():N}.pdf");
+
+                ReceiptPdfPreviewService.GenerateTextReceiptPdf(tempPdfPath, testText, encoding, escTable);
+
+                var dialog = new ReceiptPreviewDialog("Предпросмотр: Текстовый чек (ESC/POS)", tempPdfPath) { Owner = this };
+                dialog.ShowDialog();
+                StatusText.Text = "Предпросмотр текстового чека готов. Для физической печати нажмите «Печать в сам порт».";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"❌ Ошибка текстовой печати: {ex.Message}";
+            }
+        }
+
+        private ReceiptPrinterSettings BuildReceiptSettingsFromUi()
+        {
+            int? tableByte = null;
+            if (ReceiptTableCombo.SelectedItem is ComboBoxItem tableItem
+                && int.TryParse(tableItem.Tag?.ToString(), out int parsedTable))
+            {
+                tableByte = parsedTable;
+            }
+
+            int? escR = int.TryParse(ReceiptEscRBox.Text.Trim(), out int parsedEscR) ? parsedEscR : null;
+            int.TryParse(ReceiptRetryBox.Text.Trim(), out int retry);
+
+            return new ReceiptPrinterSettings
+            {
+                Enabled = ReceiptEnabledCheck.IsChecked == true,
+                DevicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text),
+                TextEncoding = (ReceiptEncCombo.SelectedItem as ComboBoxItem)?.Tag as string ?? "wpc1251",
+                EscPosTableByte = tableByte,
+                EscRByte = escR,
+                RetryCount = retry >= 1 ? retry : 3,
+            };
+        }
+
+        private GraphicReceiptSettings BuildGraphicSettingsFromUi(string devicePath)
+        {
+            var prefs = UserPreferences.Instance;
+            var paperMm = ReadPaperWidthMmFromUi(ReceiptPaperWidthCombo);
+            var paperWidth = ReceiptPaperProfile.GetRasterWidthPixels(paperMm);
+
+            return new GraphicReceiptSettings
+            {
+                PaperWidthPixels = paperWidth,
+                FontFamily = (GraphicFontCombo.SelectedItem as ComboBoxItem)?.Tag?.ToString()
+                             ?? TestReceiptLineBuilder.FontFamily,
+                FontSize = TestReceiptLineBuilder.ResolveFontSize(ReadGraphicFontSizeFromUi()),
+                DevicePath = devicePath,
+                ShowStoreName = ShowStoreNameCheck.IsChecked == true,
+                ShowAddress = ShowAddressCheck.IsChecked == true,
+                ShowInn = ShowInnCheck.IsChecked == true,
+                ShowReceiptNumber = ShowReceiptNumberCheck.IsChecked == true,
+                ShowDate = ShowDateCheck.IsChecked == true,
+                ShowItems = ShowItemsCheck.IsChecked == true,
+                ShowTotal = ShowTotalCheck.IsChecked == true,
+                ShowQrCode = ShowQrCodeCheck.IsChecked == true,
+                QrCodePath = prefs.QrCodePath,
+                StoreAddress = StoreAddressBox.Text.Trim(),
+                StoreInn = UserPreferences.Instance.StoreInn,
+                GraphicPrintMode = GraphicModeRadio.IsChecked == true,
+            };
         }
 
         private void CheckPrinter_Click(object sender, RoutedEventArgs e)
@@ -477,6 +686,54 @@ namespace NurMarketKassa.Views
             }
         }
 
+        private void ScaleComCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+            RefreshScalePortStatus();
+
+        private void SelectScaleComPort(string? savedPort)
+        {
+            var port = HardwarePortHelper.NormalizeComPort(savedPort, "");
+            if (string.IsNullOrWhiteSpace(port))
+                return;
+
+            foreach (var item in ScaleComCombo.Items)
+            {
+                if (item is string existing
+                    && string.Equals(existing, port, StringComparison.OrdinalIgnoreCase))
+                {
+                    ScaleComCombo.SelectedItem = existing;
+                    return;
+                }
+            }
+
+            ScaleComCombo.Items.Add(port);
+            ScaleComCombo.SelectedItem = port;
+        }
+
+        private string GetSelectedScaleComPort()
+        {
+            if (ScaleComCombo.SelectedItem is string selected && !string.IsNullOrWhiteSpace(selected))
+                return HardwarePortHelper.NormalizeComPort(selected);
+
+            return HardwarePortHelper.NormalizeComPort(ScaleComCombo.Text);
+        }
+
+        private void RefreshScalePortStatus()
+        {
+            if (StatusScalePortText == null)
+                return;
+
+            var port = GetSelectedScaleComPort();
+            var probe = ScaleReaderService.ProbePort(port);
+            StatusScalePortText.Text = probe.Message;
+            StatusScalePortText.Foreground = probe.State switch
+            {
+                ScaleReaderService.ScalePortState.Available => new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A)),
+                ScaleReaderService.ScalePortState.Busy => new SolidColorBrush(Color.FromRgb(0xEA, 0x58, 0x0C)),
+                ScaleReaderService.ScalePortState.NotSpecified => new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80)),
+                _ => new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26)),
+            };
+        }
+
         private void CheckScale_Click(object sender, RoutedEventArgs e)
         {
             var prefs = UserPreferences.Instance;
@@ -501,6 +758,18 @@ namespace NurMarketKassa.Views
             {
                 ShowAlert("ScaleAlert", "ScaleAlertText", "Ошибка весов: " + ex.Message, true);
             }
+            finally
+            {
+                RefreshScalePortStatus();
+            }
+        }
+
+        private void RefreshCatalogDiagnostics()
+        {
+            if (CatalogDiagnosticsText == null)
+                return;
+
+            CatalogDiagnosticsText.Text = CashierStatusLineBuilder.FormatCatalogDiagnostics();
         }
 
         private void ShowAlert(string borderName, string textBlockName, string message, bool isError)

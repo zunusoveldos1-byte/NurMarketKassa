@@ -1,0 +1,34 @@
+<dialogs:PosDialogWindowBase x:Class="NurMarketKassa.Views.Dialogs.PaymentConfirmationDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="clr-namespace:NurMarketKassa.Views.Dialogs"
+        Title="Подтверждение">
+    <Grid x:Name="RootGrid" Opacity="1">
+        <Border Background="#66000000" />
+        <Border x:Name="DialogCard" Style="{StaticResource PosDialogCardBorder}">
+            <StackPanel>
+                <TextBlock Text="Подтверждение" Style="{StaticResource PosDialogTitleText}" />
+                <TextBlock Text="Подтвердить оплату?"
+                           Style="{StaticResource PosDialogMessageText}" />
+                <Grid Style="{StaticResource PosDialogTwoButtonRow}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Content="Нет"
+                            Style="{StaticResource PosDialogSecondaryButton}"
+                            IsCancel="True"
+                            Click="NoButton_Click" />
+                    <Button Grid.Column="2"
+                            x:Name="ConfirmButton"
+                            Content="Подтвердить"
+                            Style="{StaticResource PosDialogPrimaryButton}"
+                            IsDefault="True"
+                            Click="YesButton_Click" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</dialogs:PosDialogWindowBase>

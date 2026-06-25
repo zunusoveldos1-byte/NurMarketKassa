@@ -1,69 +1,15 @@
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-
 namespace NurMarketKassa.Services;
 
 public static class OfflinePendingSalesStore
 {
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-    private static readonly object SyncRoot = new();
-    private static List<OfflineSaleEntry>? _cache;
+    public static List<OfflineSaleEntry> LoadAll() => OfflineDatabase.LoadAll();
 
-    private static string FilePath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "NurMarketKassa",
-            "offline_sales_pending.json");
-
-    public static List<OfflineSaleEntry> LoadAll()
-    {
-        lock (SyncRoot)
-        {
-            if (_cache != null)
-                return Clone(_cache);
-
-            try
-            {
-                if (!File.Exists(FilePath))
-                {
-                    _cache = new List<OfflineSaleEntry>();
-                    return new List<OfflineSaleEntry>();
-                }
-
-                _cache = JsonSerializer.Deserialize<List<OfflineSaleEntry>>(File.ReadAllText(FilePath), JsonOpts)
-                         ?? new List<OfflineSaleEntry>();
-                return Clone(_cache);
-            }
-            catch
-            {
-                _cache = new List<OfflineSaleEntry>();
-                return new List<OfflineSaleEntry>();
-            }
-        }
-    }
-
-    public static void SaveAll(List<OfflineSaleEntry> items)
-    {
-        lock (SyncRoot)
-        {
-            var dir = Path.GetDirectoryName(FilePath);
-            if (!string.IsNullOrEmpty(dir))
-                Directory.CreateDirectory(dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(items, JsonOpts));
-            _cache = Clone(items);
-        }
-    }
+    public static void SaveAll(List<OfflineSaleEntry> items) => OfflineDatabase.SaveAll(items);
 
     public static void Append(OfflineSaleEntry entry)
     {
-        var all = LoadAll();
-        all.Add(entry);
-        SaveAll(all);
+        OfflineDatabase.Append(entry);
+        PosLogger.Log($"OFFLINE queue append: id={entry.Id}, receipt={entry.CreatedAt:yyyyMMdd-HHmmss}", "OFFLINE");
     }
 
     public static int PendingCount => LoadAll().Count(IsPendingLike);
@@ -85,12 +31,11 @@ public static class OfflinePendingSalesStore
 
     public static void Update(string id, Action<OfflineSaleEntry> update)
     {
-        var all = LoadAll();
-        var entry = all.FirstOrDefault(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
+        var entry = TryGetById(id);
         if (entry == null)
             return;
         update(entry);
-        SaveAll(all);
+        OfflineDatabase.UpdateEntry(entry);
     }
 
     public static void MarkSyncing(string id)
@@ -126,26 +71,9 @@ public static class OfflinePendingSalesStore
         });
     }
 
+    public static void RemoveSynced(string id) => OfflineDatabase.RemoveIds(new[] { id });
+
     private static bool IsPendingLike(OfflineSaleEntry sale) =>
         string.Equals(sale.Status, OfflineSaleEntry.PendingSync, StringComparison.OrdinalIgnoreCase)
         || string.Equals(sale.Status, OfflineSaleEntry.Syncing, StringComparison.OrdinalIgnoreCase);
-
-    private static List<OfflineSaleEntry> Clone(List<OfflineSaleEntry> items) =>
-        items.Select(x => new OfflineSaleEntry
-        {
-            Id = x.Id,
-            CreatedAt = x.CreatedAt,
-            Status = x.Status,
-            PaymentMethod = x.PaymentMethod,
-            CashReceived = x.CashReceived,
-            CartId = x.CartId,
-            ShiftId = x.ShiftId,
-            BranchId = x.BranchId,
-            CashboxId = x.CashboxId,
-            CartJson = x.CartJson,
-            LastAttemptAt = x.LastAttemptAt,
-            SyncedAt = x.SyncedAt,
-            LastError = x.LastError,
-            SyncedSaleId = x.SyncedSaleId,
-        }).ToList();
 }
