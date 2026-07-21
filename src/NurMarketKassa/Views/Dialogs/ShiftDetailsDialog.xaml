@@ -1,0 +1,80 @@
+<dialogs:AppOverlayDialogBase x:Class="NurMarketKassa.Views.Dialogs.ShiftDetailsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="clr-namespace:NurMarketKassa.Views.Dialogs"
+        Title="Просмотр смены">
+
+    <dialogs:AppOverlayDialogBase.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Views/Dialogs/NurMarketDialogTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </dialogs:AppOverlayDialogBase.Resources>
+
+    <Grid x:Name="RootGrid" Opacity="0">
+        <Border Background="#59000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+        <Border x:Name="DialogCard" Style="{StaticResource NurDialogCard}" Width="560"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource NurDialogHeader}">
+                    <Grid>
+                        <TextBlock Text="Просмотр смены" Style="{StaticResource NurDialogTitleText}"/>
+                        <Button Content="&#xE8BB;" Style="{StaticResource NurDialogChromeButton}"
+                                HorizontalAlignment="Right" Click="Close_Click"/>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1" Margin="24,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource NurDialogInnerCard}">
+                        <StackPanel>
+                            <TextBlock Text="Смена" FontWeight="SemiBold" Foreground="#1F2937" Margin="0,0,0,12"/>
+                            <TextBlock Text="Номер смены" Style="{StaticResource NurDialogFieldLabel}"/>
+                            <TextBlock x:Name="ShiftNumberText" Style="{StaticResource NurDialogValueText}" Margin="0,0,0,10"/>
+                            <TextBlock Text="Открыта" Style="{StaticResource NurDialogFieldLabel}"/>
+                            <TextBlock x:Name="OpenedAtText" Margin="0,0,0,10"/>
+                            <TextBlock Text="Закрыта" Style="{StaticResource NurDialogFieldLabel}"/>
+                            <TextBlock x:Name="ClosedAtText" Margin="0,0,0,10"/>
+                            <TextBlock Text="Кассир" Style="{StaticResource NurDialogFieldLabel}"/>
+                            <TextBlock x:Name="CashierText"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource NurDialogInnerCard}">
+                        <StackPanel>
+                            <TextBlock Text="Итоги" FontWeight="SemiBold" Foreground="#1F2937" Margin="0,0,0,12"/>
+                            <TextBlock Text="Статус" Style="{StaticResource NurDialogFieldLabel}"/>
+                            <Border x:Name="StatusBadge" Height="24" CornerRadius="12" Padding="10,0"
+                                    HorizontalAlignment="Left" Margin="0,0,0,16">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse x:Name="StatusDot" Width="8" Height="8" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Выручка за смену" Style="{StaticResource NurDialogFieldLabel}"/>
+                            <TextBlock x:Name="RevenueText" FontSize="28" FontWeight="Bold" Foreground="#1F2937"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Grid.Row="2" Style="{StaticResource NurDialogFooter}">
+                    <Button Content="Закрыть" Style="{StaticResource NurDialogSecondaryButton}" Padding="24,0"
+                            MinWidth="110" HorizontalAlignment="Right" Click="Close_Click"/>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</dialogs:AppOverlayDialogBase>

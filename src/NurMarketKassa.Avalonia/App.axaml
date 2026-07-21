@@ -1,0 +1,24 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+             x:Class="NurMarketKassa.AvaloniaHost.App"
+             RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <conv:BoolToIsVisibleConverter x:Key="BoolToVis"/>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppThemeDark.axaml"/>
+        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/KeyboardIcons.axaml"/>
+        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/PosDialogTheme.axaml"/>
+        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/NurMarketDialogTheme.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppControlStyles.axaml"/>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/PosDialogStyles.axaml"/>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/ShiftHistoryResources.axaml"/>
+  </Application.Styles>
+</Application>

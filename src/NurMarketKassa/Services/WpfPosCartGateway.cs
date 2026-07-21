@@ -46,7 +46,7 @@ public sealed class WpfPosCartGateway : IPosCartGateway
 
 
 
-        if (OfflineModeHelper.UseLocalOperations)
+        if (OfflineModeHelper.CanOperateWithoutServer)
 
         {
 
@@ -70,7 +70,7 @@ public sealed class WpfPosCartGateway : IPosCartGateway
 
     {
 
-        if (OfflineModeHelper.UseLocalOperations)
+        if (OfflineModeHelper.CanOperateWithoutServer)
 
             return ScanBarcodeOfflineAsync(barcode, quantity);
 
@@ -90,7 +90,7 @@ public sealed class WpfPosCartGateway : IPosCartGateway
 
     {
 
-        if (OfflineModeHelper.UseLocalOperations)
+        if (OfflineModeHelper.CanOperateWithoutServer)
 
             return AddProductOfflineAsync(productId, quantity);
 
@@ -325,7 +325,7 @@ public sealed class WpfPosCartGateway : IPosCartGateway
 
 
 
-        if (OfflineModeHelper.UseLocalOperations)
+        if (OfflineModeHelper.CanOperateWithoutServer)
 
             return App.PosCashboxId ?? "offline-cashbox";
 

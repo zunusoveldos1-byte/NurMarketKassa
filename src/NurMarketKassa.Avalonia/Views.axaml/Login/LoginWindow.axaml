@@ -1,0 +1,451 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.LoginWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Вход — Nur Market"
+     
+    Height="720"
+    Width="1080"
+    MinHeight="640"
+    MinWidth="820"
+    WindowStartupLocation="CenterScreen"
+    CanResize="False"
+    FontFamily="Segoe UI"
+    Background="#EFF3F8">
+
+    <Window.Resources>
+        <!-- Цветовые кисти -->
+        <SolidColorBrush x:Key="LoginCardBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="LoginTextBrush" Color="#0F172A" />
+        <SolidColorBrush x:Key="LoginTextSoftBrush" Color="#64748B" />
+        <SolidColorBrush x:Key="LoginBorderBrush" Color="#CBD5E1" />
+        <SolidColorBrush x:Key="LoginFocusBrush" Color="#F7D617" />
+        <SolidColorBrush x:Key="LoginLinkBrush" Color="#2563EB" />
+        <SolidColorBrush x:Key="LoginAccentBrush" Color="#F7D617" />
+        <SolidColorBrush x:Key="LoginAccentSoftBrush" Color="#FFF7C2" />
+        <SolidColorBrush x:Key="LoginDangerBrush" Color="#DC2626" />
+        <SolidColorBrush x:Key="LoginDangerSoftBrush" Color="#FEF2F2" />
+
+        <!-- Тень карточек -->
+        <!-- Стили для полей ввода -->
+        <Style Selector="Border.LoginFluentField" x:Key="LoginFluentField">
+            <Setter Property="Height" Value="52" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BorderBrush" Value="{StaticResource LoginBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Background" Value="#FFFFFF" />
+        </Style>
+
+        <Style Selector="TextBox.LoginFluentTextBox" x:Key="LoginFluentTextBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource LoginTextBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="CaretBrush" Value="{StaticResource LoginTextBrush}" />
+        </Style>
+
+        <Style Selector="TextBox.LoginFluentPasswordBox" x:Key="LoginFluentPasswordBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource LoginTextBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!-- Стиль для основной кнопки Вход -->
+        <Style Selector="Button.LoginPrimaryButton" x:Key="LoginPrimaryButton">
+            <Setter Property="Background" Value="{StaticResource LoginAccentBrush}" />
+            <Setter Property="Foreground" Value="#111827" />
+            <Setter Property="BorderBrush" Value="#D6B500" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="16,14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="btnBorder" 
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="12" 
+                            Padding="{TemplateBinding Padding}"
+                            RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1" ScaleY="1" />
+                            </Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Стиль для кнопки Выход -->
+        <Style Selector="Button.LoginDangerButton" x:Key="LoginDangerButton">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="{StaticResource LoginDangerBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LoginDangerBrush}" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="16,14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="btnBorderDanger" 
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="12" 
+                            Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="CheckBox.ToggleSwitch" x:Key="ToggleSwitch">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid Background="Transparent">
+                            <!-- Чтобы клик срабатывал и между элементами -->
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Трек тумблера (пилюля) -->
+                            <Border x:Name="track" Width="46" Height="26" CornerRadius="13"
+                            Background="{DynamicResource BrushInputAlt}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1"
+                            Margin="0,0,10,0"
+                            VerticalAlignment="Center"/>
+
+                            <!-- Бегунок (всегда белый, как на изображение.png) -->
+                            <Ellipse x:Name="dot" Width="20" Height="20"
+                             Fill="White"
+                             HorizontalAlignment="Left" 
+                             VerticalAlignment="Center" 
+                             Margin="3,0,0,0"/>
+
+                            <ContentPresenter Grid.Column="1" 
+                                      VerticalAlignment="Center" 
+                                      Margin="4,0,0,0"/>
+                        </Grid>
+
+                        
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="TextBlock.LoginFieldLabel" x:Key="LoginFieldLabel">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource LoginTextSoftBrush}" />
+            <Setter Property="Margin" Value="2,0,0,6" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+
+        <!-- Основной контейнер -->
+        <Grid x:Name="MainLayout" Margin="28">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.4*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="0.6*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ЛЕВАЯ ПАНЕЛЬ -->
+            <Border Grid.Column="0" CornerRadius="18"
+                BorderBrush="#E2E8F0" BorderThickness="1" ClipToBounds="True">
+
+                <!-- ФОН ЧЕРЕЗ ImageBrush -->
+                <Border.Background>
+                    <ImageBrush Source="avares://NurMarketKassa.Avalonia/Assets/Login1.png"
+                            Stretch="UniformToFill" />
+                </Border.Background>
+
+                <Grid Margin="28,22,28,22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- StackPanel выровнен по центру -->
+                    <StackPanel Grid.Row="0" HorizontalAlignment="Center">
+
+                        <!-- ЛОГОТИП (Закругление через RectangleGeometry, на 5) -->
+                        <Grid Width="72" Height="72" Margin="0,45,0,0" HorizontalAlignment="Center">
+                            <Grid.Clip>
+                                <RectangleGeometry Rect="0,0,72,72" RadiusX="5" RadiusY="5" />
+                            </Grid.Clip>
+                            <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png"
+                               Stretch="UniformToFill" />
+                        </Grid>
+
+                        <!-- Заголовки -->
+                        <TextBlock Text="Nur Market" Margin="0,16,0,0"
+                               FontSize="28" FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               Foreground="{StaticResource LoginTextBrush}" />
+
+                        <TextBlock Text="Кассовая система для розничной торговли" 
+                               Margin="0,8,0,0" 
+                               FontSize="13"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               Foreground="{StaticResource LoginTextSoftBrush}" 
+                               TextWrapping="Wrap" />
+
+                        <!-- Плашка безопасности -->
+                        <Border Margin="0,26,0,0" Padding="14,12" CornerRadius="12"
+                            Background="#FAFBFC" Opacity="0.9"
+                            BorderBrush="#E2E8F0" BorderThickness="1"
+                            HorizontalAlignment="Stretch">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="38" Height="38" CornerRadius="8"
+                                    Background="{StaticResource LoginAccentSoftBrush}"
+                                    VerticalAlignment="Top">
+                                    <TextBlock Text="&#xEA18;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="18" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" Foreground="#B8860B" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                    <TextBlock Text="Безопасный вход в рабочую смену"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{StaticResource LoginTextBrush}" />
+                                    <TextBlock Text="Данные синхронизируются с облаком и локальной базой аудита."
+                                           Margin="0,3,0,0" FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{StaticResource LoginTextSoftBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ПРАВАЯ ПАНЕЛЬ -->
+            <Border Grid.Column="2" CornerRadius="18"
+            Background="{StaticResource LoginCardBrush}"
+            BorderBrush="#E2E8F0" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+
+                    <!-- Форма входа -->
+                    <StackPanel Grid.Row="0" VerticalAlignment="Center" MaxWidth="380"
+                    Margin="48,22,48,16">
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                            <Border Width="44" Height="44" CornerRadius="12"
+                            Background="{StaticResource LoginAccentBrush}"
+                            Margin="0,0,14,0">
+                                <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets"
+                                FontSize="20" HorizontalAlignment="Center"
+                                VerticalAlignment="Center" Foreground="#111827" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Вход в кассу" FontSize="26" FontWeight="Bold"
+                                Foreground="{StaticResource LoginTextBrush}" />
+                                <TextBlock Text="Email и пароль от Nur CRM"
+                                Margin="0,2,0,0" FontSize="13"
+                                Foreground="{StaticResource LoginTextSoftBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Email -->
+                        <TextBlock Text="Email" Classes="LoginFieldLabel" />
+                        <Border x:Name="EmailFieldBorder" Classes="LoginFluentField"
+                            Margin="0,0,0,16">
+                            <Grid Margin="14,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="269*" />
+                                    <ColumnDefinition Width="51*"/>
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="&#xE715;" FontFamily="Segoe MDL2 Assets"
+                                FontSize="16" VerticalAlignment="Center"
+                                Foreground="{StaticResource LoginTextSoftBrush}" Margin="0,4,12,0" />
+                                <TextBox x:Name="EmailBox" Grid.Column="1"
+                                 Classes="LoginFluentTextBox"
+                                 GotFocus="FluentField_GotFocus"
+                                 LostFocus="FluentField_LostFocus"
+                                 TextChanged="EmailBox_TextChanged"
+                                 KeyDown="EmailBox_KeyDown" Grid.ColumnSpan="3" />
+                                <!-- Увеличенная галочка -->
+                                <TextBlock x:Name="EmailValidIcon" Grid.Column="3"
+                                   Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="24" VerticalAlignment="Center"
+                                   Foreground="#059669" IsVisible="False" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Пароль -->
+                        <TextBlock Text="Пароль" Classes="LoginFieldLabel" />
+                        <Border x:Name="PasswordFieldBorder" Classes="LoginFluentField"
+                            Margin="0,0,0,8">
+                            <Grid Margin="14,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="16" VerticalAlignment="Center"
+                                   Foreground="{StaticResource LoginTextSoftBrush}" Margin="0,0,12,0" />
+                                <TextBox x:Name="PasswordBox" Grid.Column="1"
+                                Classes="LoginFluentPasswordBox"
+                                GotFocus="FluentField_GotFocus"
+                                LostFocus="FluentField_LostFocus"
+                                TextChanged="PasswordBox_PasswordChanged"
+                                KeyDown="PasswordBox_KeyDown"
+                                PasswordChar="•" />
+                                <TextBox x:Name="VisiblePasswordBox" Grid.Column="1"
+                                Classes="LoginFluentTextBox"
+                                IsVisible="False"
+                                GotFocus="FluentField_GotFocus"
+                                LostFocus="FluentField_LostFocus"
+                                TextChanged="VisiblePasswordBox_TextChanged"
+                                KeyDown="VisiblePasswordBox_KeyDown" />
+                                <Button x:Name="TogglePasswordButton" Grid.Column="2"
+                                    Width="48" Height="48" Padding="0" Cursor="Hand"
+                                    Background="Transparent" 
+                                    BorderThickness="0"
+                                    Click="TogglePasswordButton_Click"
+                                    ToolTip.Tip="Показать пароль">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <TextBlock x:Name="TogglePasswordIcon" Text="&#xE7B3;"
+                                       FontFamily="Segoe MDL2 Assets" FontSize="28"
+                                       Foreground="#64748B"
+                                       Background="Transparent"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Text="Enter — войти" HorizontalAlignment="Right"
+                        Margin="0,8,0,8" FontSize="11"
+                        Foreground="{StaticResource LoginTextSoftBrush}" />
+
+                        <CheckBox x:Name="RememberMeCheckBox"
+                          Classes="ToggleSwitch"
+                          Content="Запомнить меня"
+                          Checked="RememberMeCheckBox_Changed"
+                          Unchecked="RememberMeCheckBox_Changed" />
+
+                        <TextBlock Text="{Binding ErrorMessage}" FontSize="13" FontWeight="SemiBold"
+                        Foreground="{StaticResource LoginDangerBrush}"
+                        Margin="0,0,0,8" MinHeight="20"
+                        TextWrapping="Wrap"
+                        IsVisible="{Binding HasError}" />
+
+                        <TextBlock Text="{Binding LoadingStatus}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource LoginTextSoftBrush}"
+                                   Margin="0,0,0,8"
+                                   MinHeight="20"
+                                   TextWrapping="Wrap"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   IsVisible="{Binding IsLoading}" />
+
+                        <ProgressBar Height="4"
+                                     Margin="0,0,0,12"
+                                     IsIndeterminate="True"
+                                     IsVisible="{Binding IsLoading}" />
+
+                        <Button x:Name="LoginButton" Margin="0,4,0,0"
+                        Classes="LoginPrimaryButton"
+                        Command="{Binding LoginCommand}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets"
+                                FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding LoginButtonText}" FontSize="15" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="ExitButton" Margin="0,10,0,0"
+                        Classes="LoginDangerButton"
+                        Click="ExitButton_Click">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets"
+                                FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="Выход" FontSize="15" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Футер "Нужна помощь?" (Увеличенный) -->
+                    <Border Grid.Row="1" Background="Transparent" Padding="16,14"
+                    CornerRadius="0,0,18,18" BorderBrush="#EEF2F7" BorderThickness="0,1,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <!-- Увеличенная иконка "?" -->
+                            <Border Width="32" Height="32" CornerRadius="16"
+                            Background="#F1F5F9" Margin="0,0,0,0">
+                                <TextBlock Text="?" FontSize="14" FontWeight="SemiBold"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Foreground="{StaticResource LoginTextSoftBrush}" />
+                            </Border>
+                            <!-- Увеличенный текст -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock FontSize="14" VerticalAlignment="Center"
+                                           Foreground="{StaticResource LoginTextSoftBrush}"
+                                           Text="Нужна помощь? Обратитесь к " />
+                                <Button Content="администратору"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        FontSize="14"
+                                        Cursor="Hand"
+                                        Foreground="{StaticResource LoginLinkBrush}"
+                                        ToolTip.Tip="Открыть окно поддержки"
+                                        Click="AdminSupport_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid x:Name="OverlayGrid" 
+              HorizontalAlignment="Stretch" 
+              VerticalAlignment="Stretch" 
+              IsHitTestVisible="False" 
+              Background="Transparent" />
+    </Grid>
+</Window>

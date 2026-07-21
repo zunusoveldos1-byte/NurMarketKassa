@@ -1,0 +1,73 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.ShiftsHistoryWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:NurMarketKassa.AvaloniaHost.Views"
+        Title="История смен"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        CanResize="True"
+        Background="{DynamicResource BrushWindow}"
+        FontFamily="Segoe UI">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{DynamicResource BrushPanel}"
+                BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1"
+                Padding="20,0" PointerPressed="Header_PointerPressed">
+            <Grid>
+                <TextBlock Text="История смен" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="—" Classes="ShiftWindowChromeButton"
+                            ToolTip.Tip="Свернуть" Command="{Binding MinimizeCommand}"/>
+                    <Button Content="✕" Classes="ShiftWindowChromeButton"
+                            ToolTip.Tip="Закрыть" Command="{Binding CloseCommand}" Margin="4,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="230"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="{DynamicResource BrushPanelSoft}"
+                    BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
+                <StackPanel Margin="0,12,0,0">
+                    <Button Command="{Binding ShowHistoryCommand}" Classes="ShiftSidebarButton"
+                            Background="{Binding IsHistoryPage, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📋" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="История смен" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding ShowSummaryCommand}" Classes="ShiftSidebarButton">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📊" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Общий план" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Column="1" Background="{DynamicResource BrushWindowAlt}">
+                <views:ShiftHistoryView IsVisible="{Binding IsHistoryPage}"/>
+                <views:ShiftSummaryView IsVisible="{Binding IsSummaryPage}"/>
+
+                <Border Background="#66000000" ZIndex="20"
+                        IsVisible="{Binding IsLoading}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="Загрузка..." Foreground="White" FontSize="18" Margin="0,0,0,12"/>
+                        <ProgressBar IsIndeterminate="True" MinWidth="200" Height="8"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
+using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.ViewModels;
 
@@ -23,6 +24,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     private readonly ILocalStockProvider _localStock;
     private readonly IStockCatalogUpdater _catalogUpdater;
     private readonly IUserPrompts _userPrompts;
+    private readonly IAppSession _session;
     private bool _isBusy;
     private string _writeOffProductName = "";
     private string? _writeOffProductId;
@@ -36,13 +38,15 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         IProductCatalogLookup catalog,
         ILocalStockProvider localStock,
         IStockCatalogUpdater catalogUpdater,
-        IUserPrompts userPrompts)
+        IUserPrompts userPrompts,
+        IAppSession session)
     {
         _inventoryService = inventoryService;
         _catalog = catalog;
         _localStock = localStock;
         _catalogUpdater = catalogUpdater;
         _userPrompts = userPrompts;
+        _session = session;
 
         CommitRevisionCommand = new AsyncRelayCommand(CommitRevisionAsync, () => !IsBusy && RevisionLines.Count > 0);
         WriteOffCommand = new AsyncRelayCommand(WriteOffAsync, CanWriteOff);
@@ -57,7 +61,6 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         {
             _isBusy = value;
             OnPropertyChanged();
-            CommandManager.InvalidateRequerySuggested();
         }
     }
 
@@ -76,7 +79,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     public double WriteOffQuantity
     {
         get => _writeOffQuantity;
-        set { _writeOffQuantity = value; OnPropertyChanged(); CommandManager.InvalidateRequerySuggested(); }
+        set { _writeOffQuantity = value; OnPropertyChanged(); }
     }
 
     public string WriteOffReason
@@ -150,7 +153,6 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         RevisionLines.Add(line);
         FocusedRevisionLine = line;
         RevisionLineAdded?.Invoke(line);
-        CommandManager.InvalidateRequerySuggested();
     }
 
     private void SelectWriteOffProduct(Core.Domain.CatalogProductInfo product, string barcode)
@@ -162,7 +164,6 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             WriteOffQuantity = 1;
 
         OnPropertyChanged(nameof(WriteOffProductName));
-        CommandManager.InvalidateRequerySuggested();
     }
 
     private async Task CommitRevisionAsync()
@@ -181,7 +182,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         IsBusy = true;
         try
         {
-            var userId = string.IsNullOrWhiteSpace(App.CurrentUserId) ? "cashier" : App.CurrentUserId;
+            var userId = string.IsNullOrWhiteSpace(_session.CurrentUserId) ? "cashier" : _session.CurrentUserId;
             var ok = await _inventoryService.CommitRevisionAsync(lines, userId).ConfigureAwait(true);
             if (!ok)
             {
@@ -222,7 +223,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         IsBusy = true;
         try
         {
-            var authorizedBy = string.IsNullOrWhiteSpace(App.CurrentUserId) ? "manager" : App.CurrentUserId;
+            var authorizedBy = string.IsNullOrWhiteSpace(_session.CurrentUserId) ? "manager" : _session.CurrentUserId;
             var ok = await _inventoryService.WriteOffProductAsync(
                 _writeOffProductId!,
                 WriteOffQuantity,
@@ -256,7 +257,6 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         WriteOffBarcode = "";
         WriteOffQuantity = 1;
         WriteOffReason = WriteOffReasons[0];
-        CommandManager.InvalidateRequerySuggested();
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>

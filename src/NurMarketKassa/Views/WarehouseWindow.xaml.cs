@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Interfaces;
 using NurMarketKassa.Models;
 using NurMarketKassa.ViewModels;
 

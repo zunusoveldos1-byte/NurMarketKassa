@@ -1,0 +1,87 @@
+<dialogs:AppOverlayDialogBase x:Class="NurMarketKassa.AvaloniaHost.Views.FilterWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
+        Title="Фильтр товаров"
+        FontFamily="Segoe UI">
+
+    <Grid x:Name="RootGrid" Opacity="0">
+        <Border Background="#59000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+        <Border x:Name="DialogCard" Classes="NurDialogCard" Width="480" MaxHeight="640"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Classes="NurDialogHeader">
+                    <Grid>
+                        <TextBlock Text="Фильтр товаров" Classes="NurDialogTitleText"/>
+                        <Button Content="&#xE8BB;" Classes="NurDialogChromeButton"
+                                HorizontalAlignment="Right" Click="Cancel_Click"/>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="1"  Padding="24,16,24,8">
+                    <StackPanel>
+                        <TextBlock Text="Поиск" Classes="NurDialogFieldLabel"/>
+                        <TextBox x:Name="SearchBox"
+                                 Classes="NurDialogTextBox"
+                                 Watermark="Название / ШК / Артикул..."
+                                 Margin="0,0,0,14"/>
+
+                        <TextBlock Text="Тип товара" Classes="NurDialogFieldLabel"/>
+                        <ComboBox x:Name="CatalogKindCombo" Classes="NurDialogComboBox" Margin="0,0,0,14"/>
+
+                        <TextBlock Text="Категория" Classes="NurDialogFieldLabel"/>
+                        <ComboBox x:Name="CategoryCombo" Classes="NurDialogComboBox" Margin="0,0,0,14"/>
+
+                        <TextBlock Text="Бренд" Classes="NurDialogFieldLabel"/>
+                        <ComboBox x:Name="BrandCombo" Classes="NurDialogComboBox" Margin="0,0,0,14"/>
+
+                        <TextBlock Text="Диапазон цены (сом)" Classes="NurDialogFieldLabel"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="PriceMinBox" Grid.Column="0" Classes="NurDialogTextBox"/>
+                            <TextBox x:Name="PriceMaxBox" Grid.Column="2" Classes="NurDialogTextBox"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Цена от" Foreground="#94A3B8" FontSize="11"/>
+                            <TextBlock Grid.Column="2" Text="Цена до" Foreground="#94A3B8" FontSize="11"/>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Border Grid.Row="2" Classes="NurDialogFooter">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Сбросить" Classes="NurDialogSecondaryButton"
+                                Click="Reset_Click"/>
+                        <Button Grid.Column="2" Content="Отмена" Classes="NurDialogSecondaryButton"
+                                Click="Cancel_Click"/>
+                        <Button Grid.Column="4" Content="Применить" Classes="NurDialogPrimaryButton"
+                                Click="Apply_Click"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</dialogs:AppOverlayDialogBase>

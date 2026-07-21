@@ -1,0 +1,735 @@
+<Window xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters" x:Class="NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Настройки кассы"
+        Height="820" Width="980"
+        MinHeight="760" MinWidth="900"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True">
+
+    <Window.Resources>
+        <ResourceDictionary>
+
+            <conv:BoolToIsVisibleConverter x:Key="BoolToVis"/>
+
+            <!-- Тумблер -->
+            <Style Selector="CheckBox.ToggleSwitch" x:Key="ToggleSwitch">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="track" Width="46" Height="26" CornerRadius="13"
+                                        Background="{DynamicResource BrushInputAlt}"
+                                        BorderBrush="{DynamicResource BrushBorder}"
+                                        BorderThickness="1"
+                                        Margin="0,0,10,0"/>
+                                <Ellipse x:Name="dot" Width="20" Height="20"
+                                         Fill="{DynamicResource BrushWindowAlt}"
+                                         HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                            </Grid>
+                            
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Сегментированный переключатель -->
+            <Style Selector="RadioButton.DatePill" x:Key="DatePill">
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+                <Setter Property="Padding" Value="18,10"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="MinHeight" Value="42"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="pill"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1" CornerRadius="0"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style Selector="TextBox.ModernTextBox" x:Key="ModernTextBox">
+                <Setter Property="Height" Value="42"/>
+                <Setter Property="Padding" Value="12,8"/>
+                <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                <Setter Property="CaretBrush" Value="{DynamicResource BrushText}"/>
+                
+            </Style>
+
+            <Style Selector="TextBlock.FieldLabel" x:Key="FieldLabel">
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+                <Setter Property="Margin" Value="0,0,0,6"/>
+            </Style>
+
+            <Style Selector="Border.SettingsCard" x:Key="SettingsCard">
+                <Setter Property="Background" Value="{DynamicResource BrushCatalogTileBg}"/>
+                <Setter Property="CornerRadius" Value="12"/>
+                <Setter Property="Padding" Value="16"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushCatalogTileBorder}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Margin" Value="0,0,0,12"/>
+            </Style>
+
+            <Style Selector="Border.AlertBlock" x:Key="AlertBlock">
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="12,10"/>
+                <Setter Property="Margin" Value="0,10,0,0"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushWarning}"/>
+            </Style>
+
+            <Style Selector="Button.SettingsGhostButton" x:Key="SettingsGhostButton">
+                <Setter Property="Height" Value="40"/>
+                <Setter Property="Padding" Value="16,8"/>
+                <Setter Property="FontSize" Value="14"/>
+            </Style>
+
+            <Style Selector="Button.SettingsSaveButton" x:Key="SettingsSaveButton">
+                <Setter Property="Height" Value="40"/>
+                <Setter Property="Padding" Value="18,8"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+            </Style>
+
+            <Style Selector="Button.SettingsFlatButton" x:Key="SettingsFlatButton">
+                <Setter Property="Height" Value="42"/>
+                <Setter Property="FontSize" Value="14"/>
+            </Style>
+
+            <!-- Боковая навигация -->
+            <Style Selector="TabItem.SidebarTabItem" x:Key="SidebarTabItem">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="14,12"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Border x:Name="TabRoot" Background="Transparent" Padding="{TemplateBinding Padding}" Cursor="Hand" Margin="8,2">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="4"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="AccentBar" Grid.Column="0" Background="Transparent" CornerRadius="2" Margin="0,4"/>
+                                    <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </Grid>
+                            </Border>
+                            
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style Selector="ComboBox.TouchComboBox" x:Key="TouchComboBox">
+                <Setter Property="Height" Value="42"/>
+                <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Padding" Value="8,6"/>
+                <Setter Property="Cursor" Value="Hand"/>
+            </Style>
+
+            <Style Selector="TabControl.SettingsTabControl" x:Key="SettingsTabControl">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+            </Style>
+
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <TabControl Classes="SettingsTabControl"
+                TabStripPlacement="Left"
+                >
+
+        <!-- ======================== Весы ======================== -->
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Весы" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,14">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Весы" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="Настройка оборудования весов и параметров подключения"
+                                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+                <Border Grid.Row="1" Classes="SettingsCard" Padding="16" Margin="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,14">
+                            <TextBlock Text="Параметры подключения" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
+                            <CheckBox x:Name="ScaleEnabledCheck" Content="Включить опрос весов"
+                                      Classes="ToggleSwitch" HorizontalAlignment="Right"/>
+                        </Grid>
+                        <Grid Grid.Row="1" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="COM-порт" Classes="FieldLabel"/>
+                                <ComboBox x:Name="ScaleComCombo"
+                                          IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
+                                          SelectionChanged="ScaleComCombo_SelectionChanged"
+                                          Classes="TouchComboBox"/>
+                                <TextBlock x:Name="StatusScalePortText" Text="○ Статус порта не проверен"
+                                           FontSize="12" FontWeight="Bold" Margin="0,6,0,0"
+                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Скорость (baud)" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScaleBaudBox" Classes="ModernTextBox"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="2" Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Запрос веса (hex)" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScaleHexBox" Classes="ModernTextBox"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
+                                         ToolTip.Tip="Пример: 05 02 01 01"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Повтор запроса (мс)" Classes="FieldLabel"/>
+                                <TextBox x:Name="ScalePollBox" Classes="ModernTextBox"
+                                         IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Button Grid.Row="3" Content="Проверить весы"
+                                Classes="SettingsFlatButton"
+                                Click="CheckScale_Click" HorizontalAlignment="Stretch"/>
+                        <Border x:Name="ScaleAlert" Grid.Row="3" Classes="AlertBlock" IsVisible="False" Margin="0,52,0,0">
+                            <TextBlock x:Name="ScaleAlertText" TextWrapping="Wrap" FontSize="13"/>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- ======================== Печать ======================== -->
+        <TabItem>
+            <TabItem.Resources>
+                <Style Selector="RadioButton.PrintModePill" x:Key="PrintModePill">
+                    <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+                    <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+                    <Setter Property="Padding" Value="18,10"/>
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="MinHeight" Value="42"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="RadioButton">
+                                <Border x:Name="pill"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="0"
+                                Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+
+                <Style Selector="Button.PrintGoldButton" x:Key="PrintGoldButton">
+                    <Setter Property="Background" Value="#FFDB1F"/>
+                    <Setter Property="BorderBrush" Value="#E6C400"/>
+                    <Setter Property="Foreground" Value="#111827"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Padding" Value="24,8"/>
+                    <Setter Property="Height" Value="40"/>
+                    <Setter Property="HorizontalAlignment" Value="Left"/>
+                </Style>
+            </TabItem.Resources>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Печать" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="#33FFDB1F" BorderBrush="#FFDB1F" BorderThickness="1" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                               Foreground="#111827"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Печать" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="Принтер чеков, режимы и параметры ESC/POS"
+                               FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+                <ScrollViewer Grid.Row="1"  >
+                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Top">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MaxWidth="600"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="*" MaxWidth="600"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Левая колонка -->
+                        <StackPanel Grid.Column="0" Grid.Row="0" VerticalAlignment="Top">
+                            <Border Classes="SettingsCard">
+                                <StackPanel>
+                                    <TextBlock Text="Основные параметры" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,16"/>
+                                    <CheckBox x:Name="ReceiptEnabledCheck" Content="Печатать чек после оплаты"
+                                      Classes="ToggleSwitch" Margin="0,0,0,16"/>
+                                    <Grid Margin="0,0,0,16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="LPT-порт или путь" Classes="FieldLabel"/>
+                                            <TextBox x:Name="ReceiptLptBox" Classes="ModernTextBox"
+                                             TextChanged="ReceiptLptBox_TextChanged"/>
+                                            <!-- Обновлен красный цвет и текст ошибки (как в дизайне) -->
+                                            <TextBlock x:Name="StatusPortText" Text="○ LPT не найден в системе (нет драйвера)"
+                                               FontSize="11" Margin="0,2,0,8" Foreground="#DC2626"/>
+                                            <Button x:Name="BtnPhysicalPrint"
+                                            Content="🖨️  Печать"
+                                            Classes="PrintGoldButton"
+                                            Click="BtnPhysicalPrint_Click"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Повторы печати при сбое" Classes="FieldLabel"/>
+                                            <TextBox x:Name="ReceiptRetryBox" Classes="ModernTextBox"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="12"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Ширина ленты" Classes="FieldLabel"/>
+                                            <ComboBox x:Name="ReceiptPaperWidthCombo" Classes="TouchComboBox"
+                                              SelectionChanged="ReceiptPaperWidthCombo_SelectionChanged">
+                                                <ComboBoxItem Content="58 мм (32 симв., 384 точки)" Tag="58"/>
+                                                <ComboBoxItem Content="80 мм (48 симв., 576 точек)" Tag="80"/>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Ширина графики (точки)" Classes="FieldLabel"/>
+                                            <TextBox x:Name="GraphicWidthBox" Text="384" Classes="ModernTextBox" IsReadOnly="True"
+                                             ToolTip.Tip="Задаётся автоматически по ширине ленты: 384 (58 мм) или 576 (80 мм)"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Classes="SettingsCard">
+                                <StackPanel>
+                                    <TextBlock Text="Режим печати" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,16"/>
+                                    <!-- Использован UniformGrid для строгого разделения по ширине, как на дизайне -->
+                                    <UniformGrid Columns="2" Margin="0,0,0,0">
+                                        <RadioButton x:Name="TextModeRadio" Content="Текстовый (ESC/POS)"
+                                             GroupName="PrintMode" Classes="PrintModePill"
+                                             Margin="0,0,-1,0"
+                                             IsEnabled="{Binding IsChecked, ElementName=ReceiptEnabledCheck}"/>
+                                        <RadioButton x:Name="GraphicModeRadio" Content="Графический чек"
+                                             GroupName="PrintMode" Classes="PrintModePill"
+                                             IsEnabled="{Binding IsChecked, ElementName=ReceiptEnabledCheck}"/>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Classes="SettingsCard"
+                            IsVisible="{Binding IsChecked, ElementName=TextModeRadio, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock Text="ESC/POS" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,16"/>
+                                    <StackPanel Margin="0,0,0,16">
+                                        <TextBlock Text="Кодировка текста" Classes="FieldLabel"/>
+                                        <ComboBox x:Name="ReceiptEncCombo" Classes="TouchComboBox">
+                                            <ComboBoxItem Content="cp866 — кириллица DOS/OEM" Tag="cp866"/>
+                                            <ComboBoxItem Content="cp1251 / windows-1251" Tag="cp1251"/>
+                                            <ComboBoxItem Content="wpc1251 (слот 46)" Tag="wpc1251"/>
+                                            <ComboBoxItem Content="iso-8859-5 (Кириллица ISO)" Tag="iso-8859-5"/>
+                                            <ComboBoxItem Content="koi8-r (Unix-кодировка)" Tag="koi8-r"/>
+                                            <ComboBoxItem Content="utf-8 (Юникод)" Tag="utf-8"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,16">
+                                        <TextBlock Text="Таблица ESC t" Classes="FieldLabel"/>
+                                        <ComboBox x:Name="ReceiptTableCombo" Classes="TouchComboBox">
+                                            <ComboBoxItem Content="Авто" Tag=""/>
+                                            <ComboBoxItem Content="17 — CP866 / OEM" Tag="17"/>
+                                            <ComboBoxItem Content="46 — CP1251 / WPC1251" Tag="46"/>
+                                            <ComboBoxItem Content="73" Tag="73"/>
+                                            <ComboBoxItem Content="26 — ISO 8859-5" Tag="26"/>
+                                            <ComboBoxItem Content="53 — KOI8-R" Tag="53"/>
+                                            <ComboBoxItem Content="0 — UTF-8 (редко)" Tag="0"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,16">
+                                        <TextBlock Text="ESC R (0–255)" Classes="FieldLabel"/>
+                                        <TextBox x:Name="ReceiptEscRBox" Classes="ModernTextBox" HorizontalAlignment="Stretch"/>
+                                    </StackPanel>
+                                    <Button Content="👁  Предпросмотр текстового чека"
+                                    Classes="SettingsFlatButton"
+                                    Click="TestTextPrint_Click" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Правая колонка -->
+                        <StackPanel Grid.Column="2" Grid.Row="0" VerticalAlignment="Top">
+                            <Border Classes="SettingsCard"
+                            IsVisible="{Binding IsChecked, ElementName=GraphicModeRadio, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock Text="Графический чек" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,16"/>
+                                    <CheckBox x:Name="GraphicReceiptEnabledCheck" Content="Включить графический чек"
+                                      Classes="ToggleSwitch" Margin="0,0,0,16"/>
+                                    <StackPanel Margin="0,0,0,16">
+                                        <TextBlock Text="Шрифт" Classes="FieldLabel"/>
+                                        <ComboBox x:Name="GraphicFontCombo" Classes="TouchComboBox">
+                                            <ComboBoxItem Content="Consolas (рекомендуется)" Tag="Consolas"/>
+                                            <ComboBoxItem Content="Lucida Console" Tag="Lucida Console"/>
+                                            <ComboBoxItem Content="Courier New" Tag="Courier New"/>
+                                            <ComboBoxItem Content="Arial" Tag="Arial"/>
+                                            <ComboBoxItem Content="Tahoma" Tag="Tahoma"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,16">
+                                        <TextBlock Text="Размер шрифта (пиксели)" Classes="FieldLabel"/>
+                                        <ComboBox x:Name="GraphicFontSizeCombo" Classes="TouchComboBox" HorizontalAlignment="Stretch"
+                                          ToolTip.Tip="Выберите размер шрифта для чека">
+                                            <ComboBoxItem Content="6" Tag="6"/>
+                                            <ComboBoxItem Content="8" Tag="8"/>
+                                            <ComboBoxItem Content="10" Tag="10"/>
+                                            <ComboBoxItem Content="12" Tag="12"/>
+                                            <ComboBoxItem Content="14" Tag="14"/>
+                                            <ComboBoxItem Content="16" Tag="16"/>
+                                            <ComboBoxItem Content="18" Tag="18"/>
+                                            <ComboBoxItem Content="20" Tag="20"/>
+                                            <ComboBoxItem Content="22" Tag="22"/>
+                                            <ComboBoxItem Content="24" Tag="24"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <TextBlock Text="Элементы чека" Classes="FieldLabel" Margin="0,0,0,8"/>
+                                    <UniformGrid Columns="2" Margin="0,0,0,16">
+                                        <CheckBox x:Name="ShowStoreNameCheck" Content="Название магазина" Classes="ToggleSwitch" Margin="0,0,8,8"/>
+                                        <CheckBox x:Name="ShowAddressCheck" Content="Адрес" Classes="ToggleSwitch" Margin="0,0,0,8"/>
+                                        <CheckBox x:Name="ShowReceiptNumberCheck" Content="Номер чека" Classes="ToggleSwitch" Margin="0,0,8,8"/>
+                                        <CheckBox x:Name="ShowDateCheck" Content="Дата и время" Classes="ToggleSwitch" Margin="0,0,0,8"/>
+                                        <CheckBox x:Name="ShowItemsCheck" Content="Список товаров" Classes="ToggleSwitch" Margin="0,0,8,8"/>
+                                        <CheckBox x:Name="ShowTotalCheck" Content="Итог (сумма)" Classes="ToggleSwitch" Margin="0,0,0,8"/>
+                                        <CheckBox x:Name="ShowQrCodeCheck" Content="QR-код" Classes="ToggleSwitch" Margin="0,0,0,8"/>
+                                    </UniformGrid>
+                                    <TextBlock Text="QR-код" Classes="FieldLabel" Margin="0,0,0,8"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                        <Button Content="📷  Загрузить QR-код" Classes="SettingsFlatButton"
+                                        Click="LoadGraphicQrCode_Click" Height="36" Margin="0,0,8,0"/>
+                                        <Button Content="🗑️  Удалить" Classes="SettingsFlatButton"
+                                        Click="DeleteGraphicQrCode_Click" Height="36"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="GraphicQrStatusText" Text="QR-код не загружен" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,16"/>
+                                    <Button Content="👁  Предпросмотр графического чека" Classes="SettingsFlatButton"
+                                    Click="TestGraphicPrint_Click" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Панель статуса/ошибок внизу -->
+                        <StackPanel Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="1" Margin="0,12,0,0">
+                            <TextBox x:Name="StatusText" Classes="ModernTextBox" Height="72"
+                             IsReadOnly="True" TextWrapping="Wrap" FontSize="12"
+                             Foreground="{DynamicResource BrushText}" Background="{DynamicResource BrushInputAlt}"/>
+
+                            <Border x:Name="PrintErrorPanel" IsVisible="False" Margin="0,16,0,0"
+                            CornerRadius="8" Padding="10" Background="#FEF2F2" BorderBrush="#DC2626" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="Подробности ошибки печати" FontSize="12" FontWeight="SemiBold" Foreground="#B91C1C" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="TxtPrintErrorDetails" IsReadOnly="True" TextWrapping="Wrap"
+                                     FontFamily="Consolas" FontSize="12" MaxHeight="160"
+                                      BorderThickness="0"
+                                     Background="Transparent" Foreground="#7F1D1D"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </TabItem>
+        <!-- ======================== Экран ======================== -->
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Экран" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,14">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Экран" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="Отображение интерфейса и поведение кассы"
+                                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+                <StackPanel Grid.Row="1">
+                    <Border Classes="SettingsCard">
+                        <UniformGrid Columns="2">
+                            <CheckBox x:Name="FullscreenCheck" Content="Полноэкранный режим" Classes="ToggleSwitch" Margin="0,0,12,8"/>
+                            <CheckBox x:Name="AutostartCheck" Content="Запускать с Windows" Classes="ToggleSwitch" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="AutoTouchKeyboardCheck" Content="Авто‑показ клавиатуры" Classes="ToggleSwitch" Margin="0,0,12,0"/>
+                        </UniformGrid>
+                    </Border>
+                    <Border Classes="SettingsCard">
+                        <StackPanel>
+                            <TextBlock Text="Название магазина в чеке" Classes="FieldLabel"/>
+                            <TextBox x:Name="StoreNameBox" Classes="ModernTextBox" MaxWidth="420" HorizontalAlignment="Left"
+                                     ToolTip.Tip="Отображается в верхней части чека"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="SettingsCard">
+                        <StackPanel>
+                            <TextBlock Text="Адрес магазина" Classes="FieldLabel"/>
+                            <TextBox x:Name="StoreAddressBox" Classes="ModernTextBox" MaxWidth="420" HorizontalAlignment="Left"
+                                     ToolTip.Tip="Печатается в чеке, если включён пункт «Адрес» и поле не пустое"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="SettingsCard">
+                        <StackPanel>
+                            <TextBlock Text="Данные в чеке" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
+                            <CheckBox x:Name="ShowInnCheck" Content="ИНН" Classes="ToggleSwitch"
+                                      ToolTip.Tip="Печатать ИНН компании в шапке чека"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="SettingsCard">
+                        <StackPanel>
+                            <TextBlock Text="Добавление в чек" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,10"/>
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="DoubleClickToCartRadio" Content="Двойной клик"
+                                             Classes="DatePill" Margin="0,0,-1,0"
+                                             Checked="ClickToCartMode_Changed"/>
+                                <RadioButton x:Name="SingleClickToCartRadio" Content="Один клик"
+                                             Classes="DatePill"
+                                             Checked="ClickToCartMode_Changed"/>
+                            </StackPanel>
+                            <CheckBox x:Name="ResetManualAddQtyCheck"
+                                      Content="Сбрасывать количество после добавления"
+                                      Margin="0,12,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </TabItem>
+
+        <!-- ======================== Обновления ======================== -->
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Обновления" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Заголовок страницы -->
+                <Grid Grid.Row="0" Margin="0,0,0,14">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Обновления" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="Проверка и установка новых версий кассы"
+                               FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Контейнер для карточек (Вместо двух Border, наложенных друг на друга) -->
+                <StackPanel Grid.Row="1">
+
+                    <!-- Карточка 1: Обновления -->
+                    <Border Classes="SettingsCard">
+                        <StackPanel>
+                            <TextBlock x:Name="AppVersionText" FontSize="14" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"/>
+
+                            <!-- Отступ снизу 16px, чтобы кнопка не слипалась с прогресс-баром -->
+                            <Button Content="Проверить обновления" Classes="SettingsFlatButton"
+                            Click="CheckUpdate_Click" HorizontalAlignment="Left" MinWidth="220" Margin="0,0,0,16"/>
+
+                            <ProgressBar x:Name="UpdateProgressBar" Height="6" Margin="0,0,0,4"
+                                 IsVisible="False" IsIndeterminate="False" Minimum="0" Maximum="100"/>
+
+                            <TextBlock x:Name="UpdateStatusText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
+                               Margin="0,4,0,0" IsVisible="False"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Карточка 2: Диагностика (Отступ сверху 16px, чтобы разъединить с первой карточкой) -->
+                    <Border Classes="SettingsCard" Margin="0,16,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Диагностика" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushText}" Margin="0,0,0,6"/>
+
+                            <TextBlock Text="Техническая информация каталога (для администратора и разработчика)."
+                               FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,0,12"/>
+
+                            <TextBlock x:Name="CatalogDiagnosticsText"
+                               FontSize="11"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               TextWrapping="Wrap"
+                               FontFamily="Consolas" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </Grid>
+        </TabItem>
+
+        <!-- ======================== Операции ======================== -->
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Операции" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,14">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}" Margin="0,0,12,0">
+                            <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Операции" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock Text="QR-коды и логотипы банков для безналичной оплаты"
+                                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+                <ScrollViewer Grid.Row="1"  >
+                    <ItemsControl x:Name="BankQrItemsControl">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource BrushCatalogTileBg}" CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
+                                        BorderBrush="{DynamicResource BrushCatalogTileBorder}" BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Width="48" Height="48" CornerRadius="8"
+                                                Background="{DynamicResource BrushInputAlt}" Margin="0,0,12,0">
+                                            <Image Source="{Binding LogoPath}" Stretch="Uniform" Margin="6"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding BankName}" FontSize="15" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource BrushText}"/>
+                                            <Image Source="{Binding QrCodePath, TargetNullValue={x:Null}}"
+                                                   Width="64" Height="64" Stretch="Uniform" Margin="0,6,0,0"
+                                                   IsVisible="{Binding HasQrCode, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="Загрузить QR"
+                                                Classes="SettingsFlatButton"
+                                                Height="34" FontSize="13" Padding="12,4"
+                                                Tag="{Binding}" Click="LoadQrCode_Click"
+                                                VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </TabItem>
+
+    </TabControl>
+</Window>

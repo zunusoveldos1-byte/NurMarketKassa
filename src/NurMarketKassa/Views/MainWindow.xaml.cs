@@ -9,6 +9,8 @@ using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Hardware;
 using NurMarketKassa.ViewModels;
+using NurMarketKassa.ViewModels.Catalog;
+using NurMarketKassa.ViewModels.Scanning;
 using NurMarketKassa.Views.Dialogs;
 using System;
 using System.Collections.Generic;
@@ -120,13 +122,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly ScaleWeightProvider _scaleWeightProvider;
     private readonly ProductSearchService _productSearchService;
     private readonly ICartService _cart;
+    private readonly CatalogViewModel _catalogViewModel;
+    private readonly BarcodeScanViewModel _barcodeScanViewModel;
     public ShiftViewModel ShiftViewModel { get; private set; }
+
+    public CatalogViewModel Catalog => _catalogViewModel;
+    public BarcodeScanViewModel BarcodeScan => _barcodeScanViewModel;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     private bool HasActiveCartLines =>
-        _cart.HasCart && CartLines.Count > 0 && (UseSnapshotEditing || _cart.CanRefresh);
+        _cart.HasCart && CartLines.Count > 0 && (UseSnapshotEditing || _cart.CanRefresh || _cart.IsLocalOffline);
+
+    private bool HasCheckoutableCart()
+    {
+        if (OfflineModeHelper.CanOperateWithoutServer || _cart.IsLocalOffline)
+            return LocalCartService.HasItems(_cart);
+
+        return _cart.HasCart
+               && CartLines.Count > 0
+               && (_cart.CanRefresh || _cart.IsStaging);
+    }
 
     private bool IsViewingDeferredReceipt => !string.IsNullOrEmpty(_viewingDeferredEntryId);
 
@@ -239,9 +256,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ProductSearchService productSearchService,
         IWeightScaleService weightScale,
         IReceiptPrinterService receiptPrinter,
-        ICartService cart)
+        ICartService cart,
+        CatalogViewModel catalogViewModel,
+        BarcodeScanViewModel barcodeScanViewModel)
     {
         _cart = cart;
+        _catalogViewModel = catalogViewModel;
+        _barcodeScanViewModel = barcodeScanViewModel;
         _userPrompts = userPrompts;
         _apiClient = apiClient;
         _barcodeInputService = barcodeInputService;
@@ -292,6 +313,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         App.CatalogBackgroundSync.ButtonStateChanged += OnCatalogButtonStateChanged;
         _shiftStateService.StateRefreshed += OnShiftStateRefreshed;
         _barcodeInputService.BarcodeScanned += OnBarcodeScanned;
+        _catalogViewModel.LoadCompleted += OnCatalogLoadCompleted;
+        _barcodeScanViewModel.ProductFound += OnBarcodeProductFound;
         RebindCartUi();
         UpdateShiftBanner();
         UpdateOfflineModeUi();
@@ -554,12 +577,52 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            await AddProductByLookupAsync(barcode).ConfigureAwait(true);
+            if (!await _barcodeScanViewModel.ProcessBarcodeScanAsync(barcode, _windowCts.Token).ConfigureAwait(true))
+            {
+                var message = _barcodeScanViewModel.ScanErrorMessage;
+                if (!string.IsNullOrWhiteSpace(message))
+                    await RunOnUiAsync(() => ShowBarcodeScanError(message)).ConfigureAwait(true);
+            }
         }
         catch (OperationCanceledException)
         {
             // Окно закрыто или скан отменён — не показываем ошибку.
         }
+    }
+
+    private void OnBarcodeProductFound(ScannedProductFoundEventArgs args)
+    {
+        _ = RunOnUiAsync(async () =>
+        {
+            var tile = FindCatalogTile(args.Product.Id, args.Product.Barcode);
+            if (tile == null)
+            {
+                ShowBarcodeScanError("У вас нет такого товара в базе.");
+                return;
+            }
+
+            if (args.WeightKg is > 0)
+            {
+                await AddProductToActiveCartAsync(
+                    tile,
+                    useWeighDialogForWeight: false,
+                    presetQuantity: (double)args.WeightKg.Value).ConfigureAwait(true);
+                return;
+            }
+
+            await AddProductToActiveCartAsync(
+                tile,
+                useWeighDialogForWeight: tile.MustWeigh).ConfigureAwait(true);
+        });
+    }
+
+    private void ShowBarcodeScanError(string message)
+    {
+        CartMessageText.Text = message;
+        CartMessageText.Foreground = UiWarn;
+        BarcodeBox.Clear();
+        BarcodeBox.Focus();
+        Keyboard.Focus(BarcodeBox);
     }
 
     private void RunOnUi(Action action)
@@ -646,7 +709,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (!OfflineModeHelper.UseLocalOperations)
         {
-            if (AccountCatalogIsolation.RequireForcedCatalogSync || CatalogCacheService.Products.Count == 0)
+            if (AccountCatalogIsolation.RequireForcedCatalogSync
+                || CatalogCacheService.Products.Count == 0
+                || progress != null)
             {
                 progress?.Report("Синхронизация каталога...");
                 await LoadCatalogAsync(cancellationToken, manual: true).ConfigureAwait(true);
@@ -867,24 +932,54 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void RefreshCategoriesAndBrands()
     {
-        var categories = new HashSet<string>();
-        var brands = new HashSet<string>();
+        _catalogViewModel.RefreshCategoriesAndBrands();
+        Categories.Clear();
+        foreach (var category in _catalogViewModel.Categories)
+            Categories.Add(category.Name);
 
+        var brands = new HashSet<string>();
         foreach (var vm in _allTilesKg.Concat(_allTilesPiece))
         {
-            if (!string.IsNullOrWhiteSpace(vm.Category))
-                categories.Add(vm.Category);
             if (!string.IsNullOrWhiteSpace(vm.Brand))
                 brands.Add(vm.Brand);
         }
 
-        Categories.Clear();
-        foreach (var c in categories.OrderBy(x => x))
-            Categories.Add(c);
-
         Brands.Clear();
         foreach (var b in brands.OrderBy(x => x))
             Brands.Add(b);
+    }
+
+    private void OnCatalogLoadCompleted(CatalogLoadCompletedEventArgs args)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (args.RestoredFromCache && args.Success)
+            {
+                RestoreTilesFromCache();
+                ShowToast($"Офлайн: каталог из локальной БД ({args.ProductCount} шт.)", warn: false);
+                return;
+            }
+
+            if (!args.Success)
+            {
+                if (!string.IsNullOrWhiteSpace(args.ErrorMessage))
+                    ShowToast(args.ErrorMessage, warn: true);
+                SetCatalogRefreshVisual(CatalogSyncButtonState.Error);
+                return;
+            }
+
+            ApplyCatalogDataToViewport();
+            App.CatalogBackgroundSync.ClearPendingUpdate();
+            HideCatalogUpdateOverlay();
+            SetCatalogRefreshVisual(CatalogSyncButtonState.Idle);
+
+            if (args.ManualRefresh || args.Added > 0 || args.Changed > 0 || args.Deleted > 0)
+            {
+                ShowToast(
+                    $"Каталог обновлен.\nДобавлено: {args.Added}\nИзменено: {args.Changed}\nУдалено: {args.Deleted}",
+                    warn: false);
+            }
+        });
     }
 
     public decimal GetCurrentBalance() => _shiftCashBalance ?? 0m;
@@ -1000,6 +1095,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _scaleUiTimer?.Stop();
         _toastTimer?.Stop();
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
+        _barcodeScanViewModel.ProductFound -= OnBarcodeProductFound;
 
         try
         {
@@ -1260,11 +1356,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         CancellationToken cancellationToken = default)
     {
         // Смену при добавлении товара проверяем отдельно (всегда с диалогом) — см. PickProductFromCatalogAsync / RunScanAsync.
-        if (_cart.CanRefresh || _cart.IsStaging)
+        if (_cart.CanRefresh || _cart.IsStaging || _cart.IsLocalOffline)
             return true;
 
         if (!await EnsureShiftReadyForOperationsAsync(silent, cancellationToken).ConfigureAwait(true))
             return false;
+
+        if (OfflineModeHelper.CanOperateWithoutServer)
+        {
+            if (!silent)
+            {
+                CartMessageText.Text = pendingMessage;
+                CartMessageText.Foreground = UiMuted;
+            }
+
+            LocalCartService.StartNewLocalCart(_cart);
+            RebindCartUi();
+
+            if (!silent)
+            {
+                CartMessageText.Text = "Офлайн-чек открыт. Можно добавлять товары.";
+                CartMessageText.Foreground = UiOk;
+            }
+
+            return true;
+        }
 
         if (!silent)
         {
@@ -1276,7 +1392,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             await TryStartNewSaleAsync(cancellationToken).ConfigureAwait(true);
             RebindCartUi();
-            if (!_cart.CanRefresh && !_cart.IsStaging)
+            if (!_cart.CanRefresh && !_cart.IsStaging && !_cart.IsLocalOffline)
             {
                 if (!silent)
                 {
@@ -1364,7 +1480,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         RebuildReceiptTabStrip();
 
-        if (!_cart.HasCart || (!_cart.CanRefresh && !_cart.IsStaging))
+        if (!_cart.HasCart || (!_cart.CanRefresh && !_cart.IsStaging && !_cart.IsLocalOffline))
         {
             CartStateText.Text = string.IsNullOrEmpty(App.ActiveShiftId)
                 ? "Откройте смену. После этого новый чек будет открываться автоматически."
@@ -1551,63 +1667,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (_catalogLoadBusy)
             return;
 
-        if (OfflineModeHelper.UseLocalOperations)
-        {
-            TryRestoreFromCache();
-            return;
-        }
-
         _catalogLoadBusy = true;
         SetCatalogRefreshVisual(CatalogSyncButtonState.Syncing);
         if (RefreshCatalogButton != null)
             RefreshCatalogButton.IsEnabled = false;
         try
         {
-            if (manual)
-                await Task.Delay(80, cancellationToken).ConfigureAwait(true);
-
-            var result = await CatalogCacheService.SyncCatalogFullAsync(cancellationToken).ConfigureAwait(true);
-            if (!result.Success)
-            {
-                SetCatalogRefreshVisual(CatalogSyncButtonState.Error);
-                if (!TryRestoreFromCache())
-                    ShowToast(result.ErrorMessage ?? "Ошибка загрузки каталога.", warn: true);
-                return;
-            }
-
-            ApplyCatalogDataToViewport();
-            App.CatalogBackgroundSync.ClearPendingUpdate();
-            HideCatalogUpdateOverlay();
-            SetCatalogRefreshVisual(CatalogSyncButtonState.Idle);
-
-            if (manual || result.Added > 0 || result.Changed > 0 || result.Deleted > 0)
-            {
-                ShowToast(
-                    $"Каталог обновлен.\nДобавлено: {result.Added}\nИзменено: {result.Changed}\nУдалено: {result.Deleted}",
-                    warn: false);
-            }
-        }
-        catch (TaskCanceledException)
-        {
-            if (!TryRestoreFromCache())
-                ShowToast("Каталог: таймаут.", warn: true);
-            SetCatalogRefreshVisual(CatalogSyncButtonState.Error);
+            await _catalogViewModel.LoadCatalogAsync(cancellationToken, manual).ConfigureAwait(true);
         }
         catch (OperationCanceledException) { }
-        catch (ApiException ex)
-        {
-            if (!TryRestoreFromCache())
-                ShowToast($"Каталог: {ex.Message}", warn: true);
-            SetCatalogRefreshVisual(CatalogSyncButtonState.Error);
-        }
-        catch (HttpRequestException ex)
-        {
-            if (!TryRestoreFromCache())
-                ShowToast(string.IsNullOrWhiteSpace(ex.Message)
-                    ? "Каталог: нет сети."
-                    : $"Каталог: {ex.Message}", warn: true);
-            SetCatalogRefreshVisual(CatalogSyncButtonState.Error);
-        }
         finally
         {
             _catalogLoadBusy = false;
@@ -2550,7 +2618,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var visible = _tilesAll
             .Concat(_tilesKg)
             .Concat(_searchTiles)
-            .Where(vm => vm.MustWeigh && vm.Thumb == null && !string.IsNullOrWhiteSpace(vm.ImageUrl))
+            .Where(vm => vm.MustWeigh && string.IsNullOrEmpty(vm.ProductImagePath) && !string.IsNullOrWhiteSpace(vm.ImageUrl))
             .ToList();
 
         foreach (var vm in visible)
@@ -2616,9 +2684,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AddProductToActiveCartAsync(vm, useWeighDialogForWeight: true);
 
     private Task AddProductByLookupAsync(string code) =>
-        ProcessProductLookupAsync(null, code);
+        ProcessBarcodeScanAsync(code);
 
-    private async Task AddProductToActiveCartAsync(CatalogProductTileVm vm, bool useWeighDialogForWeight)
+    private async Task AddProductToActiveCartAsync(
+        CatalogProductTileVm vm,
+        bool useWeighDialogForWeight,
+        double? presetQuantity = null)
     {
         if (!await EnsureShiftReadyForOperationsAsync(silent: false).ConfigureAwait(true))
             return;
@@ -2628,7 +2699,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         string? qty = null;
         double qtyToAdd;
 
-        if (vm.MustWeigh && useWeighDialogForWeight)
+        if (presetQuantity is > 0)
+        {
+            qtyToAdd = vm.MustWeigh
+                ? Math.Round(presetQuantity.Value, 3)
+                : Math.Round(presetQuantity.Value, 0);
+            qty = FormatQuantityForApi(qtyToAdd, vm.MustWeigh);
+        }
+        else if (vm.MustWeigh && useWeighDialogForWeight)
         {
             var dlg = new WeighedProductDialog(
                 vm.Title,
@@ -3232,7 +3310,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!_cart.HasCart || CartLines.Count == 0 || (!_cart.CanRefresh && !_cart.IsStaging))
+        if (!HasCheckoutableCart())
         {
             PosMessageBox.Show("Добавьте товары в корзину.", "Оффлайн оплата", MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -3246,7 +3324,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (IsViewingDeferredReceipt)
                 await EnsureDeferredCartReadyForCheckoutAsync().ConfigureAwait(true);
-            else
+            else if (!_cart.IsLocalOffline && !OfflineModeHelper.CanOperateWithoutServer)
                 await EnsureActiveCartReadyForCheckoutAsync().ConfigureAwait(true);
         }
         catch (ApiException ex)
@@ -4221,7 +4299,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private async Task TryStartNewSaleAsync(CancellationToken cancellationToken = default)
     {
-        if (OfflineModeHelper.UseLocalOperations)
+        if (OfflineModeHelper.CanOperateWithoutServer)
         {
             LocalCartService.StartNewLocalCart(_cart);
             return;
@@ -4423,7 +4501,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        if (!_cart.HasCart || CartLines.Count == 0 || (!_cart.CanRefresh && !_cart.IsStaging))
+        if (!HasCheckoutableCart())
         {
             PosLogger.Log("Оплата: нет корзины или пусто", "PAYMENT");
             PosMessageBox.Show("Добавьте товары в корзину.", "Оплата", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -4440,7 +4518,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             if (IsViewingDeferredReceipt)
                 await EnsureDeferredCartReadyForCheckoutAsync().ConfigureAwait(true);
-            else
+            else if (!_cart.IsLocalOffline && !OfflineModeHelper.CanOperateWithoutServer)
                 await EnsureActiveCartReadyForCheckoutAsync().ConfigureAwait(true);
         }
         catch (ApiException ex)
@@ -5017,6 +5095,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void ApplyFilterToCatalog(FilterCriteria criteria)
     {
         _currentFilter = criteria;
+        _catalogViewModel.ActiveFilter = criteria;
         SortByFavorite();
         _catalogVisibleLimitKg = CatalogPageSize;
         _catalogVisibleLimitPiece = CatalogPageSize;
@@ -5028,62 +5107,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private bool FilterPredicate(object obj)
     {
-        if (obj is not CatalogProductTileVm vm) return false;
-        if (_currentFilter == null) return true;
-
-        if (_currentFilter.DateFrom.HasValue && vm.CreatedAt < _currentFilter.DateFrom.Value) return false;
-        if (_currentFilter.DateTo.HasValue && vm.CreatedAt > _currentFilter.DateTo.Value) return false;
-
-        if (!string.IsNullOrEmpty(_currentFilter.Category) &&
-            !string.Equals(vm.Category ?? "", _currentFilter.Category, StringComparison.OrdinalIgnoreCase)) return false;
-
-        if (!string.IsNullOrEmpty(_currentFilter.Brand) &&
-            !string.Equals(vm.Brand ?? "", _currentFilter.Brand, StringComparison.OrdinalIgnoreCase)) return false;
-
-        if (!string.IsNullOrEmpty(_currentFilter.Client) &&
-            !string.Equals(vm.ClientName ?? "", _currentFilter.Client, StringComparison.OrdinalIgnoreCase)) return false;
-
-        if (!string.IsNullOrEmpty(_currentFilter.Status) &&
-            !string.Equals(vm.Status ?? "", _currentFilter.Status, StringComparison.OrdinalIgnoreCase)) return false;
-
-        if (!string.IsNullOrEmpty(_currentFilter.HotkeyGroup) &&
-            !string.Equals(vm.HotkeyGroup ?? "", _currentFilter.HotkeyGroup, StringComparison.OrdinalIgnoreCase)) return false;
-
-        if (!string.IsNullOrWhiteSpace(_currentFilter.SearchQuery))
-        {
-            var query = _currentFilter.SearchQuery.Trim().ToLowerInvariant();
-            var title = vm.Title.ToLowerInvariant();
-            var barcode = vm.Barcode?.ToLowerInvariant() ?? string.Empty;
-            var id = vm.Id.ToLowerInvariant();
-            if (!title.Contains(query) && !barcode.Contains(query) && !id.Contains(query))
-                return false;
-        }
-
-        if (_currentFilter.OnlyWeight && !vm.MustWeigh) return false;
-        if (_currentFilter.OnlyPiece && vm.MustWeigh) return false;
-        if (_currentFilter.OnlyInStock && vm.Quantity <= 0) return false;
-        if (_currentFilter.OnlyFavorite && !vm.IsFavorite) return false;
-
-        var price = TryParseTilePrice(vm.PriceLine);
-        if (_currentFilter.PriceMin.HasValue && price < _currentFilter.PriceMin.Value) return false;
-        if (_currentFilter.PriceMax.HasValue && price > _currentFilter.PriceMax.Value) return false;
-
-        return true;
-    }
-
-    private static double TryParseTilePrice(string? priceLine)
-    {
-        if (string.IsNullOrWhiteSpace(priceLine))
-            return 0;
-
-        var digits = new string(priceLine
-            .TakeWhile(ch => char.IsDigit(ch) || ch is '.' or ',')
-            .ToArray())
-            .Replace(',', '.');
-
-        return double.TryParse(digits, NumberStyles.Any, CultureInfo.InvariantCulture, out var price)
-            ? price
-            : 0;
+        return obj is CatalogProductTileVm vm && _catalogViewModel.FilterPredicate(vm);
     }
 
     private void SortByFavorite()
@@ -5154,7 +5178,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (code.Length == 0)
             return;
 
-        await AddProductByLookupAsync(code).ConfigureAwait(true);
+        await ProcessBarcodeScanAsync(code).ConfigureAwait(true);
     }
 
     private async Task ApplyLineDiscountAsync(string itemId, string? mode, string? value)
@@ -5815,9 +5839,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             App.PosCashboxId = null;
             App.PosCashboxDisplayName = null;
             App.ActiveShiftId = null;
+            App.IsOfflineBootstrap = false;
+            App.OfflineBootstrapMessage = null;
+            App.SkipOfflineAutoLogin = true;
             Hide();
 
-            var login = new LoginWindow();
+            var login = App.GetRequiredService<LoginWindow>();
             Application.Current.MainWindow = login;
             login.Show();
 

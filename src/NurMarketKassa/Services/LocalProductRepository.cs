@@ -13,7 +13,7 @@ namespace NurMarketKassa.Services;
 public sealed class LocalProductRepository
 {
     private static readonly string DataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
-    private static readonly string DbPath = Path.Combine(DataDirectory, "catalog.db");
+    private static string DbPath => DatabaseService.Instance.DatabasePath;
     private static readonly string LegacyCachePath = Path.Combine(DataDirectory, "products_cache.json");
     private static readonly string LegacyFavoritesPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "favorites.json");
 
@@ -64,7 +64,7 @@ public sealed class LocalProductRepository
             using (var deleteProducts = connection.CreateCommand())
             {
                 deleteProducts.Transaction = transaction;
-                deleteProducts.CommandText = "DELETE FROM local_products;";
+                deleteProducts.CommandText = "DELETE FROM Products;";
                 deleteProducts.ExecuteNonQuery();
             }
 
@@ -129,12 +129,13 @@ public sealed class LocalProductRepository
 
     public void EnsureSchema()
     {
+        DatabaseService.Instance.EnsureSchema();
         Directory.CreateDirectory(DataDirectory);
 
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            CREATE TABLE IF NOT EXISTS local_products (
+            CREATE TABLE IF NOT EXISTS Products (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 price REAL NOT NULL DEFAULT 0,
@@ -154,9 +155,9 @@ public sealed class LocalProductRepository
                 value TEXT NOT NULL
             );
 
-            CREATE INDEX IF NOT EXISTS idx_local_products_barcode ON local_products(barcode);
-            CREATE INDEX IF NOT EXISTS idx_local_products_must_weigh ON local_products(must_weigh);
-            CREATE INDEX IF NOT EXISTS idx_local_products_name ON local_products(name COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_Products_barcode ON Products(barcode);
+            CREATE INDEX IF NOT EXISTS idx_Products_must_weigh ON Products(must_weigh);
+            CREATE INDEX IF NOT EXISTS idx_Products_name ON Products(name COLLATE NOCASE);
             """;
         command.ExecuteNonQuery();
 
@@ -276,7 +277,7 @@ public sealed class LocalProductRepository
         var favorites = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT id FROM local_products WHERE is_favorite = 1;";
+        command.CommandText = "SELECT id FROM Products WHERE is_favorite = 1;";
         using var reader = command.ExecuteReader();
         while (reader.Read())
             favorites.Add(reader.GetString(0));
@@ -287,7 +288,7 @@ public sealed class LocalProductRepository
     {
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE local_products SET is_favorite = @favorite WHERE id = @id;";
+        command.CommandText = "UPDATE Products SET is_favorite = @favorite WHERE id = @id;";
         command.Parameters.AddWithValue("@favorite", isFavorite ? 1 : 0);
         command.Parameters.AddWithValue("@id", id);
         command.ExecuteNonQuery();
@@ -581,7 +582,7 @@ public sealed class LocalProductRepository
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            UPDATE local_products
+            UPDATE Products
             SET stock = @stock,
                 unit = @unit,
                 must_weigh = @must_weigh
@@ -674,7 +675,7 @@ public sealed class LocalProductRepository
         {
             using var deleteCmd = connection.CreateCommand();
             deleteCmd.Transaction = transaction;
-            deleteCmd.CommandText = "DELETE FROM local_products WHERE id = @id;";
+            deleteCmd.CommandText = "DELETE FROM Products WHERE id = @id;";
             var idParam = deleteCmd.CreateParameter();
             idParam.ParameterName = "@id";
             deleteCmd.Parameters.Add(idParam);
@@ -709,7 +710,7 @@ public sealed class LocalProductRepository
     {
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM local_products;";
+        command.CommandText = "SELECT COUNT(*) FROM Products;";
         return Convert.ToInt32(command.ExecuteScalar());
     }
 
@@ -744,7 +745,7 @@ public sealed class LocalProductRepository
         var sql = new StringBuilder("""
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price
-            FROM local_products
+            FROM Products
             WHERE must_weigh = @must_weigh
             """);
 
@@ -814,7 +815,7 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price
-            FROM local_products
+            FROM Products
             WHERE LOWER(IFNULL(barcode, '')) = LOWER(@barcode)
             LIMIT 1;
             """;
@@ -850,7 +851,7 @@ public sealed class LocalProductRepository
         var sql = new StringBuilder("""
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price
-            FROM local_products
+            FROM Products
             WHERE 1 = 1
             """);
 
@@ -890,7 +891,7 @@ public sealed class LocalProductRepository
         var sql = new StringBuilder("""
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price
-            FROM local_products
+            FROM Products
             WHERE 1 = 1
             """);
 
@@ -960,7 +961,7 @@ public sealed class LocalProductRepository
         using var command = connection.CreateCommand();
         command.CommandText = $"""
             SELECT DISTINCT {column}
-            FROM local_products
+            FROM Products
             WHERE {column} IS NOT NULL AND TRIM({column}) <> ''
             ORDER BY {column} COLLATE NOCASE;
             """;
@@ -985,7 +986,7 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price
-            FROM local_products
+            FROM Products
             ORDER BY name COLLATE NOCASE;
             """;
         using var reader = command.ExecuteReader();
@@ -1016,7 +1017,7 @@ public sealed class LocalProductRepository
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            INSERT INTO local_products (
+            INSERT INTO Products (
                 id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                 image_url, category, brand, purchase_price
             ) VALUES (
@@ -1140,7 +1141,7 @@ public sealed class LocalProductRepository
     private static void MigrateLegacyDataIfNeeded(SqliteConnection connection)
     {
         using var countCommand = connection.CreateCommand();
-        countCommand.CommandText = "SELECT COUNT(*) FROM local_products;";
+        countCommand.CommandText = "SELECT COUNT(*) FROM Products;";
         if (Convert.ToInt32(countCommand.ExecuteScalar()) > 0)
             return;
 

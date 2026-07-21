@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView"
+             x:DataType="vm:CatalogPanelViewModel"
+             x:CompileBindings="True">
+
+    <Border Classes="main-panel"
+            BorderThickness="0,0,1,0"
+            Padding="16,14">
+        <Grid RowDefinitions="Auto,Auto,Auto,*">
+            <TabControl Grid.Row="0"
+                        SelectedIndex="{Binding SelectedTabIndex}"
+                        Margin="0,0,0,10">
+                <TabItem Header="Все товары"/>
+                <TabItem Header="Весовые"/>
+                <TabItem Header="Штучные"/>
+            </TabControl>
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,Auto,Auto,Auto"
+                  Margin="0,0,0,10">
+                <Border Grid.Column="0"
+                        Background="{DynamicResource BrushInput}"
+                        BorderBrush="{DynamicResource BrushBorder}"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="10,0">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Classes="mdl2"
+                                   Text="&#xE721;"
+                                   FontSize="15"
+                                   Foreground="{DynamicResource BrushTextSoft}"
+                                   Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding SearchText}"
+                                 Watermark="Поиск товара..."
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 FontSize="14"
+                                 VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+                <Button Grid.Column="1"
+                        Classes="main-secondary"
+                        Width="40" Height="40"
+                        Padding="0"
+                        Margin="8,0,0,0"
+                        ToolTip.Tip="Фильтр"
+                        Command="{Binding OpenFilterCommand}">
+                    <TextBlock Text="⫶" FontSize="16"/>
+                </Button>
+                <Button Grid.Column="2"
+                        Classes="main-primary"
+                        Margin="8,0,0,0"
+                        Command="{Binding OpenWarehouseCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="+" FontSize="18" FontWeight="Bold"/>
+                        <TextBlock Text="Товар" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Grid.Column="3"
+                        Classes="main-ghost"
+                        Width="36" Height="36"
+                        Padding="0"
+                        Margin="8,0,0,0"
+                        ToolTip.Tip="Обновить каталог"
+                        Command="{Binding RefreshCatalogCommand}">
+                    <TextBlock Classes="mdl2" Text="&#xE72C;" FontSize="15"/>
+                </Button>
+            </Grid>
+
+            <TextBlock Grid.Row="2"
+                       Text="{Binding StatusText}"
+                       FontSize="11"
+                       Foreground="{DynamicResource BrushTextSoft}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,6"/>
+
+            <Border Grid.Row="3"
+                    Background="{DynamicResource BrushInputAlt}"
+                    BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="16">
+                <Grid>
+                    <TextBlock Text="Каталог товаров"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding !IsLoading}"/>
+                    <TextBlock Text="Загрузка каталога…"
+                               FontSize="14"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding IsLoading}"/>
+                    <ItemsControl ItemsSource="{Binding Products}"
+                                  IsVisible="{Binding HasProducts}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CatalogProductPlaceholderVm">
+                                <Border Width="160" Height="120"
+                                        Margin="4"
+                                        Background="{DynamicResource BrushPanel}"
+                                        BorderBrush="{DynamicResource BrushBorder}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="10">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Title}"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding PriceLine}"
+                                                   FontSize="12"/>
+                                        <TextBlock Text="{Binding StockInfo}"
+                                                   FontSize="11"
+                                                   Foreground="{DynamicResource BrushTextSoft}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

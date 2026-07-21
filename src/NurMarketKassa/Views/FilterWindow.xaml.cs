@@ -2,14 +2,13 @@
 using System.Globalization;
 using System.Linq;
 using System.Windows;
-using System.Windows.Input;
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.Views;
 
-public partial class FilterWindow : Window
+public partial class FilterWindow
 {
   private static readonly string[] CatalogKinds = ["Все товары", "Весовые", "Штучные", "Только избранные ★"];
   private const string AllCategoriesLabel = "Все категории";
@@ -65,7 +64,7 @@ public partial class FilterWindow : Window
     SavePreferences(Result);
     FilteredTiles = CatalogCacheService.ApplySqlFilter(Result).ToList();
     FullCatalogReloaded = false;
-    DialogResult = true;
+    CloseWithAnimation(true);
   }
 
   private void Reset_Click(object sender, RoutedEventArgs e)
@@ -76,19 +75,10 @@ public partial class FilterWindow : Window
     Result = null;
     FilteredTiles = null;
     FullCatalogReloaded = true;
-    DialogResult = true;
+    CloseWithAnimation(true);
   }
 
-  private void Cancel_Click(object sender, RoutedEventArgs e)
-  {
-    DialogResult = false;
-  }
-
-  private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-  {
-    if (e.ClickCount == 1)
-      DragMove();
-  }
+  private void Cancel_Click(object sender, RoutedEventArgs e) => CloseWithAnimation(false);
 
   private void ClearForm()
   {

@@ -2,7 +2,6 @@ using NurMarketKassa.Services;
 using NurMarketKassa.ViewModels;
 using NurMarketKassa.Views.Dialogs;
 using System;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,7 +9,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 
 #nullable disable
 
@@ -19,46 +17,145 @@ namespace NurMarketKassa.Views
     public partial class LoginWindow : Window
     {
         private readonly LoginViewModel _viewModel;
+        private readonly AuthService _authService;
         private bool _passwordVisible;
+        private bool _suppressPasswordSync;
+        private bool _rememberMe;
+        private bool _enteringMain;
 
-        public LoginWindow()
+        public LoginWindow(LoginViewModel viewModel, AuthService authService)
         {
             InitializeComponent();
 
-            _viewModel = new LoginViewModel(ConfirmExit, ShutdownApplication);
+            _viewModel = viewModel;
+            _authService = authService;
             DataContext = _viewModel;
+            _viewModel.LoginSuccess += OnLoginSuccess;
 
-            var prefs = UserPreferences.Instance;
-            EmailBox.Text = prefs.LastLoginEmail;
-            if (!string.IsNullOrEmpty(prefs.LastLoginPassword))
+            var remembered = _authService.TryGetLastRememberedUser();
+            if (remembered != null)
             {
-                PasswordBox.Password = prefs.LastLoginPassword;
-                VisiblePasswordBox.Text = prefs.LastLoginPassword;
+                EmailBox.Text = remembered.Email;
+                _viewModel.Username = remembered.Email;
+                _rememberMe = true;
+                RememberMeCheckBox.IsChecked = true;
+
+                var password = WindowsDpapiHelper.UnprotectFromBase64(remembered.PasswordEncrypted);
+                PasswordBox.Password = password;
+                VisiblePasswordBox.Text = password;
+                _viewModel.Password = password;
+            }
+            else
+            {
+                EmailBox.Text = UserPreferences.Instance.LastLoginEmail ?? "";
+                _viewModel.Username = EmailBox.Text;
             }
 
-            EmailBox.TextChanged += (_, _) => UpdateEmailValidIcon();
+            Loaded += OnLoaded;
+            Closed += OnClosed;
+        }
 
-            Loaded += async (_, _) =>
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            if (UserPreferences.Instance.Fullscreen)
             {
-                if (UserPreferences.Instance.Fullscreen)
-                {
-                    WindowStyle = WindowStyle.None;
-                    ResizeMode = ResizeMode.NoResize;
-                    WindowState = WindowState.Maximized;
-                }
+                WindowStyle = WindowStyle.None;
+                ResizeMode = ResizeMode.NoResize;
+                WindowState = WindowState.Maximized;
+            }
 
-                UpdateEmailValidIcon();
-                await TryOfflineBootstrapAsync().ConfigureAwait(true);
-            };
+            UpdateEmailValidIcon();
+        }
+
+        private void OnClosed(object sender, EventArgs e) =>
+            _viewModel.LoginSuccess -= OnLoginSuccess;
+
+        private async Task OnLoginSuccess()
+        {
+            if (_enteringMain)
+                return;
+
+            _enteringMain = true;
+            try
+            {
+                var email = _viewModel.Username.Trim();
+
+                _viewModel.SetLoadingStatus("Загрузка компании…");
+                await CompanyInfoService.RefreshAsync(App.AuthApi, CancellationToken.None).ConfigureAwait(true);
+                App.AuditDb.LogEvent("auth", "login", new { email }, App.CurrentUserId);
+
+                var session = _authService.TryLoadOfflineSession();
+                AccountCatalogIsolation.PrepareForAuthenticatedUser(email, App.CurrentUserId);
+                _authService.SaveRememberedCredentials(
+                    email,
+                    _viewModel.Password,
+                    _rememberMe,
+                    App.CurrentUserId,
+                    session?.CashierName);
+
+                UserPreferences.Instance.LastLoginEmail = email;
+                UserPreferences.Instance.LastLoginPassword = "";
+                UserPreferences.Instance.SaveToDisk();
+
+                App.IsOfflineBootstrap = false;
+                App.OfflineBootstrapMessage = null;
+
+                _viewModel.SetLoadingStatus("Загрузка кассы…");
+                var mainWindow = App.GetRequiredService<MainWindow>();
+                var progress = new Progress<string>(status =>
+                {
+                    if (!string.IsNullOrWhiteSpace(status))
+                        _viewModel.SetLoadingStatus(status);
+                });
+
+                await mainWindow.InitializeApplicationAsync(progress, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                Application.Current.MainWindow = mainWindow;
+                mainWindow.WindowState = WindowState.Maximized;
+                mainWindow.Show();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                _enteringMain = false;
+                _viewModel.ReportError("Не удалось загрузить кассу: " + ex.Message);
+            }
         }
 
         private void UpdateEmailValidIcon()
         {
-            var email = EmailBox.Text.Trim();
-            EmailValidIcon.Visibility = email.Contains('@') && email.Contains('.')
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            var username = _viewModel.Username;
+            EmailValidIcon.Visibility =
+                !string.IsNullOrWhiteSpace(username) && username.Contains('@') && username.Contains('.')
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
+
+        private void EmailBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _viewModel.Username = EmailBox.Text;
+            UpdateEmailValidIcon();
+        }
+
+        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (_suppressPasswordSync || _passwordVisible)
+                return;
+
+            _viewModel.Password = PasswordBox.Password;
+        }
+
+        private void VisiblePasswordBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_suppressPasswordSync || !_passwordVisible)
+                return;
+
+            _viewModel.Password = VisiblePasswordBox.Text;
+        }
+
+        private void RememberMeCheckBox_Changed(object sender, RoutedEventArgs e) =>
+            _rememberMe = RememberMeCheckBox.IsChecked == true;
 
         private void FluentField_GotFocus(object sender, RoutedEventArgs e)
         {
@@ -113,21 +210,31 @@ namespace NurMarketKassa.Views
             _passwordVisible = show;
             TogglePasswordIcon.Text = show ? "\uED1A" : "\uE7B3";
 
-            if (show)
+            _suppressPasswordSync = true;
+            try
             {
-                VisiblePasswordBox.Text = PasswordBox.Password;
-                PasswordBox.Visibility = Visibility.Collapsed;
-                VisiblePasswordBox.Visibility = Visibility.Visible;
-                VisiblePasswordBox.Focus();
-                VisiblePasswordBox.SelectAll();
+                if (show)
+                {
+                    VisiblePasswordBox.Text = PasswordBox.Password;
+                    PasswordBox.Visibility = Visibility.Collapsed;
+                    VisiblePasswordBox.Visibility = Visibility.Visible;
+                    VisiblePasswordBox.Focus();
+                    VisiblePasswordBox.SelectAll();
+                }
+                else
+                {
+                    PasswordBox.Password = VisiblePasswordBox.Text;
+                    VisiblePasswordBox.Visibility = Visibility.Collapsed;
+                    PasswordBox.Visibility = Visibility.Visible;
+                    PasswordBox.Focus();
+                    PasswordBox.SelectAll();
+                }
+
+                _viewModel.Password = show ? VisiblePasswordBox.Text : PasswordBox.Password;
             }
-            else
+            finally
             {
-                PasswordBox.Password = VisiblePasswordBox.Text;
-                VisiblePasswordBox.Visibility = Visibility.Collapsed;
-                PasswordBox.Visibility = Visibility.Visible;
-                PasswordBox.Focus();
-                PasswordBox.SelectAll();
+                _suppressPasswordSync = false;
             }
         }
 
@@ -157,145 +264,23 @@ namespace NurMarketKassa.Views
 
         private void PasswordBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Return)
-                _ = TryLoginAsync();
+            if (e.Key == Key.Return && _viewModel.LoginCommand.CanExecute(null))
+                _viewModel.LoginCommand.Execute(null);
         }
 
         private void VisiblePasswordBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Return)
-                _ = TryLoginAsync();
+            if (e.Key == Key.Return && _viewModel.LoginCommand.CanExecute(null))
+                _viewModel.LoginCommand.Execute(null);
         }
 
-        private async void LoginButton_Click(object sender, RoutedEventArgs e) => await TryLoginAsync();
-
-        private async Task TryLoginAsync()
+        private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
-            ErrorText.Visibility = Visibility.Collapsed;
-            ErrorText.Text = "";
-
-            string email = EmailBox.Text.Trim();
-            string password = _passwordVisible
-                ? VisiblePasswordBox.Text
-                : PasswordBox.Password;
-
-            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-            {
-                ShowError("Введите email и пароль.");
-                return;
-            }
-
-            LoginButton.IsEnabled = false;
-            try
-            {
-                var sessionRestored = await App.AuthApi
-                    .TryRestoreSessionViaRefreshAsync(email, CancellationToken.None)
-                    .ConfigureAwait(true);
-
-                if (!sessionRestored)
-                    await App.AuthApi.LoginAsync(email, password, CancellationToken.None);
-
-                await CompanyInfoService.RefreshAsync(App.AuthApi, CancellationToken.None).ConfigureAwait(true);
-                App.AuditDb.LogEvent("auth", "login", new { email }, App.CurrentUserId);
-
-                OfflineAuthSessionStore.SaveFromApi(App.AuthApi, email);
-                var session = OfflineAuthSessionStore.TryLoad();
-                if (session != null)
-                    App.CurrentUserId = session.UserId;
-
-                AccountCatalogIsolation.PrepareForAuthenticatedUser(email, App.CurrentUserId);
-
-                App.IsOfflineBootstrap = false;
-                App.OfflineBootstrapMessage = null;
-
-                var prefs = UserPreferences.Instance;
-                prefs.LastLoginEmail = email;
-                prefs.LastLoginPassword = password;
-                prefs.SaveToDisk();
-
-                await EnterMainWindowAsync().ConfigureAwait(true);
-                return;
-            }
-            catch (ApiException ex)
-            {
-                ShowError(ex.Message);
-            }
-            catch (HttpRequestException ex)
-            {
-                ShowError(string.IsNullOrWhiteSpace(ex.Message) ? "Нет подключения." : ex.Message);
-            }
-            catch (TaskCanceledException)
-            {
-                ShowError("Превышено время ожидания.");
-            }
-            finally
-            {
-                if (IsVisible)
-                    LoginButton.IsEnabled = true;
-            }
-        }
-
-        private async Task TryOfflineBootstrapAsync()
-        {
-            var session = OfflineAuthSessionStore.TryLoad();
-            if (!OfflineAuthSessionStore.IsUsable(session))
+            var result = ConfirmExit();
+            if (result is not MessageBoxResult.Yes)
                 return;
 
-            try
-            {
-                if (await App.AuthApi.CanReachApiAsync(CancellationToken.None).ConfigureAwait(true))
-                    return;
-            }
-            catch
-            {
-                /* treat as offline */
-            }
-
-            App.AuthApi.RestoreOfflineSession(session!);
-            CompanyInfoService.RestoreFromOfflineSession();
-            App.CurrentUserId = session!.UserId;
-            AccountCatalogIsolation.PrepareForAuthenticatedUser(session.Login, session.UserId);
-            OfflinePosStateStore.RestoreToApp();
-            App.IsOfflineBootstrap = true;
-            App.OfflineBootstrapMessage =
-                $"Оффлайн режим. Последний вход: {session.CashierName} ({session.LastAuthAt.LocalDateTime:dd.MM.yyyy HH:mm}).";
-
-            PosLogger.Log(App.OfflineBootstrapMessage, "OFFLINE");
-            await EnterMainWindowAsync().ConfigureAwait(true);
-        }
-
-        private async Task EnterMainWindowAsync()
-        {
-            LoadingStatusText.Visibility = Visibility.Visible;
-            ErrorText.Visibility = Visibility.Collapsed;
-            LoginButton.IsEnabled = false;
-            ExitButton.IsEnabled = false;
-
-            var progress = new Progress<string>(status => LoadingStatusText.Text = status);
-
-            try
-            {
-                var mainWindow = App.GetRequiredService<MainWindow>();
-                await mainWindow.InitializeApplicationAsync(progress).ConfigureAwait(true);
-
-                Application.Current.MainWindow = mainWindow;
-                mainWindow.WindowState = WindowState.Maximized;
-                mainWindow.Show();
-                Close();
-            }
-            catch (Exception ex)
-            {
-                LoadingStatusText.Visibility = Visibility.Collapsed;
-                ShowError("Не удалось загрузить кассу: " + ex.Message);
-                LoginButton.IsEnabled = true;
-                ExitButton.IsEnabled = true;
-            }
-        }
-
-        private void ShowError(string message)
-        {
-            ErrorText.Text = message;
-            ErrorText.Visibility = Visibility.Visible;
+            ShutdownApplication();
         }
 
         private MessageBoxResult ConfirmExit() =>

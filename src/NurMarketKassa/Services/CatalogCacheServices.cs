@@ -6,6 +6,8 @@ using System.Text.Json;
 
 using System.Windows;
 
+using NurMarketKassa.Core.Contracts;
+
 using NurMarketKassa.Models;
 
 using NurMarketKassa.Models.Pos;
@@ -269,7 +271,7 @@ public static class CatalogCacheService
 
 
 
-            return CatalogSyncResult.Ok(added, changed, deleted, remoteVersion);
+            return CatalogSyncResult.Ok(added, changed, deleted);
 
         }
 

@@ -47,40 +47,14 @@ internal sealed class ProductThumbService
         Models.Pos.CatalogProductTileVm vm,
         CancellationToken ct)
     {
-        if (vm.Thumb != null)
+        if (!string.IsNullOrEmpty(vm.ProductImagePath))
             return;
 
         var path = await GetOrDownloadPathAsync(authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return;
 
-        if (_decodedCache.TryGetValue(path, out var cached))
-        {
-            await uiDispatcher.InvokeAsync(() => vm.Thumb = cached);
-            return;
-        }
-
-        var thumb = await TryLoadThumbAsync(path, ct).ConfigureAwait(false);
-        if (thumb == null)
-        {
-            TryDelete(path);
-            path = await GetOrDownloadPathAsync(authApi, apiBaseUrl, imageUrl, ct, forceDownload: true).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            {
-                await uiDispatcher.InvokeAsync(() => vm.Thumb ??= PlaceholderThumb);
-                return;
-            }
-
-            thumb = await TryLoadThumbAsync(path, ct).ConfigureAwait(false);
-            if (thumb == null)
-            {
-                await uiDispatcher.InvokeAsync(() => vm.Thumb ??= PlaceholderThumb);
-                return;
-            }
-        }
-
-        _decodedCache[path] = thumb;
-        await uiDispatcher.InvokeAsync(() => vm.Thumb = thumb);
+        await uiDispatcher.InvokeAsync(() => vm.ProductImagePath = path);
     }
 
     private async Task<string?> GetOrDownloadPathAsync(

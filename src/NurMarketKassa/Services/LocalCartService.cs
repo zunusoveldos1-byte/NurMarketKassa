@@ -12,6 +12,11 @@ public static class LocalCartService
 {
     public static bool IsLocalCart(ICartService cart) => cart.IsLocalOffline;
 
+    public static int GetLocalItemCount(ICartService cart) =>
+        !cart.HasCart ? 0 : CartDisplayHelper.EnumerateItems(cart.Root).Count();
+
+    public static bool HasItems(ICartService cart) => GetLocalItemCount(cart) > 0;
+
     public static void StartNewLocalCart(ICartService cart, string? shiftId = null)
     {
         var root = new JsonObject

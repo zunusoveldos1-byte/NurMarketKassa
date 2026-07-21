@@ -1,0 +1,94 @@
+<Window x:Class="NurMarketKassa.AvaloniaHost.Views.WarehouseWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        Title="Склад — ревизия и списание"
+        Height="720" Width="1100" MinHeight="500" MinWidth="800"
+        WindowStartupLocation="CenterOwner"
+        KeyDown="Window_KeyDown"
+        Loaded="Window_Loaded"
+        Closed="Window_Closed">
+    <Window.Resources>
+        <conv:BoolToIsVisibleConverter x:Key="BoolToVis" />
+    </Window.Resources>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="True">
+            <TextBlock Text="Управление складом" FontSize="22" FontWeight="Bold"
+                       Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" DockPanel.Dock="Left" />
+            <Button DockPanel.Dock="Right" Content="Закрыть" Padding="14,8" Margin="12,0,0,0"
+                    Click="CloseButton_Click" />
+            <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="16,0,0,0"
+                       Foreground="{DynamicResource BrushTextSoft}"
+                       Text="Сканируйте штрих-код для быстрого ввода" />
+        </DockPanel>
+
+        <TabControl x:Name="WarehouseTabs" Grid.Row="1">
+            <TabItem Header="Ревизия (Инвентаризация)">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <DataGrid x:Name="RevisionGrid"
+                              ItemsSource="{Binding RevisionLines}"
+                              SelectedItem="{Binding FocusedRevisionLine, Mode=TwoWay}"
+                              AutoGenerateColumns="False" IsReadOnly="False" RowHeight="40">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Штрих-код" Width="140" Binding="{Binding Barcode}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Наименование" Width="*" Binding="{Binding ProductName}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Ожидаемый остаток" Width="150"
+                                                Binding="{Binding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Фактический остаток" Width="150"
+                                                Binding="{Binding ActualQty, StringFormat=\{0:0.###\}}" />
+                            <DataGridTextColumn Header="Разница" Width="110"
+                                                Binding="{Binding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Button Grid.Row="1" Content="Зафиксировать ревизию"
+                            HorizontalAlignment="Right" Margin="0,12,0,0" Padding="18,10"
+                            Command="{Binding CommitRevisionCommand}" />
+                </Grid>
+            </TabItem>
+            <TabItem Header="Списание товара">
+                <Grid Margin="8" MaxWidth="520" HorizontalAlignment="Left">
+                    <Grid.RowDefinitions>
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                        <TextBlock Text="Товар" Margin="0,0,0,4" Foreground="{DynamicResource BrushTextSoft}" />
+                        <TextBox IsReadOnly="True" Text="{Binding WriteOffProductName, Mode=OneWay}" />
+                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource BrushTextMuted}" FontSize="11"
+                                   Text="{Binding WriteOffBarcode, StringFormat=Штрих-код: \{0\}}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Margin="0,0,0,16">
+                        <TextBlock Text="Количество" Margin="0,0,0,4" Foreground="{DynamicResource BrushTextSoft}" />
+                        <TextBox x:Name="WriteOffQuantityBox" Text="{Binding WriteOffQuantity}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Margin="0,0,0,16">
+                        <TextBlock Text="Причина списания" Margin="0,0,0,4" Foreground="{DynamicResource BrushTextSoft}" />
+                        <ComboBox ItemsSource="{Binding WriteOffReasonOptions}"
+                                  SelectedItem="{Binding WriteOffReason}" />
+                    </StackPanel>
+                    <Button Grid.Row="3" Content="Списать товар" Padding="18,10"
+                            Command="{Binding WriteOffCommand}" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.RowSpan="2" Background="#40000000" ZIndex="10"
+                IsVisible="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Сохранение..." Foreground="White" FontSize="18" Margin="0,0,0,12" />
+                <ProgressBar IsIndeterminate="True" Width="200" Height="8" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

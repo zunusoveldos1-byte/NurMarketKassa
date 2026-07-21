@@ -9,8 +9,9 @@ using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Interfaces;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
-using NurMarketKassa.ViewModels;
 using NurMarketKassa.Services.Hardware;
+using NurMarketKassa.Ui.Shared;
+using NurMarketKassa.ViewModels;
 using System;
 using System.Net.Http;
 using System.Text;
@@ -33,7 +34,7 @@ namespace NurMarketKassa
         public static ICatalogApiService CatalogApi { get; private set; } = null!;
         public static ISalesApiService SalesApi { get; private set; } = null!;
         public static IShiftApiService ShiftApi { get; private set; } = null!;
-        public static OfflineSalesSyncService OfflineSync { get; private set; } = null!;
+        public static SyncService OfflineSync { get; private set; } = null!;
         public static CatalogBackgroundSyncService CatalogBackgroundSync { get; private set; } = null!;
         public static MySqlAuditService AuditDb { get; private set; } = null!;
         public static string? CurrentUserId { get; set; }
@@ -43,6 +44,8 @@ namespace NurMarketKassa
         public static string? ActiveShiftId { get; set; }
         public static bool IsOfflineBootstrap { get; set; }
         public static string? OfflineBootstrapMessage { get; set; }
+        /// <summary>После явного выхода не выполнять автоматический офлайн-вход на экране логина.</summary>
+        public static bool SkipOfflineAutoLogin { get; set; }
 
         static App()
         {
@@ -85,6 +88,12 @@ namespace NurMarketKassa
                         typeof(IPosSessionService).Assembly,
                         typeof(App).Assembly));
 
+                    services.AddSingleton<IAppSession, WpfAppSession>();
+                    services.AddSingleton<Ui.Shared.IDispatcher, WpfDispatcher>();
+                    services.AddSingleton<ICatalogCacheService, WpfCatalogCacheService>();
+                    services.AddSingleton<ILocalAccountsStore, LocalAccountsManager>();
+                    services.AddSingleton<IConnectivityService, ConnectivityService>();
+                    services.AddSingleton<IOfflineLoginSupport, OfflineLoginSupport>();
                     services.AddSingleton(Settings);
 
                     if (HardwareModeHelper.UsePhysicalScale())
@@ -139,12 +148,19 @@ namespace NurMarketKassa
                     services.AddSingleton<ILocalStockLedger, Core.Application.LocalStockLedger>();
                     services.AddSingleton<IServerStockGateway, WpfServerStockGateway>();
                     services.AddSingleton<IStockCatalogUpdater, WpfStockCatalogUpdater>();
+                    services.AddSingleton(_ => DatabaseService.Instance);
+                    services.AddSingleton<AuthService>();
+                    services.AddSingleton<IAuthService, PosAuthService>();
                     services.AddSingleton<ISyncConflictResolver, Core.Application.SyncConflictResolver>();
+                    services.AddSingleton<SyncService>();
                     services.AddSingleton<IPosBarcodeScanner, Core.Application.PosBarcodeScannerService>();
                     services.AddSingleton<IPosSessionService, PosSessionService>();
                     services.AddTransient<WarehouseViewModel>();
                     services.AddTransient<Views.WarehouseWindow>();
+                    services.AddTransient<ViewModels.Catalog.CatalogViewModel>();
+                    services.AddTransient<BarcodeScanViewModel>();
                     services.AddTransient<Views.MainWindow>();
+                    services.AddTransient<LoginViewModel>();
                     services.AddTransient<Views.LoginWindow>();
                 })
                 .Build();
@@ -167,14 +183,12 @@ namespace NurMarketKassa
             CatalogApi = AppHost.Services.GetRequiredService<ICatalogApiService>();
             SalesApi = AppHost.Services.GetRequiredService<ISalesApiService>();
             ShiftApi = AppHost.Services.GetRequiredService<IShiftApiService>();
-            OfflineSync = new OfflineSalesSyncService(
-                SalesApi,
-                AuthApi,
-                AppHost.Services.GetRequiredService<ISyncConflictResolver>());
+            OfflineSync = AppHost.Services.GetRequiredService<SyncService>();
             CatalogBackgroundSync = new CatalogBackgroundSyncService();
             AuditDb = AppHost.Services.GetRequiredService<MySqlAuditService>();
+            AppHost.Services.GetRequiredService<DatabaseService>().EnsureSchema();
+            AppHost.Services.GetRequiredService<ILocalAccountsStore>().EnsureSchema();
             CatalogCacheService.EnsureLocalDatabase();
-            OfflineDatabase.EnsureSchema();
             _ = LocalProductRepository.Instance.WarmUpCacheAsync();
             AppHost.Services.GetRequiredService<IStockService>().Initialize();
 

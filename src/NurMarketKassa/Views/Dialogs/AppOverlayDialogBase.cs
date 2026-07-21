@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -29,7 +30,7 @@ public class AppOverlayDialogBase : Window
         };
     }
 
-    protected void CloseWithAnimation(bool result)
+    public void CloseWithAnimation(bool result)
     {
         if (_isClosing)
             return;
@@ -66,13 +67,13 @@ public class AppOverlayDialogBase : Window
 
     private void MergeAppResources()
     {
-        if (Application.Current?.Resources == null)
+        const string themePath = "/Views/Dialogs/NurMarketDialogTheme.xaml";
+        if (Resources.MergedDictionaries.Any(d => d.Source?.OriginalString == themePath))
             return;
 
-        foreach (var dict in Application.Current.Resources.MergedDictionaries)
+        Resources.MergedDictionaries.Add(new ResourceDictionary
         {
-            if (!Resources.MergedDictionaries.Contains(dict))
-                Resources.MergedDictionaries.Add(dict);
-        }
+            Source = new Uri(themePath, UriKind.Relative),
+        });
     }
 }

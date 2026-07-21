@@ -1,0 +1,84 @@
+<dialogs:AppOverlayDialogBase x:Class="NurMarketKassa.Views.Dialogs.NewOperationDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="clr-namespace:NurMarketKassa.Views.Dialogs"
+        Title="Новая операция">
+
+    <dialogs:AppOverlayDialogBase.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Views/Dialogs/NurMarketDialogTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </dialogs:AppOverlayDialogBase.Resources>
+
+    <Grid x:Name="RootGrid" Opacity="0">
+        <Border Background="#59000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+        <Border x:Name="DialogCard" Style="{StaticResource NurDialogCard}" Width="520" MaxHeight="640"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource NurDialogHeader}">
+                    <Grid>
+                        <TextBlock Text="Новая операция" Style="{StaticResource NurDialogTitleText}"/>
+                        <Button Content="&#xE8BB;" Style="{StaticResource NurDialogChromeButton}"
+                                HorizontalAlignment="Right" Click="Close_Click"/>
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,20">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <RadioButton x:Name="DepositTab" Grid.Column="0" GroupName="OpType"
+                                         Content="Внесение" Style="{StaticResource NurDialogTabPill}"
+                                         IsChecked="True" Checked="Tab_Changed"/>
+                            <RadioButton x:Name="WithdrawTab" Grid.Column="2" GroupName="OpType"
+                                         Content="Изъятие" Style="{StaticResource NurDialogTabPill}"
+                                         Checked="Tab_Changed"/>
+                        </Grid>
+
+                        <TextBlock Text="Дата и время" Style="{StaticResource NurDialogFieldLabel}"/>
+                        <DatePicker x:Name="DateBox" MinHeight="42" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Кассир" Style="{StaticResource NurDialogFieldLabel}"/>
+                        <ComboBox x:Name="CashierBox" Style="{StaticResource NurDialogComboBox}" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Сумма" Style="{StaticResource NurDialogFieldLabel}"/>
+                        <Grid Margin="0,0,0,12">
+                            <TextBox x:Name="AmountBox" Style="{StaticResource NurDialogTextBox}"/>
+                            <TextBlock Text="сом" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Foreground="#64748B"/>
+                        </Grid>
+
+                        <TextBlock Text="Причина" Style="{StaticResource NurDialogFieldLabel}"/>
+                        <TextBox x:Name="ReasonBox" Style="{StaticResource NurDialogTextBox}" Margin="0,0,0,12"/>
+
+                        <TextBlock Text="Комментарий (необязательно)" Style="{StaticResource NurDialogFieldLabel}"/>
+                        <TextBox x:Name="CommentBox" Style="{StaticResource NurDialogTextBox}"
+                                 Height="72" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <Border Grid.Row="2" Style="{StaticResource NurDialogFooter}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Отмена" Style="{StaticResource NurDialogSecondaryButton}" Padding="24,0"
+                                MinWidth="110" Margin="0,0,10,0" Click="Close_Click"/>
+                        <Button Content="Сохранить" Style="{StaticResource NurDialogPrimaryButton}" Padding="24,0"
+                                MinWidth="120" Click="Save_Click"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</dialogs:AppOverlayDialogBase>

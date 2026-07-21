@@ -1,7 +1,7 @@
 <Window x:Class="NurMarketKassa.Views.MainWindow"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	xmlns:pos="clr-namespace:NurMarketKassa.Models.Pos"
+	xmlns:pos="clr-namespace:NurMarketKassa.Models.Pos;assembly=NurMarketKassa.Infrastructure"
 	xmlns:local="clr-namespace:NurMarketKassa.Converters"
 	xmlns:sys="clr-namespace:System;assembly=mscorlib"
 	xmlns:conv="clr-namespace:NurMarketKassa.Converters"
@@ -1100,7 +1100,7 @@
                             Style="{StaticResource HeaderButton}"
                             Width="38" Padding="0" Margin="0,0,8,0"
                             ToolTip="Показать / скрыть экранную клавиатуру" Click="ToggleKeyboard_Click">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE765;"
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE92F;"
                                    FontSize="15" Foreground="{DynamicResource BrushText}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Button>

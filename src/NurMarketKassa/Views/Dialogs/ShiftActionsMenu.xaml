@@ -1,0 +1,62 @@
+<dialogs:AppOverlayDialogBase x:Class="NurMarketKassa.Views.Dialogs.ShiftActionsMenu"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dialogs="clr-namespace:NurMarketKassa.Views.Dialogs"
+        xmlns:vm="clr-namespace:NurMarketKassa.ViewModels"
+        Title="Действия">
+
+    <dialogs:AppOverlayDialogBase.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Views/Dialogs/NurMarketDialogTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </dialogs:AppOverlayDialogBase.Resources>
+
+    <Grid x:Name="RootGrid" Opacity="0">
+        <Border Background="#59000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+        <Border x:Name="DialogCard" Style="{StaticResource NurDialogCard}" Width="300"
+                HorizontalAlignment="Center" VerticalAlignment="Center" Padding="8">
+            <StackPanel>
+                <Button Style="{StaticResource NurDialogMenuButton}" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.View}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" Foreground="#1F2937"/>
+                        <TextBlock Text="Просмотреть смену"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource NurDialogMenuButton}" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Print}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" Foreground="#1F2937"/>
+                        <TextBlock Text="Печать отчёта"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource NurDialogMenuButton}" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Deposit}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" Foreground="#1F2937"/>
+                        <TextBlock Text="Внести деньги"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource NurDialogMenuButton}" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Withdraw}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" Foreground="#1F2937"/>
+                        <TextBlock Text="Изъять деньги"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource NurDialogMenuButton}" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Export}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8A1;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" Foreground="#1F2937"/>
+                        <TextBlock Text="Экспорт"/>
+                    </StackPanel>
+                </Button>
+                <Separator Margin="4,6" Background="#E5E7EB"/>
+                <Button Style="{StaticResource NurDialogMenuButtonDanger}" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Delete}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" Margin="0,0,10,0" Foreground="#B91C1C"/>
+                        <TextBlock Text="Удалить" Foreground="#B91C1C"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</dialogs:AppOverlayDialogBase>
