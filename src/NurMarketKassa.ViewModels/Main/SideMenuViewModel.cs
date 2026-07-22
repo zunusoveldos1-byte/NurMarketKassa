@@ -15,6 +15,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         Action? navigateWarehouse = null,
         Action? navigateShifts = null,
         Action? navigateReturn = null,
+        Action? navigateCashOperations = null,
         Action? navigateFinance = null,
         Action? navigateSales = null,
         Action? navigateSettings = null,
@@ -26,6 +27,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateWarehouseCommand = new RelayCommand(() => { navigateWarehouse?.Invoke(); closeMenu(); });
         NavigateShiftsCommand = new RelayCommand(() => { navigateShifts?.Invoke(); closeMenu(); });
         NavigateReturnCommand = new RelayCommand(() => { navigateReturn?.Invoke(); closeMenu(); });
+        NavigateCashOperationsCommand = new RelayCommand(() => { navigateCashOperations?.Invoke(); closeMenu(); });
         NavigateFinanceCommand = new RelayCommand(() => { navigateFinance?.Invoke(); closeMenu(); });
         NavigateSalesCommand = new RelayCommand(() => { navigateSales?.Invoke(); closeMenu(); });
         NavigateSettingsCommand = new RelayCommand(() => { navigateSettings?.Invoke(); closeMenu(); });
@@ -54,6 +56,7 @@ public sealed class SideMenuViewModel : ViewModelBase
     public ICommand NavigateWarehouseCommand { get; }
     public ICommand NavigateShiftsCommand { get; }
     public ICommand NavigateReturnCommand { get; }
+    public ICommand NavigateCashOperationsCommand { get; }
     public ICommand NavigateFinanceCommand { get; }
     public ICommand NavigateSalesCommand { get; }
     public ICommand NavigateSettingsCommand { get; }

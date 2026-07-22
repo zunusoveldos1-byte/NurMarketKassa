@@ -1,12 +1,53 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.PaymentConfirmationDialog"
-        Title="PaymentConfirmationDialog"
-        Width="640" Height="480"
+        Title="Подтверждение"
+        Width="440" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="PaymentConfirmationDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="16"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+    <StackPanel>
+      <TextBlock Text="Подтверждение"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="#0F172A"
+                 Margin="0,0,0,12"/>
+      <TextBlock Text="Подтвердить оплату?"
+                 FontSize="14" TextWrapping="Wrap"
+                 Foreground="#64748B"
+                 Margin="0,0,0,22"/>
+      <Grid ColumnDefinitions="*,12,*">
+        <Button Grid.Column="0"
+                Content="Нет"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="#FFFFFF"
+                Foreground="#334155"
+                BorderBrush="#CBD5E1"
+                BorderThickness="1.5"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Click="NoButton_Click"/>
+        <Button Grid.Column="2"
+                Content="Подтвердить"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Background="#F7D617"
+                Foreground="#111827"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                IsDefault="True"
+                Click="YesButton_Click"/>
+      </Grid>
+    </StackPanel>
+  </Border>
 </Window>

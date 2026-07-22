@@ -1,7 +1,23 @@
+using NurMarketKassa.Models.Pos;
+
 namespace NurMarketKassa.AvaloniaHost.Services;
 
 /// <summary>Deferred host callbacks so main-window ViewModels can invoke UI actions without circular DI.</summary>
 public sealed class MainWindowHostBridge
 {
-    public Views.MainWindow? Window { get; set; }
+    public Views.MainKassir.MainWindow? Window { get; set; }
+
+    public Func<CatalogProductTileVm, Task>? AddProductFromCatalog { get; set; }
+
+    public Func<Task>? OpenDeferredCarts { get; set; }
+
+    public Func<Task>? OpenCashOperations { get; set; }
+
+    public Func<Task>? ApplyOrderDiscount { get; set; }
+
+    public void TryAddProduct(CatalogProductTileVm product)
+    {
+        if (AddProductFromCatalog != null)
+            _ = AddProductFromCatalog(product);
+    }
 }

@@ -1,12 +1,18 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.FrmKeyboard"
-        Title="FrmKeyboard"
-        Width="640" Height="480"
-        WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="FrmKeyboard" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        Title="Клавиатура"
+        Width="800" Height="320"
+        WindowStartupLocation="Manual"
+        CanResize="False"
+        Topmost="True"
+        ShowInTaskbar="False"
+        SystemDecorations="BorderOnly">
+  <Border Background="#F8FAFC" Padding="16">
+    <TextBlock Text="Экранная клавиатура"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               FontSize="16"
+               Foreground="#64748B"/>
+  </Border>
 </Window>

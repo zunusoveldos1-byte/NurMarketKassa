@@ -15,6 +15,7 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
     private readonly ILocalAccountsStore _localAccounts;
     private readonly IConnectivityService _connectivity;
     private readonly IOfflineLoginSupport _offlineLogin;
+    private readonly IDispatcher _dispatcher;
     private readonly CancellationTokenSource _lifetimeCts = new();
 
     private string _username = "";
@@ -31,13 +32,15 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
         IAuthService authService,
         ILocalAccountsStore localAccounts,
         IConnectivityService connectivity,
-        IOfflineLoginSupport offlineLogin)
+        IOfflineLoginSupport offlineLogin,
+        IDispatcher dispatcher)
     {
         _session = session;
         _authService = authService;
         _localAccounts = localAccounts;
         _connectivity = connectivity;
         _offlineLogin = offlineLogin;
+        _dispatcher = dispatcher;
 
         SavedAccounts = new ObservableCollection<string>();
         LoginCommand = new AsyncRelayCommand(LoginAsync, () => !IsLoading);
@@ -303,11 +306,11 @@ public sealed class LoginViewModel : ViewModelBase, IDisposable
         try
         {
             var online = await _connectivity.IsOnlineAsync(_lifetimeCts.Token).ConfigureAwait(false);
-            IsOfflineMode = !online;
+            await _dispatcher.InvokeAsync(() => IsOfflineMode = !online).ConfigureAwait(false);
         }
         catch
         {
-            IsOfflineMode = true;
+            await _dispatcher.InvokeAsync(() => IsOfflineMode = true).ConfigureAwait(false);
         }
     }
 

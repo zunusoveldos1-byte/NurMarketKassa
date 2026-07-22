@@ -1,7 +1,8 @@
 namespace NurMarketKassa.Services;
 
 /// <summary>
-/// Изоляция локального каталога при смене учётной записи кассира (Avalonia host).
+/// Этот файл изолирует локальный каталог товаров при смене учётной записи кассира:
+/// очищает SQLite-кэш и помечает необходимость принудительной синхронизации с API сайта.
 /// </summary>
 public static class AccountCatalogIsolation
 {
@@ -33,8 +34,7 @@ public static class AccountCatalogIsolation
 
     public static void ClearLocalCatalogData()
     {
-        try { LocalProductRepository.Instance.ClearAll(); } catch { /* optional in Avalonia host */ }
-        try { CatalogCacheService.ClearInMemory(); } catch { /* optional */ }
+        try { LocalProductRepository.Instance.ClearAll(); } catch (Exception ex) { PosLogger.Log($"CATALOG clear failed: {ex.Message}", "CATALOG"); }
     }
 
     private static string BuildUserKey(string email, string? userId)
@@ -45,18 +45,10 @@ public static class AccountCatalogIsolation
     }
 }
 
-public sealed class LocalProductRepository
-{
-    private static LocalProductRepository? _instance;
-    public static LocalProductRepository Instance => _instance ??= new LocalProductRepository();
-    public void ClearAll() { }
-}
-
-public static class CatalogCacheService
-{
-    public static void ClearInMemory() { }
-}
-
+/// <summary>
+/// Этот файл открывает и закрывает экранную клавиатуру Avalonia-кассы
+/// для ввода текста на сенсорных терминалах.
+/// </summary>
 public static class TouchKeyboard
 {
     public static void TryShow(Avalonia.Controls.Window? owner = null) => NurMarketKassa.AvaloniaHost.Views.Dialogs.FrmKeyboard.ShowKeyboard(owner);
@@ -64,6 +56,10 @@ public static class TouchKeyboard
     public static void Close() => NurMarketKassa.AvaloniaHost.Views.Dialogs.FrmKeyboard.KillKeyboard();
 }
 
+/// <summary>
+/// Этот файл передаёт нажатия виртуальной клавиатуры в активное текстовое поле:
+/// вставка символов, Backspace, Delete и навигация по вводу.
+/// </summary>
 public static class VirtualKeyboardInput
 {
     private static WeakReference<Avalonia.Controls.TextBox>? _lastInputTarget;
@@ -115,7 +111,10 @@ public static class VirtualKeyboardInput
     public static void SendTab() { }
 }
 
-/// <summary>Minimal Avalonia-host stub until full WPF PosRefundService dependency chain is linked.</summary>
+/// <summary>
+/// Этот файл отправляет запросы на возврат продажи через REST API сайта:
+/// полный возврат чека или возврат отдельных позиций.
+/// </summary>
 public static class PosRefundService
 {
     public static async Task RefundWholeSaleAsync(

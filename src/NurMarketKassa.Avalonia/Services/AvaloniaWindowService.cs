@@ -8,6 +8,9 @@ using NurMarketKassa.ViewModels;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
 
+/// <summary>
+/// Сервис показа окон Avalonia-хоста, включая модальный CheckoutDialog.
+/// </summary>
 public sealed class AvaloniaWindowService : IWindowService
 {
     private readonly IServiceProvider _services;
@@ -23,7 +26,6 @@ public sealed class AvaloniaWindowService : IWindowService
     {
         var window = CreateWindow(viewModel);
         window.DataContext = viewModel;
-        WireRequestClose(viewModel, window);
 
         _openWindows[viewModel] = window;
 
@@ -45,7 +47,6 @@ public sealed class AvaloniaWindowService : IWindowService
     {
         var window = CreateWindow(viewModel);
         window.DataContext = viewModel;
-        WireRequestClose(viewModel, window);
         _openWindows[viewModel] = window;
         window.Closed += (_, _) => _openWindows.Remove(viewModel);
 
@@ -70,16 +71,10 @@ public sealed class AvaloniaWindowService : IWindowService
     private Window CreateWindow(object viewModel) =>
         viewModel switch
         {
-            CheckoutViewModel => _services.GetRequiredService<CheckoutDialog>(),
+            CheckoutViewModel checkout => new CheckoutDialog(checkout, _services.GetRequiredService<IDialogService>()),
             _ => throw new NotSupportedException(
                 $"No Avalonia window registered for view model type '{viewModel.GetType().FullName}'.")
         };
-
-    private static void WireRequestClose(object viewModel, Window window)
-    {
-        if (viewModel is CheckoutViewModel checkout)
-            checkout.RequestClose += result => window.Close(result);
-    }
 
     private static Window? GetActiveWindow()
     {

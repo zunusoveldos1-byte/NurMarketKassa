@@ -1,4 +1,4 @@
-using NurMarketKassa.Core.Contracts;
+﻿using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.ViewModels.Main;
@@ -10,17 +10,22 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
 
     private readonly IConnectivityService _connectivity;
     private readonly IAppSession _session;
+    private readonly IDispatcher _dispatcher;
     private readonly CancellationTokenSource _lifetimeCts = new();
 
     private bool _isOnline = true;
     private string _networkModeText = "";
-    private string _shiftBalanceText = "Касса: —";
+    private string _shiftBalanceText = "Касса: 0.00 сом";
     private string _statusLabel = "Онлайн";
 
-    public MainStatusViewModel(IConnectivityService connectivity, IAppSession session)
+    public MainStatusViewModel(
+        IConnectivityService connectivity,
+        IAppSession session,
+        IDispatcher dispatcher)
     {
         _connectivity = connectivity;
         _session = session;
+        _dispatcher = dispatcher;
         RefreshFromSession();
         _ = MonitorConnectivityAsync(_lifetimeCts.Token);
     }
@@ -81,7 +86,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         {
             try
             {
-                IsOnline = await _connectivity.IsOnlineAsync(ct).ConfigureAwait(false);
+                var online = await _connectivity.IsOnlineAsync(ct).ConfigureAwait(false);
+                await _dispatcher.InvokeAsync(() => IsOnline = online).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -89,7 +95,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             }
             catch
             {
-                IsOnline = false;
+                await _dispatcher.InvokeAsync(() => IsOnline = false).ConfigureAwait(false);
             }
 
             try

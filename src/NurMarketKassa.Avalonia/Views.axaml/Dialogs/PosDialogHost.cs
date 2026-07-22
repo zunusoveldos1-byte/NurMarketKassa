@@ -1,19 +1,35 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
 public static class PosDialogHost
 {
-    public static bool? Show(Window owner, Window dialog)
+    public static Window ResolveOwner(Window? owner)
     {
-        dialog.ShowDialog(owner);
-        return true;
+        if (owner != null)
+            return owner;
+
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is { } main)
+            return main;
+
+        throw new InvalidOperationException("Нет активного окна для диалога.");
     }
 
-    public static async Task<T?> ShowDialogAsync<T>(Window owner, Window dialog) where T : class
+    public static bool? Show(Window dialog, Window? owner)
     {
-        return await dialog.ShowDialog<T>(owner);
+        owner = ResolveOwner(owner);
+        return dialog.ShowDialog<bool?>(owner).GetAwaiter().GetResult();
     }
 
-    public static Task ShowAsync(Window owner, Window dialog) => dialog.ShowDialog(owner);
+    public static Task<bool?> ShowAsync(Window dialog, Window? owner)
+    {
+        owner = ResolveOwner(owner);
+        return dialog.ShowDialog<bool?>(owner);
+    }
+
+    public static Task<T?> ShowDialogAsync<T>(Window owner, Window dialog) where T : class =>
+        dialog.ShowDialog<T?>(owner);
 }

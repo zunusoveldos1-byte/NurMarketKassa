@@ -1,12 +1,45 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.NoStockDialog"
-        Title="NoStockDialog"
-        Width="640" Height="480"
+        Title="Товара нет в наличии"
+        Width="440" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="NoStockDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="16"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="30,25">
+    <StackPanel HorizontalAlignment="Center">
+      <TextBlock x:Name="TitleText"
+                 Text="Товар закончился на складе"
+                 FontWeight="Bold" FontSize="20"
+                 HorizontalAlignment="Center" Margin="0,0,0,10"/>
+      <TextBlock x:Name="ProductNameText"
+                 TextWrapping="Wrap" TextAlignment="Center"
+                 FontSize="14" FontWeight="SemiBold"
+                 HorizontalAlignment="Center" Margin="0,0,0,8"/>
+      <TextBlock x:Name="MessageText"
+                 TextWrapping="Wrap" TextAlignment="Center"
+                 FontSize="14" Foreground="#6B7280"
+                 HorizontalAlignment="Center" Margin="0,0,0,12"/>
+      <TextBlock x:Name="AvailableText"
+                 TextAlignment="Center" FontSize="14"
+                 FontWeight="SemiBold" Foreground="#C5221F"
+                 HorizontalAlignment="Center" Margin="0,0,0,20"/>
+      <Button x:Name="BtnCancel"
+              Content="ОК"
+              Width="140"
+              Height="36"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              Background="#F3F4F6"
+              CornerRadius="10"
+              Click="BtnCancel_Click"/>
+    </StackPanel>
+  </Border>
 </Window>

@@ -1,4 +1,4 @@
-using System.Windows.Input;
+﻿using System.Windows.Input;
 using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.ViewModels.Main;
@@ -8,6 +8,8 @@ public sealed class MainToolbarViewModel : ViewModelBase
 {
     private readonly IAppSession _session;
     private string _userTitle = "Касса";
+    private string _themeGlyph = "\uE706";
+    private string _themeTooltip = "Светлая тема";
 
     private readonly Func<Task>? _openShiftHandler;
     private readonly Func<Task>? _closeShiftHandler;
@@ -41,6 +43,26 @@ public sealed class MainToolbarViewModel : ViewModelBase
     {
         get => _userTitle;
         private set => SetProperty(ref _userTitle, value);
+    }
+
+    /// <summary>Segoe MDL2 glyph: sun (light) when dark is active, moon when light is active.</summary>
+    public string ThemeGlyph
+    {
+        get => _themeGlyph;
+        private set => SetProperty(ref _themeGlyph, value);
+    }
+
+    public string ThemeTooltip
+    {
+        get => _themeTooltip;
+        private set => SetProperty(ref _themeTooltip, value);
+    }
+
+    /// <summary>Updates the toggle icon: show a sun in dark mode (switch to light) and a moon in light mode.</summary>
+    public void UpdateThemeGlyph(bool isDark)
+    {
+        ThemeGlyph = isDark ? "\uE706" : "\uE708";
+        ThemeTooltip = isDark ? "Светлая тема" : "Тёмная тема";
     }
 
     public bool CanOpenShift => !_session.IsShiftOpen;

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.Services;
 using NurMarketKassa.ViewModels;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
+using NurMarketKassa.AvaloniaHost.Views.MainKassir;
 using System;
 using System.Windows;
 using System.Threading;
@@ -153,7 +154,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             UpdateEmailValidIcon();
         }
 
-        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        private void PasswordBox_PasswordChanged(object sender, TextChangedEventArgs e)
         {
             if (_suppressPasswordSync || _passwordVisible)
                 return;
@@ -172,7 +173,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void RememberMeCheckBox_Changed(object sender, RoutedEventArgs e) =>
             _rememberMe = RememberMeCheckBox.IsChecked == true;
 
-        private void FluentField_GotFocus(object sender, RoutedEventArgs e)
+        private void FluentField_GotFocus(object sender, GotFocusEventArgs e)
         {
             AnimateFieldBorder(GetFieldBorder(sender), true);
         }
@@ -238,18 +239,26 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private void AdminSupport_Click(object sender, RoutedEventArgs e)
+        private async void AdminSupport_Click(object sender, RoutedEventArgs e)
         {
             e.Handled = true;
 
             OverlayGrid.Background = new SolidColorBrush(Color.FromArgb(200, 0, 0, 0));
             OverlayGrid.IsHitTestVisible = true;
 
-            var support = new AdminSupportWindow();
-            support.ShowDialog(this).GetAwaiter().GetResult();
-
-            OverlayGrid.Background = Brushes.Transparent;
-            OverlayGrid.IsHitTestVisible = false;
+            try
+            {
+                var support = new AdminSupportWindow();
+                // Используем await вместо GetAwaiter().GetResult()
+                await support.ShowDialog(this);
+            }
+            finally
+            {
+                // Блок finally гарантирует, что затемнение снимется, 
+                // даже если внутри окна произойдет ошибка
+                OverlayGrid.Background = Brushes.Transparent;
+                OverlayGrid.IsHitTestVisible = false;
+            }
         }
 
         private void EmailBox_KeyDown(object sender, KeyEventArgs e)
@@ -274,23 +283,22 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 _viewModel.LoginCommand.Execute(null);
         }
 
-        private void ExitButton_Click(object sender, RoutedEventArgs e)
+        private async void ExitButton_Click(object sender, RoutedEventArgs e)
         {
-            var result = ConfirmExit();
-            if (result is not MessageBoxResult.Yes)
+            var confirmed = await ExitConfirmationDialog.ConfirmExitAsync(this);
+            if (!confirmed)
                 return;
 
             ShutdownApplication();
         }
-
-        private MessageBoxResult ConfirmExit() =>
-            ExitConfirmationDialog.ConfirmExit(this) ? MessageBoxResult.Yes : MessageBoxResult.No;
 
         private static void ShutdownApplication()
         {
             App.ExitWithoutLoginRedirect = true;
             if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
                 desktop.Shutdown();
+            else
+                Environment.Exit(0);
         }
     }
 }

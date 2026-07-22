@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NurMarketKassa.Core\NurMarketKassa.Core.csproj" />
+    <ProjectReference Include="..\NurMarketKassa.Ui.Shared\NurMarketKassa.Ui.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,6 +2,7 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="using:NurMarketKassa.AvaloniaHost.Views"
+        x:CompileBindings="False"
         Title="История смен"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="None"
@@ -40,14 +41,15 @@
                     BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0">
                 <StackPanel Margin="0,12,0,0">
                     <Button Command="{Binding ShowHistoryCommand}" Classes="ShiftSidebarButton"
-                            Background="{Binding IsHistoryPage, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
+                            Classes.active="{Binding IsHistoryPage}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="📋" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="История смен" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Command="{Binding ShowSummaryCommand}" Classes="ShiftSidebarButton">
+                    <Button Command="{Binding ShowSummaryCommand}" Classes="ShiftSidebarButton"
+                            Classes.active="{Binding IsSummaryPage}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="📊" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Общий план" VerticalAlignment="Center"/>

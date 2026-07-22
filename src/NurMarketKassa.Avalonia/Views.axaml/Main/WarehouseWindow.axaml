@@ -1,16 +1,16 @@
 <Window x:Class="NurMarketKassa.AvaloniaHost.Views.WarehouseWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        xmlns:vm="using:NurMarketKassa.ViewModels"
+        xmlns:models="using:NurMarketKassa.Models"
+        x:DataType="vm:WarehouseViewModel"
+        x:CompileBindings="True"
         Title="Склад — ревизия и списание"
         Height="720" Width="1100" MinHeight="500" MinWidth="800"
         WindowStartupLocation="CenterOwner"
         KeyDown="Window_KeyDown"
         Loaded="Window_Loaded"
         Closed="Window_Closed">
-    <Window.Resources>
-        <conv:BoolToIsVisibleConverter x:Key="BoolToVis" />
-    </Window.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition />
@@ -35,18 +35,19 @@
                         <RowDefinition />
                     </Grid.RowDefinitions>
                     <DataGrid x:Name="RevisionGrid"
+                              x:CompileBindings="False"
                               ItemsSource="{Binding RevisionLines}"
                               SelectedItem="{Binding FocusedRevisionLine, Mode=TwoWay}"
                               AutoGenerateColumns="False" IsReadOnly="False" RowHeight="40">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Штрих-код" Width="140" Binding="{Binding Barcode}" IsReadOnly="True" />
-                            <DataGridTextColumn Header="Наименование" Width="*" Binding="{Binding ProductName}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Штрих-код" Width="140" Binding="{ReflectionBinding Barcode}" IsReadOnly="True" />
+                            <DataGridTextColumn Header="Наименование" Width="*" Binding="{ReflectionBinding ProductName}" IsReadOnly="True" />
                             <DataGridTextColumn Header="Ожидаемый остаток" Width="150"
-                                                Binding="{Binding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                                                Binding="{ReflectionBinding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
                             <DataGridTextColumn Header="Фактический остаток" Width="150"
-                                                Binding="{Binding ActualQty, StringFormat=\{0:0.###\}}" />
+                                                Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}" />
                             <DataGridTextColumn Header="Разница" Width="110"
-                                                Binding="{Binding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                                                Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
                         </DataGrid.Columns>
                     </DataGrid>
                     <Button Grid.Row="1" Content="Зафиксировать ревизию"
@@ -84,7 +85,7 @@
         </TabControl>
 
         <Border Grid.RowSpan="2" Background="#40000000" ZIndex="10"
-                IsVisible="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                IsVisible="{Binding IsBusy}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="Сохранение..." Foreground="White" FontSize="18" Margin="0,0,0,12" />
                 <ProgressBar IsIndeterminate="True" Width="200" Height="8" />

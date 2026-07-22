@@ -6,8 +6,19 @@
   <Application.Resources>
     <ResourceDictionary>
       <conv:BoolToIsVisibleConverter x:Key="BoolToVis"/>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppThemeDark.axaml"/>
+          </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppThemeLight.axaml"/>
+          </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
       <ResourceDictionary.MergedDictionaries>
-        <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppThemeDark.axaml"/>
         <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Themes/KeyboardIcons.axaml"/>
         <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/PosDialogTheme.axaml"/>
         <ResourceInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/NurMarketDialogTheme.axaml"/>

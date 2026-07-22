@@ -1,12 +1,38 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.WeighedProductDialog"
-        Title="WeighedProductDialog"
-        Width="640" Height="480"
+        Title="Взвесить товар"
+        Width="520" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="WeighedProductDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="12"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <StackPanel>
+      <TextBlock x:Name="HeaderTitleText" Text="Взвесить товар"
+                 FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock x:Name="TitleBlock" TextWrapping="Wrap" Margin="0,0,0,4"/>
+      <TextBlock x:Name="PriceBlock" Foreground="#64748B" Margin="0,0,0,12"/>
+      <StackPanel x:Name="ScalePanel" IsVisible="False" Margin="0,0,0,8">
+        <TextBlock Text="На весах сейчас" FontSize="12" Foreground="#64748B"/>
+        <TextBlock x:Name="LiveScaleText" FontSize="16" FontWeight="SemiBold"/>
+        <Button x:Name="FromScaleButton" Content="Подставить с весов"
+                Margin="0,8,0,0" Click="FromScale_Click"/>
+      </StackPanel>
+      <TextBlock Text="Вес (кг)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <TextBox x:Name="WeightBox" Height="40" FontSize="16" Margin="0,0,0,20"
+               KeyDown="WeightBox_KeyDown"/>
+      <Grid ColumnDefinitions="*,12,*">
+        <Button Grid.Column="0" Content="Отмена" Height="42" Click="Cancel_Click"/>
+        <Button x:Name="OkButton" Grid.Column="2" Content="В чек"
+                Height="42" IsDefault="True" Click="Ok_Click"/>
+      </Grid>
+    </StackPanel>
+  </Border>
 </Window>

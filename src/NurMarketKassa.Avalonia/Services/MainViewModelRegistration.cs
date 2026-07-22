@@ -1,25 +1,53 @@
+using System.Globalization;
+using Avalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Interfaces;
+using NurMarketKassa.Models.Pos;
+using NurMarketKassa.Services;
 using NurMarketKassa.Ui.Shared;
+using NurMarketKassa.ViewModels;
 using NurMarketKassa.ViewModels.Main;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
 
+/// <summary>
+/// Этот файл собирает и регистрирует ViewModel главного окна кассира,
+/// связывая каталог, корзину, панель инструментов и обработчики действий UI.
+/// </summary>
 internal static class MainViewModelRegistration
 {
     public static void AddMainWindowViewModels(IServiceCollection services)
     {
         services.AddSingleton<MainWindowHostBridge>();
         services.AddTransient<MainStatusViewModel>();
-        services.AddTransient<CatalogPanelViewModel>();
-        services.AddTransient<BasketPanelViewModel>();
 
         services.AddTransient<MainWindowViewModel>(sp =>
         {
             var bridge = sp.GetRequiredService<MainWindowHostBridge>();
             var session = sp.GetRequiredService<IAppSession>();
             var status = sp.GetRequiredService<MainStatusViewModel>();
-            var catalog = sp.GetRequiredService<CatalogPanelViewModel>();
-            var basket = sp.GetRequiredService<BasketPanelViewModel>();
+
+            var basket = new BasketPanelViewModel(
+                sp.GetRequiredService<ICartService>(),
+                sp.GetRequiredService<IUserPrompts>(),
+                sp.GetRequiredService<IPosCheckoutService>(),
+                sp.GetRequiredService<IDeferredCartService>(),
+                sp.GetRequiredService<ICustomerDisplayService>(),
+                sp.GetRequiredService<IWindowService>(),
+                sp.GetRequiredService<IDialogService>(),
+                sp.GetRequiredService<IDispatcher>(),
+                LookupCatalogProduct,
+                sp.GetService<IPosCheckoutUiFlow>(),
+                product => bridge.AddProductFromCatalog?.Invoke(product) ?? Task.CompletedTask,
+                () => bridge.OpenDeferredCarts?.Invoke() ?? Task.CompletedTask,
+                () => bridge.ApplyOrderDiscount?.Invoke() ?? Task.CompletedTask);
+
+            var catalog = new CatalogPanelViewModel(
+                sp.GetRequiredService<ICatalogCacheService>(),
+                sp.GetRequiredService<IDispatcher>(),
+                sp.GetRequiredService<IConnectivityService>(),
+                product => bridge.TryAddProduct(product));
 
             MainWindowViewModel? main = null;
 
@@ -38,6 +66,7 @@ internal static class MainViewModelRegistration
                 navigateWarehouse: () => bridge.Window?.NavigateWarehouse(),
                 navigateShifts: () => bridge.Window?.NavigateShifts(),
                 navigateReturn: () => bridge.Window?.NavigateReturn(),
+                navigateCashOperations: () => bridge.Window?.NavigateCashOperations(),
                 navigateFinance: () => bridge.Window?.NavigateFinance(),
                 navigateSales: () => bridge.Window?.NavigateSales(),
                 navigateSettings: () => bridge.Window?.NavigateSettings(),
@@ -46,5 +75,11 @@ internal static class MainViewModelRegistration
             main = new MainWindowViewModel(toolbar, catalog, basket, sideMenu, session);
             return main;
         });
+    }
+
+    private static CatalogProductTileVm? LookupCatalogProduct(string code)
+    {
+        var repo = LocalProductRepository.Instance;
+        return repo.TryGetTileByBarcode(code) ?? repo.TryGetTileBySku(code);
     }
 }

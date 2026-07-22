@@ -1,13 +1,21 @@
 using System.Text;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.Configuration;
+using NurMarketKassa.Core.Application;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Interfaces;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
+using NurMarketKassa.Services.Hardware;
+using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
 
+/// <summary>
+/// Этот файл регистрирует в DI Avalonia-хоста инфраструктурные сервисы:
+/// SQLite, REST API клиенты сайта, каталог, корзину, смену и вспомогательные зависимости кассы.
+/// </summary>
 internal static class AvaloniaHostServiceRegistration
 {
     public static void AddAuthInfrastructure(IServiceCollection services)
@@ -28,9 +36,26 @@ internal static class AvaloniaHostServiceRegistration
 
     public static void AddPosInfrastructure(IServiceCollection services)
     {
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(
+            typeof(IPosSessionService).Assembly,
+            typeof(PosCheckoutService).Assembly));
+
         services.AddSingleton<ICatalogApiService, CatalogApiService>();
         services.AddSingleton<ISalesApiService, SalesApiService>();
         services.AddSingleton<IShiftApiService, ShiftApiService>();
+        services.AddSingleton<ICatalogCacheService, AvaloniaCatalogCacheService>();
+        services.AddSingleton<ICartService, CartService>();
+        services.AddSingleton<IShiftStateService, ShiftStateService>();
+        services.AddSingleton<Core.Contracts.IOfflinePosStateStore, OfflinePosStateStoreAdapter>();
+        services.AddSingleton<IReceiptPrinterService, VirtualReceiptPrinterService>();
+        services.AddSingleton<ICashShiftService, CashShiftService>();
+        services.AddSingleton<IPosCheckoutService, PosCheckoutService>();
+        services.AddSingleton<IDeferredCartService, DeferredCartService>();
+        services.AddSingleton<IMySqlConnectionSettings, AvaloniaMySqlConnectionSettings>();
+        services.AddSingleton<IStockAuditWriter, AvaloniaStockAuditWriter>();
+        services.AddSingleton<IStockService, StockService>();
+        services.AddSingleton<CustomerDisplayStateService>();
+        services.AddSingleton<ICustomerDisplayService, AvaloniaCustomerDisplayService>();
 
         services.AddSingleton<MySqlSettings>(sp => sp.GetRequiredService<AppSettings>().MySql);
         services.AddSingleton<MySqlAuditService>(sp =>
@@ -42,6 +67,10 @@ internal static class AvaloniaHostServiceRegistration
 
         services.AddSingleton<IUserPrompts, AvaloniaUserPrompts>();
         services.AddSingleton<IBarcodeInputService, AvaloniaKeyboardWedgeBarcodeService>();
+        services.AddSingleton<IPosCheckoutUiFlow, AvaloniaPosCheckoutUiFlow>();
+        services.AddSingleton<IWeightInputPrompt, AvaloniaWeightInputPrompt>();
+        services.AddSingleton<IShiftOpenCoordinator, AvaloniaShiftOpenCoordinator>();
+        services.AddSingleton<ScaleWeightProvider>();
     }
 
     public static void InitializeAuthInfrastructure(IServiceProvider services)
@@ -57,6 +86,23 @@ internal static class AvaloniaHostServiceRegistration
 
     public static void InitializePosInfrastructure(IServiceProvider services)
     {
-        _ = services;
+        try
+        {
+            services.GetRequiredService<IStockService>().Initialize();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"STOCK init failed: {ex.Message}", "STOCK");
+        }
+
+        try
+        {
+            LocalProductRepository.Instance.EnsureSchema();
+            _ = LocalProductRepository.Instance.WarmUpCacheAsync();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CATALOG warm-up failed: {ex.Message}", "CATALOG");
+        }
     }
 }

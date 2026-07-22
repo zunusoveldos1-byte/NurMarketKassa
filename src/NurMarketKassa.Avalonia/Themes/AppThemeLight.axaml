@@ -36,6 +36,20 @@
   <SolidColorBrush x:Key="BrushCatalogTabBgHover" Color="#F1F5F9" />
   <SolidColorBrush x:Key="BrushCatalogTabBgSelected" Color="#F7D617" />
   <SolidColorBrush x:Key="BrushCatalogTabBorderSelected" Color="#D6B500" />
+
+  <Color x:Key="ColorPrimaryDefault">#F7D617</Color>
+  <Color x:Key="ColorPrimaryHover">#FFE24D</Color>
+  <Color x:Key="ColorPrimaryPressed">#D6B500</Color>
+  <Color x:Key="ColorSecondaryDefault">#E2E8F0</Color>
+  <Color x:Key="ColorSecondaryHover">#EDF2F8</Color>
+  <Color x:Key="ColorSecondaryPressed">#CBD5E1</Color>
+  <Color x:Key="ColorGhostDefault">#F1F5F9</Color>
+  <Color x:Key="ColorGhostHover">#E2E8F0</Color>
+  <Color x:Key="ColorGhostPressed">#CBD5E1</Color>
+  <Color x:Key="ColorDangerDefault">#B91C1C</Color>
+  <Color x:Key="ColorDangerHover">#DC2626</Color>
+  <Color x:Key="ColorDangerPressed">#991B1B</Color>
+
   <SolidColorBrush x:Key="BrushUiStatusMuted" Color="#64748B" />
   <SolidColorBrush x:Key="BrushUiStatusOk" Color="#059669" />
   <SolidColorBrush x:Key="BrushUiStatusWarn" Color="#D97706" />

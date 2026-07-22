@@ -1,6 +1,11 @@
-<Window xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters" x:Class="NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow"
+<Window xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        xmlns:models="using:NurMarketKassa.Models"
+        xmlns:settings="using:NurMarketKassa.AvaloniaHost.Views.Settings"
+        xmlns:vm="using:NurMarketKassa.ViewModels.Settings"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.PosSettingsWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:CompileBindings="False"
         Title="Настройки кассы"
         Height="820" Width="980"
         MinHeight="760" MinWidth="900"
@@ -10,7 +15,7 @@
     <Window.Resources>
         <ResourceDictionary>
 
-            <conv:BoolToIsVisibleConverter x:Key="BoolToVis"/>
+            <conv:AssetPathToBitmapConverter x:Key="AssetPathToBitmap"/>
 
             <!-- Тумблер -->
             <Style Selector="CheckBox.ToggleSwitch" x:Key="ToggleSwitch">
@@ -125,14 +130,20 @@
             <Style Selector="TabItem.SidebarTabItem" x:Key="SidebarTabItem">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="Padding" Value="14,12"/>
+                <Setter Property="Padding" Value="12"/>
+                <Setter Property="Margin" Value="4"/>
                 <Setter Property="FontSize" Value="14"/>
                 <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TabItem">
-                            <Border x:Name="TabRoot" Background="Transparent" Padding="{TemplateBinding Padding}" Cursor="Hand" Margin="8,2">
+                            <Border x:Name="TabRoot"
+                                    Background="Transparent"
+                                    CornerRadius="8"
+                                    Padding="{TemplateBinding Padding}"
+                                    Cursor="Hand"
+                                    Margin="{TemplateBinding Margin}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="4"/>
@@ -142,7 +153,6 @@
                                     <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0"/>
                                 </Grid>
                             </Border>
-                            
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
@@ -168,12 +178,34 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <TabControl Classes="SettingsTabControl"
-                TabStripPlacement="Left"
-                >
+    <Window.Styles>
+        <Style Selector="TabItem.SidebarTabItem:pointerover /template/ Border#TabRoot">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
+        <Style Selector="TabItem.SidebarTabItem:selected /template/ Border#TabRoot">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+        </Style>
+        <Style Selector="TabItem.SidebarTabItem:selected /template/ Border#AccentBar">
+            <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+        </Style>
+        <Style Selector="TabItem.SidebarTabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid VerticalAlignment="Top">
+        <Image Stretch="UniformToFill"
+               Opacity="{Binding SettingsVm.BackgroundOpacity}"
+               Source="{Binding SettingsVm.BackgroundImage, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}}"
+               IsVisible="{Binding SettingsVm.HasBackgroundImage}"/>
+
+        <TabControl Classes="SettingsTabControl"
+                    TabStripPlacement="Left"
+                    VerticalAlignment="Stretch">
 
         <!-- ======================== Весы ======================== -->
-        <TabItem>
+        <TabItem Classes="SidebarTabItem">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
@@ -263,7 +295,7 @@
         </TabItem>
 
         <!-- ======================== Печать ======================== -->
-        <TabItem>
+        <TabItem Classes="SidebarTabItem">
             <TabItem.Resources>
                 <Style Selector="RadioButton.PrintModePill" x:Key="PrintModePill">
                     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -406,7 +438,7 @@
                             </Border>
 
                             <Border Classes="SettingsCard"
-                            IsVisible="{Binding IsChecked, ElementName=TextModeRadio, Converter={StaticResource BoolToVis}}">
+                            IsVisible="{Binding #TextModeRadio.IsChecked}">
                                 <StackPanel>
                                     <TextBlock Text="ESC/POS" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,16"/>
                                     <StackPanel Margin="0,0,0,16">
@@ -446,7 +478,7 @@
                         <!-- Правая колонка -->
                         <StackPanel Grid.Column="2" Grid.Row="0" VerticalAlignment="Top">
                             <Border Classes="SettingsCard"
-                            IsVisible="{Binding IsChecked, ElementName=GraphicModeRadio, Converter={StaticResource BoolToVis}}">
+                            IsVisible="{Binding #GraphicModeRadio.IsChecked}">
                                 <StackPanel>
                                     <TextBlock Text="Графический чек" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,16"/>
                                     <CheckBox x:Name="GraphicReceiptEnabledCheck" Content="Включить графический чек"
@@ -523,7 +555,7 @@
             </Grid>
         </TabItem>
         <!-- ======================== Экран ======================== -->
-        <TabItem>
+        <TabItem Classes="SidebarTabItem">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
@@ -583,10 +615,10 @@
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton x:Name="DoubleClickToCartRadio" Content="Двойной клик"
                                              Classes="DatePill" Margin="0,0,-1,0"
-                                             Checked="ClickToCartMode_Changed"/>
+                                             IsCheckedChanged="ClickToCartMode_Changed"/>
                                 <RadioButton x:Name="SingleClickToCartRadio" Content="Один клик"
                                              Classes="DatePill"
-                                             Checked="ClickToCartMode_Changed"/>
+                                             IsCheckedChanged="ClickToCartMode_Changed"/>
                             </StackPanel>
                             <CheckBox x:Name="ResetManualAddQtyCheck"
                                       Content="Сбрасывать количество после добавления"
@@ -598,7 +630,7 @@
         </TabItem>
 
         <!-- ======================== Обновления ======================== -->
-        <TabItem>
+        <TabItem Classes="SidebarTabItem">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
@@ -669,7 +701,7 @@
         </TabItem>
 
         <!-- ======================== Операции ======================== -->
-        <TabItem>
+        <TabItem Classes="SidebarTabItem">
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
@@ -697,7 +729,7 @@
                 <ScrollViewer Grid.Row="1"  >
                     <ItemsControl x:Name="BankQrItemsControl">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:BankQrSetting">
                                 <Border Background="{DynamicResource BrushCatalogTileBg}" CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
                                         BorderBrush="{DynamicResource BrushCatalogTileBorder}" BorderThickness="1">
                                     <Grid>
@@ -715,7 +747,7 @@
                                                        Foreground="{DynamicResource BrushText}"/>
                                             <Image Source="{Binding QrCodePath, TargetNullValue={x:Null}}"
                                                    Width="64" Height="64" Stretch="Uniform" Margin="0,6,0,0"
-                                                   IsVisible="{Binding HasQrCode, Converter={StaticResource BoolToVis}}"/>
+                                                   IsVisible="{Binding HasQrCode}"/>
                                         </StackPanel>
                                         <Button Grid.Column="2" Content="Загрузить QR"
                                                 Classes="SettingsFlatButton"
@@ -731,5 +763,18 @@
             </Grid>
         </TabItem>
 
+        <!-- ======================== Кастомизация ======================== -->
+        <TabItem Classes="SidebarTabItem">
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🎨" FontSize="15" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Кастомизация" VerticalAlignment="Center"/>
+                </StackPanel>
+            </TabItem.Header>
+            <settings:SettingsView DataContext="{Binding SettingsVm}"
+                                   VerticalAlignment="Top"/>
+        </TabItem>
+
     </TabControl>
+    </Grid>
 </Window>

@@ -71,24 +71,38 @@
                             Command="{Binding AddByBarcodeCommand}"/>
                 </Grid>
 
-                <UniformGrid Columns="3">
-                    <Button Classes="main-secondary"
-                            Margin="0,0,6,0"
-                            Command="{Binding DeferCartCommand}">
-                        <TextBlock Text="Отложить чек" HorizontalAlignment="Center"/>
-                    </Button>
-                    <Button Classes="main-secondary"
-                            Margin="0,0,6,0"
-                            Command="{Binding DeleteReceiptCommand}">
-                        <TextBlock Text="Удалить чек" HorizontalAlignment="Center"/>
-                    </Button>
-                    <Button Classes="main-secondary"
-                            Command="{Binding ToggleMoreActionsCommand}">
-                        <TextBlock Text="Ещё" HorizontalAlignment="Center"/>
-                    </Button>
-                </UniformGrid>
+            <UniformGrid Columns="3">
+              <Button Classes="main-secondary"
+                      Margin="0,0,6,0"
+                      Command="{Binding DeferCartCommand}"
+                      IsEnabled="{Binding HasItems}">
+                <TextBlock Text="Отложить чек" HorizontalAlignment="Center"/>
+              </Button>
+              <Button Classes="main-secondary"
+                      Margin="0,0,6,0"
+                      Command="{Binding DeleteReceiptCommand}"
+                      IsEnabled="{Binding HasItems}">
+                <TextBlock Text="Удалить чек" HorizontalAlignment="Center"/>
+              </Button>
+              <Button Classes="main-secondary"
+                      Command="{Binding ToggleMoreActionsCommand}"
+                      IsEnabled="{Binding HasItems}">
+                <TextBlock Text="Ещё" HorizontalAlignment="Center"/>
+              </Button>
+            </UniformGrid>
 
-                <Border Background="{DynamicResource BrushInputAlt}"
+            <StackPanel IsVisible="{Binding IsMoreActionsVisible}" Spacing="8" Margin="0,0,0,4">
+              <UniformGrid Columns="2">
+                <Button Classes="main-secondary" Margin="0,0,6,0"
+                        Content="Список отлож."
+                        Command="{Binding OpenDeferredCartsCommand}"/>
+                <Button Classes="main-secondary"
+                        Content="Скидка %"
+                        Command="{Binding ApplyOrderDiscountCommand}"/>
+              </UniformGrid>
+            </StackPanel>
+
+            <Border Background="{DynamicResource BrushInputAlt}"
                         BorderBrush="{DynamicResource BrushBorder}"
                         BorderThickness="1"
                         CornerRadius="12"
@@ -142,19 +156,49 @@
                                Margin="16"
                                IsVisible="{Binding IsEmpty}"/>
                     <ListBox ItemsSource="{Binding Lines}"
+                             Background="Transparent"
                              IsVisible="{Binding HasLines}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:CartLineItemVm">
-                                <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,6">
-                                    <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding QuantityDisplay}"
-                                               Margin="12,0"
-                                               Foreground="{DynamicResource BrushTextSoft}"/>
-                                    <TextBlock Grid.Column="2"
-                                               Text="{Binding LineTotalDisplay}"
-                                               FontWeight="SemiBold"/>
-                                </Grid>
+                                <Border CornerRadius="8"
+                                        Padding="10"
+                                        Margin="0,0,0,6"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="1"
+                                        Background="{DynamicResource BrushCatalogTileBg}">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding PriceQuantityLine}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    HorizontalAlignment="Right"
+                                                    Margin="0,0,8,0"
+                                                    Spacing="2">
+                                            <TextBlock Text="{Binding QuantityDisplay}"
+                                                       FontWeight="SemiBold"
+                                                       HorizontalAlignment="Right"/>
+                                            <TextBlock Text="{Binding LineTotalDisplay}"
+                                                       FontWeight="Bold"
+                                                       HorizontalAlignment="Right"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="2"
+                                                Classes="main-ghost"
+                                                Width="32" Height="32"
+                                                Padding="0"
+                                                VerticalAlignment="Center"
+                                                Content="❌"
+                                                ToolTip.Tip="Удалить позицию"
+                                                Command="{Binding $parent[UserControl].((vm:BasketPanelViewModel)DataContext).RemoveLineCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>

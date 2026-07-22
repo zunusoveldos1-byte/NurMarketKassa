@@ -1,12 +1,25 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CashOperationsDialog"
-        Title="CashOperationsDialog"
-        Width="640" Height="480"
+        Title="Кассовые операции"
+        Width="520" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="CashOperationsDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="12"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          Padding="24">
+    <StackPanel Spacing="12">
+      <TextBlock Text="Кассовые операции" FontSize="18" FontWeight="Bold"/>
+      <TextBlock Text="Управление сменой и кассовыми операциями."
+                 TextWrapping="Wrap" Foreground="#64748B"/>
+      <Button Content="Открыть смену" Height="42" Click="OpenShift_Click"/>
+      <Button Content="Закрыть смену" Height="42" Click="CloseShift_Click"/>
+      <Button Content="Закрыть" Height="42" HorizontalAlignment="Right" Click="Close_Click"/>
+    </StackPanel>
+  </Border>
 </Window>

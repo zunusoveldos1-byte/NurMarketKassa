@@ -1,12 +1,44 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.OrderDiscountDialog"
-        Title="OrderDiscountDialog"
-        Width="640" Height="480"
+        Title="Скидка"
+        Width="520" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="OrderDiscountDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="12"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          Padding="18">
+    <StackPanel>
+      <TextBlock x:Name="HeaderTitleText" Text="Скидка"
+                 FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock x:Name="ItemTitleLabel" IsVisible="False" FontWeight="SemiBold" Margin="0,0,0,8"/>
+      <StackPanel x:Name="ScopePanel" Margin="0,0,0,8">
+        <TextBlock Text="Применить к" Margin="0,0,0,6"/>
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <RadioButton x:Name="RbCheck" Content="Весь чек" GroupName="Scope" IsChecked="True"/>
+          <RadioButton x:Name="RbItem" Content="Выбранному товару" GroupName="Scope" IsVisible="False"/>
+        </StackPanel>
+      </StackPanel>
+      <TextBlock Text="Тип скидки" Margin="0,0,0,6"/>
+      <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,12">
+        <RadioButton x:Name="RbPercent" Content="Процент" GroupName="DiscountType" IsChecked="True"
+                     IsCheckedChanged="DiscountType_Changed"/>
+        <RadioButton x:Name="RbSum" Content="Сумма" GroupName="DiscountType"
+                     IsCheckedChanged="DiscountType_Changed"/>
+      </StackPanel>
+      <TextBlock x:Name="ValueLabel" Text="Введите процент скидки"/>
+      <TextBox x:Name="ValueBox" Margin="0,4,0,8"/>
+      <TextBlock x:Name="ErrorText" Foreground="#C5221F" IsVisible="False" Margin="0,0,0,12"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+        <Button Content="Сбросить" Click="Clear_Click"/>
+        <Button Content="Отмена" Click="Cancel_Click"/>
+        <Button Content="Применить" IsDefault="True" Click="Apply_Click"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
 </Window>

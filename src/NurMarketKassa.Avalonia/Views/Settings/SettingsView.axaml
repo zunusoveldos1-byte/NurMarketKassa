@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:NurMarketKassa.ViewModels.Settings"
+             xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.SettingsView"
+             x:DataType="vm:SettingsViewModel"
+             x:CompileBindings="True"
+             VerticalAlignment="Top">
+
+  <UserControl.Resources>
+    <conv:AssetPathToBitmapConverter x:Key="AssetPathToBitmap"/>
+  </UserControl.Resources>
+
+  <Grid VerticalAlignment="Top">
+    <Image Source="{Binding BackgroundImage, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}}"
+           Stretch="UniformToFill"
+           Opacity="{Binding BackgroundOpacity}"
+           IsVisible="{Binding HasBackgroundImage}"/>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalAlignment="Top">
+      <StackPanel Spacing="16" Margin="0,0,8,24" VerticalAlignment="Top">
+
+        <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
+          <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}">
+            <TextBlock Text="🎨" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <StackPanel VerticalAlignment="Center" Spacing="2">
+            <TextBlock Text="Кастомизация" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="Фон правой панели настроек и прозрачность подложки"
+                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+          </StackPanel>
+        </StackPanel>
+
+        <Border CornerRadius="12"
+                BorderBrush="#E2E8F0"
+                BorderThickness="1"
+                Padding="20"
+                Background="{DynamicResource BrushCatalogTileBg}">
+          <StackPanel Spacing="14">
+            <TextBlock Text="Обои" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="Выберите изображение (PNG, JPG, JPEG, WEBP). Изменения применяются сразу."
+                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button Classes="main-primary"
+                      Content="Выбрать изображение"
+                      Command="{Binding PickBackgroundCommand}"
+                      MinHeight="40" Padding="16,8"/>
+              <Button Classes="main-secondary"
+                      Content="Сбросить"
+                      Command="{Binding ClearBackgroundCommand}"
+                      IsEnabled="{Binding HasBackgroundImage}"
+                      MinHeight="40" Padding="16,8"/>
+            </StackPanel>
+            <TextBlock Text="{Binding BackgroundImagePath}"
+                       FontSize="11"
+                       Foreground="{DynamicResource BrushTextSoft}"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding HasBackgroundImage}"/>
+          </StackPanel>
+        </Border>
+
+        <Border CornerRadius="12"
+                BorderBrush="#E2E8F0"
+                BorderThickness="1"
+                Padding="20"
+                Background="{DynamicResource BrushCatalogTileBg}">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Прозрачность подложки" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="От 5% до 80%. Чем выше значение, тем заметнее изображение под контентом."
+                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <Slider Minimum="0.05"
+                    Maximum="0.8"
+                    Value="{Binding BackgroundOpacity}"
+                    TickFrequency="0.05"
+                    IsSnapToTickEnabled="True"/>
+            <TextBlock Text="{Binding BackgroundOpacityPercent}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Right"/>
+          </StackPanel>
+        </Border>
+
+        <Button Classes="main-primary"
+                Content="Сохранить"
+                Command="{Binding SaveCustomizationCommand}"
+                HorizontalAlignment="Left"
+                MinWidth="140"
+                MinHeight="40"/>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

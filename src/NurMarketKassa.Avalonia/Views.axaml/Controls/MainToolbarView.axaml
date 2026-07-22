@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
              xmlns:controls="using:NurMarketKassa.AvaloniaHost.Views.Main.Controls"
@@ -46,9 +46,9 @@
                 <Button Classes="main-ghost"
                         Width="38" Height="38"
                         Padding="0"
-                        ToolTip.Tip="Переключить тему"
+                        ToolTip.Tip="{Binding ThemeTooltip}"
                         Command="{Binding ToggleThemeCommand}">
-                    <TextBlock Classes="mdl2" Text="&#xE706;" FontSize="15"/>
+                    <TextBlock Classes="mdl2" Text="{Binding ThemeGlyph}" FontSize="15"/>
                 </Button>
                 <Button Classes="main-ghost"
                         Width="38" Height="38"

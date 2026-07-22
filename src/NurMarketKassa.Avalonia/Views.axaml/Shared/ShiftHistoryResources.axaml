@@ -59,6 +59,10 @@
     <Setter Property="Cursor" Value="Hand"/>
   </Style>
 
+  <Style Selector="Button.ShiftSidebarButton.active">
+    <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+  </Style>
+
   <Style Selector="DataGrid.ShiftModernDataGrid">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderThickness" Value="0"/>

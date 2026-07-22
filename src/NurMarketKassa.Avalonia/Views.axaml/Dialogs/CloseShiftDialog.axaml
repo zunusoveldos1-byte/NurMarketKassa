@@ -1,12 +1,85 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CloseShiftDialog"
-        Title="CloseShiftDialog"
-        Width="640" Height="480"
+        Title="Закрыть смену"
+        Width="472" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="CloseShiftDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- Стиль для кнопки "Отмена" -->
+        <Style Selector="Button.btn-secondary">
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+        </Style>
+
+        <!-- Стиль для акцентной кнопки "Закрыть смену" -->
+        <Style Selector="Button.btn-warning">
+            <Setter Property="Background" Value="#EAB308"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-warning:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#CA8A04"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="12"
+            Background="#FFFFFF"
+            BorderBrush="#E2E8F0" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="20">
+        <StackPanel>
+            <TextBlock Text="Закрыть смену (Z-отчёт)" FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="Пересчитайте наличные в кассе и укажите фактический остаток."
+                       TextWrapping="Wrap" Foreground="#64748B" Margin="0,0,0,12"/>
+            
+            <Border Padding="12" CornerRadius="8" Margin="0,0,0,14"
+                    Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Остаток по системе" FontSize="12" Foreground="#64748B"/>
+                    <TextBlock x:Name="SystemBalanceText" FontSize="18" FontWeight="Bold"
+                               Foreground="#007ACC" Margin="0,4,0,0" Text="—"/>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Фактический остаток в кассе" FontSize="13" FontWeight="SemiBold"
+                       Foreground="#64748B" Margin="0,0,0,6"/>
+            <TextBox x:Name="ClosingCashBox" Height="40" FontSize="16" Margin="0,0,0,24" CornerRadius="8"/>
+
+            <!-- Кнопки с примененными классами стилей -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+                <Button Content="Отмена" 
+                        Classes="btn-secondary" 
+                        Width="110" Height="40" 
+                        Click="Cancel_Click"/>
+                
+                <Button Content="Закрыть смену" 
+                        Classes="btn-warning" 
+                        Width="145" Height="40" 
+                        IsDefault="True" 
+                        Click="Ok_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
 </Window>

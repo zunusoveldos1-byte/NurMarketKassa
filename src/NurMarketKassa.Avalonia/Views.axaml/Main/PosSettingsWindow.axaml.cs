@@ -2,6 +2,7 @@
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs; using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.ViewModels.Settings;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
@@ -17,6 +18,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
 {
     public partial class PosSettingsWindow : Window
     {
+        public SettingsViewModel SettingsVm { get; }
+
         //private string? _recommendedEncoding;
         //private string? _recommendedEscTable;   
 
@@ -28,8 +31,17 @@ namespace NurMarketKassa.AvaloniaHost.Views
     { "MBank",    "avares://NurMarketKassa.Assets/Assets/Mbank-logo.png" },
     { "ФинкаБанк", "avares://NurMarketKassa.Assets/Assets/Finca-logo.png" }
         };
-        public PosSettingsWindow()
+        public PosSettingsWindow() : this(ResolveSettingsViewModel())
         {
+        }
+
+        private static SettingsViewModel ResolveSettingsViewModel() =>
+            NurMarketKassa.AvaloniaHost.App.GetRequiredService<SettingsViewModel>();
+
+        public PosSettingsWindow(SettingsViewModel settingsVm)
+        {
+            SettingsVm = settingsVm;
+            DataContext = this;
             InitializeComponent();
 
             _bankSettings = new ObservableCollection<BankQrSetting>();  // ← инициализация

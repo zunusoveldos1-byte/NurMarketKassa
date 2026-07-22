@@ -37,13 +37,37 @@ namespace NurMarketKassa
         public static SyncService OfflineSync { get; private set; } = null!;
         public static CatalogBackgroundSyncService CatalogBackgroundSync { get; private set; } = null!;
         public static MySqlAuditService AuditDb { get; private set; } = null!;
-        public static string? CurrentUserId { get; set; }
-        public static string? PosCashboxId { get; set; }
+        public static string? CurrentUserId
+        {
+            get => PosApp.CurrentUserId;
+            set => PosApp.CurrentUserId = value;
+        }
+        public static string? PosCashboxId
+        {
+            get => PosApp.PosCashboxId;
+            set => PosApp.PosCashboxId = value;
+        }
         internal static bool ExitWithoutLoginRedirect { get; set; }
-        public static string? PosCashboxDisplayName { get; set; }
-        public static string? ActiveShiftId { get; set; }
-        public static bool IsOfflineBootstrap { get; set; }
-        public static string? OfflineBootstrapMessage { get; set; }
+        public static string? PosCashboxDisplayName
+        {
+            get => PosApp.PosCashboxDisplayName;
+            set => PosApp.PosCashboxDisplayName = value;
+        }
+        public static string? ActiveShiftId
+        {
+            get => PosApp.ActiveShiftId;
+            set => PosApp.ActiveShiftId = value;
+        }
+        public static bool IsOfflineBootstrap
+        {
+            get => PosApp.IsOfflineBootstrap;
+            set => PosApp.IsOfflineBootstrap = value;
+        }
+        public static string? OfflineBootstrapMessage
+        {
+            get => PosApp.OfflineBootstrapMessage;
+            set => PosApp.OfflineBootstrapMessage = value;
+        }
         /// <summary>После явного выхода не выполнять автоматический офлайн-вход на экране логина.</summary>
         public static bool SkipOfflineAutoLogin { get; set; }
 
@@ -86,6 +110,7 @@ namespace NurMarketKassa
                 {
                     services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblies(
                         typeof(IPosSessionService).Assembly,
+                        typeof(PosCheckoutService).Assembly,
                         typeof(App).Assembly));
 
                     services.AddSingleton<IAppSession, WpfAppSession>();
@@ -141,6 +166,10 @@ namespace NurMarketKassa
                     services.AddSingleton<IMySqlConnectionSettings, WpfMySqlConnectionSettings>();
                     services.AddSingleton<IOfflinePosStateStore, OfflinePosStateStoreAdapter>();
                     services.AddSingleton<ICashShiftService, CashShiftService>();
+                    services.AddSingleton<IPosCheckoutService, PosCheckoutService>();
+                    services.AddSingleton<IDeferredCartService, DeferredCartService>();
+                    services.AddSingleton<CustomerDisplayStateService>();
+                    services.AddSingleton<ICustomerDisplayService>(sp => sp.GetRequiredService<CustomerDisplayStateService>());
                     services.AddSingleton<IStockService, Core.Application.StockService>();
                     services.AddSingleton<IInventoryService, Core.Application.InventoryService>();
                     services.AddSingleton<IStockAuditWriter, WpfStockAuditWriter>();
@@ -167,6 +196,10 @@ namespace NurMarketKassa
 
             await AppHost.StartAsync();
 
+            UiDispatcherHolder.Current = AppHost.Services.GetRequiredService<Ui.Shared.IDispatcher>();
+            CatalogCacheService.CacheUpdated += OnCatalogCacheUpdated;
+            CatalogCacheService.ToastRequested += OnCatalogToastRequested;
+
             if (HardwareModeHelper.UsePhysicalScale())
             {
                 var scale = AppHost.Services.GetRequiredService<IWeightScaleService>();
@@ -186,6 +219,12 @@ namespace NurMarketKassa
             OfflineSync = AppHost.Services.GetRequiredService<SyncService>();
             CatalogBackgroundSync = new CatalogBackgroundSyncService();
             AuditDb = AppHost.Services.GetRequiredService<MySqlAuditService>();
+            PosApp.Settings = Settings;
+            PosApp.AuthApi = AuthApi;
+            PosApp.CatalogApi = CatalogApi;
+            PosApp.SalesApi = SalesApi;
+            PosApp.ShiftApi = ShiftApi;
+            PosApp.AuditDb = AuditDb;
             AppHost.Services.GetRequiredService<DatabaseService>().EnsureSchema();
             AppHost.Services.GetRequiredService<ILocalAccountsStore>().EnsureSchema();
             CatalogCacheService.EnsureLocalDatabase();
@@ -243,8 +282,29 @@ namespace NurMarketKassa
             _agentService.Start();
         }
 
+        private static void OnCatalogCacheUpdated()
+        {
+            UiDispatcherHolder.InvokeAsync(() =>
+            {
+                if (Current.MainWindow is Views.MainWindow mainWindow)
+                    mainWindow.UpdateCacheStatus();
+            });
+        }
+
+        private static void OnCatalogToastRequested(string message, bool isWarning)
+        {
+            UiDispatcherHolder.InvokeAsync(() =>
+            {
+                if (Current.MainWindow is Views.MainWindow mainWindow)
+                    mainWindow.ShowToast(message, isWarning);
+            });
+        }
+
         protected override async void OnExit(ExitEventArgs e)
         {
+            CatalogCacheService.CacheUpdated -= OnCatalogCacheUpdated;
+            CatalogCacheService.ToastRequested -= OnCatalogToastRequested;
+
             foreach (Window window in Current.Windows)
                 window.Hide();
 

@@ -1,12 +1,39 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ReturnLineReasonDialog"
-        Title="ReturnLineReasonDialog"
-        Width="640" Height="480"
+        Title="Причина возврата"
+        Width="480" Height="400"
+        MinHeight="340" MinWidth="400"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="ReturnLineReasonDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="True"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="12"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          Padding="24">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+      <TextBlock Grid.Row="0" Text="Укажите причину возврата"
+                 FontSize="18" FontWeight="Bold"/>
+      <TextBlock x:Name="HintText" Grid.Row="1"
+                 Margin="0,8,0,0" TextWrapping="Wrap"
+                 Foreground="#64748B"/>
+      <TextBox x:Name="ReasonBox" Grid.Row="2"
+               Margin="0,12,0,0" Height="100"
+               TextWrapping="Wrap" AcceptsReturn="True"/>
+      <TextBlock x:Name="ErrorText" Grid.Row="4"
+                 Margin="0,8,0,0" Foreground="#C5221F"
+                 IsVisible="False"/>
+      <StackPanel Grid.Row="5" Orientation="Horizontal"
+                  HorizontalAlignment="Right" Spacing="10"
+                  Margin="0,14,0,0">
+        <Button Content="Отмена" MinWidth="100" MinHeight="40"
+                Click="Cancel_Click"/>
+        <Button Content="Вернуть" MinWidth="140" MinHeight="44"
+                IsDefault="True" Click="Ok_Click"/>
+      </StackPanel>
+    </Grid>
+  </Border>
 </Window>

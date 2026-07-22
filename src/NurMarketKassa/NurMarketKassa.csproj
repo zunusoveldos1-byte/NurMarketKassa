@@ -51,6 +51,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Services\CatalogCacheServices.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Shared business layer used by both WPF and Avalonia hosts -->
     <ProjectReference Include="..\NurMarketKassa.ViewModels\NurMarketKassa.ViewModels.csproj" />
     <ProjectReference Include="..\NurMarketKassa.Infrastructure\NurMarketKassa.Infrastructure.csproj" />

@@ -1,12 +1,29 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.DeferredStockIssuesDialog"
-        Title="DeferredStockIssuesDialog"
-        Width="640" Height="480"
+        Title="Проблемы с остатками"
+        Width="520" SizeToContent="Height"
+        MaxHeight="600"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="DeferredStockIssuesDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+  <Border Margin="16" CornerRadius="16"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          Padding="28,24">
+    <StackPanel>
+      <TextBlock Text="Проблемы с остатками"
+                 FontSize="18" FontWeight="Bold"
+                 Margin="0,0,0,12"/>
+      <ScrollViewer MaxHeight="360" Margin="0,0,0,20">
+        <TextBlock x:Name="BodyText" TextWrapping="Wrap" FontSize="14" Foreground="#64748B"/>
+      </ScrollViewer>
+      <Button Content="Понятно" Height="46" HorizontalAlignment="Stretch"
+              Background="#F7D617" FontWeight="SemiBold" CornerRadius="10"
+              Click="Ok_Click"/>
+    </StackPanel>
+  </Border>
 </Window>

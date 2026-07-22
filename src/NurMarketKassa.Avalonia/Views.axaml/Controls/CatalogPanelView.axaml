@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:NurMarketKassa.ViewModels.Main"
+             xmlns:pos="using:NurMarketKassa.Models.Pos"
              x:Class="NurMarketKassa.AvaloniaHost.Views.Main.Controls.CatalogPanelView"
              x:DataType="vm:CatalogPanelViewModel"
              x:CompileBindings="True">
@@ -84,19 +85,42 @@
                     CornerRadius="12"
                     Padding="16">
                 <Grid>
-                    <TextBlock Text="Каталог товаров"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource BrushTextSoft}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               IsVisible="{Binding !IsLoading}"/>
-                    <TextBlock Text="Загрузка каталога…"
-                               FontSize="14"
-                               Foreground="{DynamicResource BrushTextSoft}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               IsVisible="{Binding IsLoading}"/>
+                    <Border Background="{DynamicResource BrushPanel}"
+                            BorderBrush="{DynamicResource BrushBorder}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="24,20"
+                            MaxWidth="360"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding IsCatalogEmpty}">
+                        <StackPanel Spacing="12" HorizontalAlignment="Center">
+                            <TextBlock Text="📦"
+                                       FontSize="36"
+                                       HorizontalAlignment="Center"
+                                       Opacity="0.45"/>
+                            <TextBlock Text="Тут пока пусто.&#x0a;Идёт загрузка каталога из базы данных или с сервера..."
+                                       FontSize="14"
+                                       Foreground="{DynamicResource BrushTextSoft}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding IsLoading}"/>
+                            <TextBlock Text="Тут пока пусто.&#x0a;Проверьте подключение и обновите каталог."
+                                       FontSize="14"
+                                       Foreground="{DynamicResource BrushTextSoft}"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding !IsLoading}"/>
+                            <Button Classes="main-secondary"
+                                    Content="Обновить каталог"
+                                    MinWidth="140"
+                                    MinHeight="36"
+                                    HorizontalAlignment="Center"
+                                    HorizontalContentAlignment="Center"
+                                    Command="{Binding RefreshCatalogCommand}"/>
+                        </StackPanel>
+                    </Border>
+
                     <ItemsControl ItemsSource="{Binding Products}"
                                   IsVisible="{Binding HasProducts}">
                         <ItemsControl.ItemsPanel>
@@ -105,7 +129,7 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:CatalogProductPlaceholderVm">
+                            <DataTemplate x:DataType="pos:CatalogProductTileVm">
                                 <Border Width="160" Height="120"
                                         Margin="4"
                                         Background="{DynamicResource BrushPanel}"

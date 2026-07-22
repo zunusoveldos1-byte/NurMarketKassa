@@ -37,7 +37,10 @@ public partial class AdminSupportWindow : Window
     private void Website_Click(object? sender, RoutedEventArgs e) =>
         OpenUrl("https://nurcrm.kg/");
 
-    private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+    private void Close_Click(object? sender, RoutedEventArgs e)
+    {
+        this.Close();
+    }
 
     private void OpenUrl(string url)
     {

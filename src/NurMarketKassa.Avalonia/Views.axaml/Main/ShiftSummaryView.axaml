@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="using:NurMarketKassa.Models"
              xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             x:DataType="vm:ShiftHistoryViewModel"
+             x:CompileBindings="True"
              HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
 
     <Grid Margin="16">
@@ -81,14 +83,15 @@
                     <TextBlock Grid.Row="0" Text="Операции" FontWeight="SemiBold"
                                Foreground="{DynamicResource BrushText}" Margin="16,14,16,0"/>
                     <DataGrid Grid.Row="1" Classes="ShiftModernDataGrid"
+                              x:CompileBindings="False"
                               ItemsSource="{Binding PagedFilteredOperations}" Margin="0,8,0,0"
                               IsVisible="{Binding HasFilteredOperations}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Дата" Binding="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="*"/>
-                            <DataGridTextColumn Header="Тип операции" Binding="{Binding Type}" Width="*"/>
-                            <DataGridTextColumn Header="Кассир" Binding="{Binding Cashier}" Width="*"/>
-                            <DataGridTextColumn Header="Сумма" Binding="{Binding AmountDisplay}" Width="*"/>
-                            <DataGridTextColumn Header="Комментарий" Binding="{Binding Note}" Width="2*"/>
+                            <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="*"/>
+                            <DataGridTextColumn Header="Тип операции" Binding="{ReflectionBinding Type}" Width="*"/>
+                            <DataGridTextColumn Header="Кассир" Binding="{ReflectionBinding Cashier}" Width="*"/>
+                            <DataGridTextColumn Header="Сумма" Binding="{ReflectionBinding AmountDisplay}" Width="*"/>
+                            <DataGridTextColumn Header="Комментарий" Binding="{ReflectionBinding Note}" Width="2*"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock Grid.Row="1" Text="Нет операций за выбранный период"
@@ -114,7 +117,7 @@
                         <DataTemplate x:DataType="vm:PagerEntry">
                             <Button Margin="4,0" Content="{Binding Display}"
                                     Classes="ShiftPagerButton"
-                                    Command="{Binding $parent[UserControl].DataContext.GoToSummaryPageCommand}"
+                                    Command="{Binding $parent[UserControl].((vm:ShiftHistoryViewModel)DataContext).GoToSummaryPageCommand}"
                                     CommandParameter="{Binding PageNumber}"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

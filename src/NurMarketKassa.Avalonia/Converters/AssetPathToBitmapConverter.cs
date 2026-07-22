@@ -10,6 +10,8 @@ namespace NurMarketKassa.AvaloniaHost.Converters;
 /// </summary>
 public sealed class AssetPathToBitmapConverter : IValueConverter
 {
+    public static readonly AssetPathToBitmapConverter Instance = new();
+
     private const string AvaloniaAssetsRoot = "avares://NurMarketKassa.Avalonia/Assets/";
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)

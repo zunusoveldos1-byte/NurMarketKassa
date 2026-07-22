@@ -67,6 +67,10 @@ public sealed class UserPreferences
     public bool SingleClickToCart { get; set; }
     public bool ResetManualAddQtyAfterAdd { get; set; } = true;
     public bool ToolsPanelExpanded { get; set; }
+    /// <summary>Абсолютный путь к пользовательским обоям правой панели настроек.</summary>
+    public string BackgroundImagePath { get; set; } = "";
+    /// <summary>Прозрачность подложки настроек (0.05–0.8).</summary>
+    public double BackgroundOpacity { get; set; } = 0.15;
     public string LastLoginEmail { get; set; } = "";
     public string LastLoginPassword { get; set; } = "";
     /// <summary>Ключ владельца локального каталога (email|userId) для изоляции при смене аккаунта.</summary>
@@ -258,6 +262,10 @@ public sealed class UserPreferences
             if (fromFile.LastFilterPriceMax.HasValue) p.LastFilterPriceMax = fromFile.LastFilterPriceMax;
             if (fromFile.GraphicFontSize.HasValue)
                 p.GraphicFontSize = fromFile.GraphicFontSize.Value;
+            if (!string.IsNullOrWhiteSpace(fromFile.BackgroundImagePath))
+                p.BackgroundImagePath = fromFile.BackgroundImagePath!;
+            if (fromFile.BackgroundOpacity is > 0)
+                p.BackgroundOpacity = Math.Clamp(fromFile.BackgroundOpacity.Value, 0.05, 0.8);
         }
         catch
         {
@@ -335,6 +343,8 @@ public sealed class UserPreferences
                 ShowTotal = ShowTotal,
                 ShowQrCode = ShowQrCode,
                 GraphicFontSize = GraphicFontSize,
+                BackgroundImagePath = BackgroundImagePath,
+                BackgroundOpacity = BackgroundOpacity,
             };
             File.WriteAllText(FilePath, JsonSerializer.Serialize(dto, JsonOpt));
         }
@@ -451,5 +461,7 @@ public sealed class UserPreferences
         public bool? ShowTotal { get; set; }
         public bool? ShowQrCode { get; set; }
         public float? GraphicFontSize { get; set; }
+        public string? BackgroundImagePath { get; set; }
+        public double? BackgroundOpacity { get; set; }
     }
 }

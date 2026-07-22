@@ -1,6 +1,9 @@
 namespace NurMarketKassa.ViewModels.Main;
 
-/// <summary>Строка чека для панели корзины (Avalonia).</summary>
+/// <summary>
+/// Этот файл описывает одну строку чека для панели корзины Avalonia-кассы:
+/// название товара, количество, цену и сумму позиции.
+/// </summary>
 public sealed class CartLineItemVm : ViewModelBase
 {
     private double _quantity;
@@ -25,9 +28,11 @@ public sealed class CartLineItemVm : ViewModelBase
     public double LineTotal
     {
         get => _lineTotal;
-        private set => SetProperty(ref _lineTotal, value);
+        set => SetProperty(ref _lineTotal, value);
     }
 
     public string QuantityDisplay => Quantity.ToString("0.###");
+    public string UnitPriceDisplay => $"{UnitPrice:0.00} сом";
+    public string PriceQuantityLine => $"{UnitPrice:0.00} × {QuantityDisplay} {Unit}";
     public string LineTotalDisplay => $"{LineTotal:0.00} сом";
 }

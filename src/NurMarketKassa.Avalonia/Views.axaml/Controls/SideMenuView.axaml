@@ -68,6 +68,10 @@
                             Command="{Binding NavigateShiftsCommand}"/>
                     <Button Classes="main-ghost"
                             HorizontalAlignment="Stretch"
+                            Content="Кассовые операции"
+                            Command="{Binding NavigateCashOperationsCommand}"/>
+                    <Button Classes="main-ghost"
+                            HorizontalAlignment="Stretch"
                             Content="Возврат"
                             Command="{Binding NavigateReturnCommand}"/>
 
