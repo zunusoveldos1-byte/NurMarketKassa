@@ -2,36 +2,164 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.DeferredCartsDialog"
         Title="Отложенные корзины"
-        Width="720" Height="560"
+        Width="820" Height="580"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
-  <Border Margin="16" CornerRadius="12"
+
+  <Window.Styles>
+    <!-- 1. Верхний крестик -->
+    <Style Selector="Button.CloseIconButton">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#64748B"/>
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.CloseIconButton:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#F1F5F9"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+    </Style>
+    <Style Selector="Button.CloseIconButton:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#E2E8F0"/>
+    </Style>
+
+    <!-- 2. Главная ЧИСТО ЖЁЛТАЯ кнопка (Primary) -->
+    <Style Selector="Button.YellowPrimary">
+      <Setter Property="Background" Value="#EAB308"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="12,9"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.YellowPrimary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#CA8A04"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+    </Style>
+    <Style Selector="Button.YellowPrimary:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#A16207"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+
+    <!-- 3. Контурная жёлтая кнопка (Outline) -->
+    <Style Selector="Button.YellowOutline">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#A16207"/>
+      <Setter Property="BorderBrush" Value="#FACC15"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.YellowOutline:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#FEF9C3"/>
+      <Setter Property="BorderBrush" Value="#EAB308"/>
+      <Setter Property="Foreground" Value="#854D0E"/>
+    </Style>
+    <Style Selector="Button.YellowOutline:pressed /template/ ContentPresenter">
+      <Setter Property="Background" Value="#FEF08A"/>
+    </Style>
+
+    <!-- 4. Кнопка удаления (Danger Soft) -->
+    <Style Selector="Button.DangerOutline">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#EF4444"/>
+      <Setter Property="BorderBrush" Value="#FCA5A5"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.DangerOutline:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#FEF2F2"/>
+      <Setter Property="BorderBrush" Value="#EF4444"/>
+      <Setter Property="Foreground" Value="#DC2626"/>
+    </Style>
+
+    <!-- 5. Нейтральная кнопка "Закрыть" (Secondary Neutral) -->
+    <Style Selector="Button.SecondaryNeutral">
+      <Setter Property="Background" Value="#F1F5F9"/>
+      <Setter Property="Foreground" Value="#475569"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Padding" Value="14,9"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <!-- Стили для неактивных кнопок (:disabled) -->
+    <Style Selector="Button:disabled /template/ ContentPresenter">
+      <Setter Property="Background" Value="#F1F5F9"/>
+      <Setter Property="BorderBrush" Value="#E2E8F0"/>
+      <Setter Property="Foreground" Value="#94A3B8"/>
+    </Style>
+    <Style Selector="Button:disabled">
+      <!-- В Avalonia тип курсора "запрещено" называется 'No' -->
+      <Setter Property="Cursor" Value="No"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="14"
           Background="#FFFFFF"
           BorderBrush="#E2E8F0" BorderThickness="1"
-          Padding="18">
+          Padding="20">
     <Grid RowDefinitions="Auto,*,Auto">
-      <TextBlock Grid.Row="0" Text="Отложенные корзины"
-                 FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
-      <StackPanel Grid.Row="0" Margin="0,32,0,14">
-        <TextBlock x:Name="SummaryText" FontWeight="SemiBold" Foreground="#007ACC"/>
-        <TextBlock TextWrapping="Wrap" Foreground="#64748B" FontSize="12" Margin="0,8,0,0"
-                   Text="Выберите одну или несколько корзин. Можно открыть отдельный чек или добавить позиции в текущую продажу."/>
-      </StackPanel>
+      
+      <!-- Шапка -->
+      <Grid Grid.Row="0" RowDefinitions="Auto,Auto">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Text="Отложенные корзины"
+                     FontSize="18" FontWeight="Bold" Foreground="#1E293B" VerticalAlignment="Center"/>
+          <Button Grid.Column="1" Content="✕" 
+                  Classes="CloseIconButton" 
+                  Click="Close_Click"/>
+        </Grid>
+        
+        <StackPanel Grid.Row="1" Margin="0,12,0,14">
+          <TextBlock x:Name="SummaryText" FontWeight="SemiBold" Foreground="#CA8A04"/>
+          <TextBlock TextWrapping="Wrap" Foreground="#64748B" FontSize="12" Margin="0,6,0,0"
+                     Text="Выберите одну или несколько корзин. Можно открыть отдельный чек или добавить позиции в текущую продажу."/>
+        </StackPanel>
+      </Grid>
+
+      <!-- Список корзин -->
       <ListBox x:Name="CartListBox" Grid.Row="1"
                SelectionMode="Multiple"
-               Margin="0,0,0,14"/>
-      <WrapPanel Grid.Row="2" HorizontalAlignment="Right">
-        <Button x:Name="DeleteSelectedButton" Content="Удалить выбранные"
-                Margin="0,0,10,0" Click="DeleteSelected_Click"/>
-        <Button x:Name="MergeIntoCurrentButton" Content="Добавить в текущий чек"
-                Margin="0,0,10,0" Click="MergeIntoCurrent_Click"/>
-        <Button x:Name="LoadAsSeparateButton" Content="Открыть как отдельный чек"
-                Click="LoadAsSeparate_Click"/>
-      </WrapPanel>
+               Margin="0,0,0,16"/>
+
+      <!-- Подвал -->
+      <Grid Grid.Row="2" ColumnDefinitions="Auto,*">
+        <!-- Кнопка "Закрыть" слева -->
+        <Button Grid.Column="0" x:Name="CloseButton" Content="Закрыть" 
+                Classes="SecondaryNeutral"
+                Click="Close_Click"/>
+
+        <!-- Панель основных действий в одну строку -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="DeleteSelectedButton" Content="Удалить выбранные"
+                  Classes="DangerOutline"
+                  Margin="0,0,8,0" Click="DeleteSelected_Click"/>
+          <Button x:Name="MergeIntoCurrentButton" Content="Добавить в текущий чек"
+                  Classes="YellowOutline"
+                  Margin="0,0,8,0" Click="MergeIntoCurrent_Click"/>
+          <Button x:Name="LoadAsSeparateButton" Content="Открыть как отдельный чек"
+                  Classes="YellowPrimary"
+                  Click="LoadAsSeparate_Click"/>
+        </StackPanel>
+      </Grid>
+      
     </Grid>
   </Border>
 </Window>

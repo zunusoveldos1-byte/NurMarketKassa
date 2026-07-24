@@ -1,12 +1,120 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NurMarketKassa.ViewModels"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftActionsMenu"
-        Title="ShiftActionsMenu"
-        Width="640" Height="480"
+        Title="Действия со сменой"
+        Width="340" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="ShiftActionsMenu" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+  <Window.Styles>
+    <Style Selector="Button.menu-item">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Height" Value="44"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+    </Style>
+    <Style Selector="Button.menu-item:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F1F5F9"/>
+    </Style>
+    <Style Selector="Button.menu-danger">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Height" Value="44"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#B91C1C"/>
+    </Style>
+    <Style Selector="Button.menu-danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FEE2E2"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="16"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="16">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Действия со сменой"
+                 FontSize="18" FontWeight="Bold"
+                 Foreground="#0F172A"
+                 Margin="4,0,4,10"/>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.View}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="Просмотреть смену" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Deposit}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="#059669"/>
+          <TextBlock Text="Внесение" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Withdraw}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="#B91C1C"/>
+          <TextBlock Text="Изъятие" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Export}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE9D2;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="X-отчёт" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Button Classes="menu-item" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Print}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center"/>
+          <TextBlock Text="Z-отчёт" VerticalAlignment="Center"/>
+        </StackPanel>
+      </Button>
+
+      <Border Height="1" Background="#E2E8F0" Margin="4,8"/>
+
+      <Button Classes="menu-danger" Click="Action_Click" Tag="{x:Static vm:ShiftMenuAction.Delete}">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Foreground="#B91C1C"/>
+          <TextBlock Text="Удалить" VerticalAlignment="Center" Foreground="#B91C1C"/>
+        </StackPanel>
+      </Button>
+
+      <Button Content="Отмена"
+              Height="42"
+              Margin="0,8,0,0"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
+              Background="#F1F5F9"
+              Foreground="#475569"
+              FontWeight="SemiBold"
+              CornerRadius="10"
+              BorderThickness="0"
+              Cursor="Hand"
+              IsCancel="True"
+              Click="Cancel_Click"/>
+    </StackPanel>
+  </Border>
 </Window>

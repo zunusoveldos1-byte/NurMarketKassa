@@ -6,110 +6,199 @@
         x:DataType="dialogs:ReturnSaleDialog"
         x:CompileBindings="True"
         Title="Возврат по чеку"
-        Width="900" Height="820"
-        MinWidth="680" MinHeight="600"
-        WindowStartupLocation="CenterOwner"
+        WindowState="Maximized"
+        MinWidth="800" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
-  <Border Margin="14" CornerRadius="12"
+
+  <Window.Styles>
+    <!-- Главные кнопки действий (Жёлтый акцент) -->
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="#F7D617"/>
+      <Setter Property="Foreground" Value="#111827"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E5C50F"/>
+      <Setter Property="Foreground" Value="#111827"/>
+    </Style>
+
+    <!-- Вторичные кнопки (Светлый контур) -->
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="Foreground" Value="#334155"/>
+      <Setter Property="BorderBrush" Value="#CBD5E1"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F8FAFC"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="BorderBrush" Value="#94A3B8"/>
+    </Style>
+
+    <!-- Кнопка внутри строки DataGrid -->
+    <Style Selector="Button.btn-table">
+      <Setter Property="Background" Value="#EEF2FF"/>
+      <Setter Property="Foreground" Value="#4F46E5"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="6"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-table:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E0E7FF"/>
+      <Setter Property="Foreground" Value="#4338CA"/>
+    </Style>
+
+    <!-- Поле ввода поиска -->
+    <Style Selector="TextBox.ModernInput">
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="Padding" Value="10,6"/>
+      <Setter Property="Background" Value="#F8FAFC"/>
+      <Setter Property="BorderBrush" Value="#CBD5E1"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBox.ModernInput:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="#F7D617"/>
+      <Setter Property="Background" Value="#FFFFFF"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="12" CornerRadius="16"
           Background="#FFFFFF"
           BorderBrush="#E2E8F0" BorderThickness="1"
-          Padding="20">
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
     <Grid RowDefinitions="Auto,*,Auto,Auto">
+      
+      <!-- Шапка диалога -->
       <StackPanel Grid.Row="0">
-        <TextBlock Text="Возврат товаров по чеку" FontSize="20" FontWeight="Bold"/>
-        <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#64748B"
-                   Text="Сверху — список чеков. Выберите чек кнопкой «Выбрать». Ниже появится состав чека: отметьте товары и «Вернуть выбранные» с общей причиной или оформите «Вернуть весь чек»."/>
+        <TextBlock Text="Возврат товаров по чеку" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+        <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#64748B" FontSize="14"
+                   Text="Выберите чек кнопкой «Выбрать». Ниже появится его состав: отметьте товары и нажмите «Вернуть выбранные» или оформите «Вернуть весь чек»."/>
       </StackPanel>
 
-      <Grid Grid.Row="1" Margin="0,12,0,0" ColumnDefinitions="*,12,*">
-        <!-- Блок 1: чеки -->
+      <!-- Основная область с 2 колонками -->
+      <Grid Grid.Row="1" Margin="0,16,0,0" ColumnDefinitions="*,16,*">
+        
+        <!-- БЛОК 1: Чеки продаж -->
         <DockPanel Grid.Column="0" LastChildFill="True">
           <TextBlock DockPanel.Dock="Top" Text="1. Чеки продаж"
-                     FontWeight="SemiBold" FontSize="15" Margin="0,0,0,6"/>
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-            <TextBox x:Name="SearchReceiptBox" Width="150" Watermark="Поиск..."
+                     FontWeight="Bold" FontSize="16" Foreground="#0F172A" Margin="0,0,0,8"/>
+          
+          <!-- Поиск и фильтры -->
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <TextBox x:Name="SearchReceiptBox" Classes="ModernInput" Width="180" Watermark="Поиск..."
                      TextChanged="SearchReceiptBox_TextChanged"/>
-            <Button Content="Обновить" Click="RefreshSales_Click"/>
-            <Button x:Name="MoreSalesButton" Content="Ещё" Click="MoreSales_Click"/>
+            <Button Content="Обновить" Classes="btn-secondary" Padding="12,0" Height="38" Click="RefreshSales_Click"/>
+            <Button x:Name="MoreSalesButton" Classes="btn-secondary" Content="Ещё" Padding="12,0" Height="38" Click="MoreSales_Click"/>
           </StackPanel>
-          <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10">
+          
+          <!-- Таблица чеков -->
+          <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
             <Grid>
               <DataGrid x:Name="SalesDataGrid"
-                           x:CompileBindings="False"
-                           ItemsSource="{Binding FilteredSales}"
-                           AutoGenerateColumns="False"
-                           IsReadOnly="True"
-                           GridLinesVisibility="Horizontal"
-                           HeadersVisibility="Column"
-                           MaxHeight="420">
+                        x:CompileBindings="False"
+                        ItemsSource="{Binding FilteredSales}"
+                        AutoGenerateColumns="False"
+                        IsReadOnly="True"
+                        GridLinesVisibility="Horizontal"
+                        HeadersVisibility="Column">
                 <DataGrid.Columns>
-                  <DataGridTextColumn Header="Номер чека" Binding="{ReflectionBinding SaleId}" Width="*"/>
-                  <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding SaleDateDisplay}" Width="120"/>
-                  <DataGridTextColumn Header="Сумма" Binding="{ReflectionBinding TotalAmountDisplay}" Width="100"/>
+                  <DataGridTextColumn Header="№ чека" Binding="{ReflectionBinding SaleId}" Width="*"/>
+                  <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding SaleDateDisplay}" Width="130"/>
+                  <DataGridTextColumn Header="Сумма" Binding="{ReflectionBinding TotalAmountDisplay}" Width="110"/>
                   <DataGridTemplateColumn Header="" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
                         <Button Content="Выбрать" Tag="{ReflectionBinding SaleId}" Click="SelectSale_Click"
-                                HorizontalAlignment="Stretch" Padding="8,4"/>
+                                Classes="btn-table" Height="30" Margin="4"
+                                HorizontalAlignment="Stretch"/>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
                 </DataGrid.Columns>
               </DataGrid>
+              
               <ProgressBar IsIndeterminate="True" Height="4" VerticalAlignment="Top"
                            IsVisible="{Binding IsBusy}"/>
             </Grid>
           </Border>
         </DockPanel>
 
-        <!-- Блок 2: содержимое чека -->
+        <!-- БЛОК 2: Содержимое выбранного чека -->
         <DockPanel Grid.Column="2" LastChildFill="True">
           <TextBlock DockPanel.Dock="Top" Text="2. Содержимое выбранного чека"
-                     FontWeight="SemiBold" FontSize="15" Margin="0,0,0,4"/>
+                     FontWeight="Bold" FontSize="16" Foreground="#0F172A" Margin="0,0,0,8"/>
+          
+          <!-- Выбранная покупка -->
           <Border x:Name="SelectedChequeBar" DockPanel.Dock="Top"
-                  Margin="0,0,0,8" Padding="10,8"
-                  Background="#F8FAFC" CornerRadius="6"
+                  Margin="0,0,0,10" Padding="12,10"
+                  Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8"
                   IsVisible="False">
             <TextBlock x:Name="SelectedSaleText" TextWrapping="Wrap"
-                       Foreground="#64748B" FontSize="12"/>
+                       Foreground="#334155" FontSize="13" FontWeight="Medium"/>
           </Border>
-          <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="0,0,0,6">
-            <Button Grid.Column="0" Content="Все" MinWidth="72" Padding="10,8"
+          
+          <!-- Панель быстрых кнопок -->
+          <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="0,0,0,10">
+            <Button Grid.Column="0" Content="Все" Classes="btn-secondary" Height="38" MinWidth="70"
                     Click="SelectAllReturnable_Click"/>
-            <Button Grid.Column="1" Content="Снять" Margin="8,0,0,0"
-                    MinWidth="72" Padding="10,8"
+            <Button Grid.Column="1" Content="Снять" Classes="btn-secondary" Height="38" Margin="8,0,0,0" MinWidth="70"
                     Click="ClearReturnSelection_Click"/>
             <Button x:Name="ReturnSelectedButton" Grid.Column="3"
-                    Content="Вернуть выбранные" Margin="0,0,8,0"
-                    MinWidth="160" Padding="12,10"
+                    Classes="btn-primary" Content="Вернуть выбранные" Margin="0,0,8,0"
+                    Height="38" MinWidth="160"
                     Click="ReturnSelected_Click"/>
             <Button x:Name="ReturnWholeReceiptButton" Grid.Column="4"
-                    Content="Вернуть весь чек" MinWidth="150" Padding="12,10"
+                    Classes="btn-primary" Content="Вернуть весь чек" Height="38" MinWidth="150"
                     Click="ReturnWholeReceipt_Click"/>
           </Grid>
+          
           <TextBlock x:Name="LinesPlaceholder" DockPanel.Dock="Top"
-                     Margin="0,4,0,8" TextWrapping="Wrap"
+                     Margin="0,8,0,12" TextWrapping="Wrap"
                      HorizontalAlignment="Center" TextAlignment="Center"
-                     Foreground="#94A3B8" FontSize="13"/>
+                     Foreground="#94A3B8" FontSize="14"/>
+                     
+          <!-- Список позиций в чеке -->
           <ScrollViewer>
             <ItemsControl ItemsSource="{Binding Lines}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="pos:ReturnSaleLineVm">
-                  <Border CornerRadius="8" Padding="10,8" Margin="0,0,0,6"
-                          Background="#F8FAFC">
+                  <Border CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
+                          Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1">
                     <Grid ColumnDefinitions="Auto,*">
                       <CheckBox Grid.Column="0" VerticalAlignment="Center"
                                 Margin="0,0,12,0"
                                 IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                 IsEnabled="{Binding CanReturn}"/>
-                      <StackPanel Grid.Column="1">
-                        <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Title}"/>
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock FontWeight="SemiBold" FontSize="14" Foreground="#0F172A" TextWrapping="Wrap" Text="{Binding Title}"/>
                         <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="#64748B"
                                    Text="{Binding SubLine}"/>
-                        <TextBlock Margin="0,2,0,0" FontSize="12" Foreground="#94A3B8"
+                        <TextBlock Margin="0,2,0,0" FontSize="12" FontWeight="SemiBold" Foreground="#059669"
                                    Text="{Binding LineSumText}"/>
                       </StackPanel>
                     </Grid>
@@ -119,24 +208,31 @@
             </ItemsControl>
           </ScrollViewer>
         </DockPanel>
+
       </Grid>
 
+      <!-- Ошибки -->
       <TextBlock x:Name="ErrorText" Grid.Row="2"
                  Margin="0,10,0,0" Foreground="#C5221F"
+                 FontWeight="SemiBold" FontSize="13"
+                 HorizontalAlignment="Center" TextAlignment="Center"
                  IsVisible="False"/>
 
+      <!-- Нижняя панель управления -->
       <StackPanel Grid.Row="3" Margin="0,12,0,0">
-        <Expander Header="Ввести ID продажи вручную">
-          <StackPanel Margin="0,10,0,0" Spacing="10">
-            <TextBox x:Name="SaleIdBox" MinHeight="40"/>
-            <Button Content="Загрузить чек" HorizontalAlignment="Left"
-                    MinWidth="160" Click="LoadById_Click"/>
+        <Expander Header="Ввести ID продажи вручную" Foreground="#64748B" FontSize="13">
+          <StackPanel Margin="0,10,0,0" Spacing="10" Orientation="Horizontal">
+            <TextBox x:Name="SaleIdBox" Classes="ModernInput" Width="220" Watermark="ID чека..."/>
+            <Button Content="Загрузить чек" Classes="btn-secondary" Height="38" Padding="16,0" Click="LoadById_Click"/>
           </StackPanel>
         </Expander>
-        <Button Content="Закрыть" HorizontalAlignment="Right"
-                MinWidth="110" Margin="0,14,0,0"
+        
+        <Button Content="Закрыть" Classes="btn-secondary"
+                HorizontalAlignment="Right"
+                Height="42" MinWidth="120" Margin="0,12,0,0"
                 Click="Close_Click"/>
       </StackPanel>
+
     </Grid>
   </Border>
 </Window>

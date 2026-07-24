@@ -119,6 +119,12 @@ public static class CatalogCacheService
             }
 
             await StockSyncService.OverlayAgentStockAsync(newList, cancellationToken).ConfigureAwait(false);
+            foreach (var vm in newList)
+            {
+                if (string.IsNullOrWhiteSpace(vm.StockInfo))
+                    StockSyncService.ApplyQuantityToTile(vm, vm.Quantity, vm.MustWeigh);
+            }
+
             var (added, changed, deleted) = Repository.SyncReplaceAllWithDiff(newList);
 
             if (remoteVersion != null && !remoteVersion.IsEmpty)

@@ -1,21 +1,46 @@
+using Avalonia.Threading;
 using NurMarketKassa.Core.Contracts;
 
 namespace NurMarketKassa.AvaloniaHost.Services;
 
+/// <summary>
+/// Пользовательские подсказки. Любой вызов безопасен с фонового потока.
+/// </summary>
 public sealed class AvaloniaUserPrompts : IUserPrompts
 {
-    public Task<bool> ConfirmAsync(string message) =>
-        Task.FromResult(
+    public async Task<bool> ConfirmAsync(string message)
+    {
+        return await RunOnUiAsync(() =>
             PosMessageBox.Show(message, "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question)
-            == MessageBoxResult.Yes);
+            == MessageBoxResult.Yes).ConfigureAwait(true);
+    }
 
     public void ShowToast(string message, bool isWarning = false) =>
-        PosMessageBox.Show(message, isWarning ? "Внимание" : "Сообщение",
-            MessageBoxButton.OK, isWarning ? MessageBoxImage.Warning : MessageBoxImage.Information);
+        RunOnUi(() =>
+            PosMessageBox.Show(message, isWarning ? "Внимание" : "Сообщение",
+                MessageBoxButton.OK, isWarning ? MessageBoxImage.Warning : MessageBoxImage.Information));
 
     public void ShowWarning(string message) =>
-        PosMessageBox.Show(message, "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning);
+        RunOnUi(() =>
+            PosMessageBox.Show(message, "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning));
 
     public void ShowError(string message) =>
-        PosMessageBox.Show(message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        RunOnUi(() =>
+            PosMessageBox.Show(message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error));
+
+    private static void RunOnUi(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            action();
+        else
+            Dispatcher.UIThread.InvokeAsync(action).GetAwaiter().GetResult();
+    }
+
+    private static async Task<T> RunOnUiAsync<T>(Func<T> func)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            return func();
+
+        return await Dispatcher.UIThread.InvokeAsync(func);
+    }
 }

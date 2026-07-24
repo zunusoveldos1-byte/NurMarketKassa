@@ -2,37 +2,149 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.WeighedProductDialog"
         Title="Взвесить товар"
-        Width="520" SizeToContent="Height"
+        Width="500" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
-  <Border Margin="16" CornerRadius="12"
+
+  <Window.Styles>
+    <!-- Главная кнопка (Индиго/Фиолетовый акцент) -->
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="#6366F1"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#4F46E5"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+
+    <!-- Вторичная кнопка (Контурная / Отмена) -->
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="Foreground" Value="#64748B"/>
+      <Setter Property="BorderBrush" Value="#E2E8F0"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F8FAFC"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="BorderBrush" Value="#CBD5E1"/>
+    </Style>
+
+    <!-- Стильный инпут с фокусом -->
+    <Style Selector="TextBox.ModernTextBox">
+      <Setter Property="Height" Value="46"/>
+      <Setter Property="Padding" Value="14,10"/>
+      <Setter Property="Background" Value="#F8FAFC"/>
+      <Setter Property="BorderBrush" Value="#E2E8F0"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="FontSize" Value="18"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBox.ModernTextBox:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="#6366F1"/>
+      <Setter Property="Background" Value="#FFFFFF"/>
+    </Style>
+  </Window.Styles>
+
+  <!-- Карточка контейнера -->
+  <Border Margin="16" CornerRadius="16"
           Background="#FFFFFF"
-          BorderBrush="#E2E8F0" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
+          BorderBrush="#F1F5F9" BorderThickness="1"
+          BoxShadow="0 20 25 -5 #1A000000, 0 8 10 -6 #1A000000"
           Padding="24">
-    <StackPanel>
-      <TextBlock x:Name="HeaderTitleText" Text="Взвесить товар"
-                 FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
-      <TextBlock x:Name="TitleBlock" TextWrapping="Wrap" Margin="0,0,0,4"/>
-      <TextBlock x:Name="PriceBlock" Foreground="#64748B" Margin="0,0,0,12"/>
-      <StackPanel x:Name="ScalePanel" IsVisible="False" Margin="0,0,0,8">
-        <TextBlock Text="На весах сейчас" FontSize="12" Foreground="#64748B"/>
-        <TextBlock x:Name="LiveScaleText" FontSize="16" FontWeight="SemiBold"/>
-        <Button x:Name="FromScaleButton" Content="Подставить с весов"
-                Margin="0,8,0,0" Click="FromScale_Click"/>
-      </StackPanel>
-      <TextBlock Text="Вес (кг)" FontWeight="SemiBold" Margin="0,0,0,6"/>
-      <TextBox x:Name="WeightBox" Height="40" FontSize="16" Margin="0,0,0,20"
-               KeyDown="WeightBox_KeyDown"/>
-      <Grid ColumnDefinitions="*,12,*">
-        <Button Grid.Column="0" Content="Отмена" Height="42" Click="Cancel_Click"/>
-        <Button x:Name="OkButton" Grid.Column="2" Content="В чек"
-                Height="42" IsDefault="True" Click="Ok_Click"/>
+    <StackPanel Spacing="0">
+      
+      <!-- Шапка диалога с иконкой -->
+      <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
+        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8" Background="#EEF2FF" Margin="0,0,12,0">
+          <TextBlock Text="⚖️" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+          <TextBlock x:Name="HeaderTitleText" Text="Взвешивание товара"
+                     FontSize="16" FontWeight="Bold" Foreground="#0F172A"/>
+          <TextBlock x:Name="TitleBlock" TextWrapping="Wrap" FontSize="13" Foreground="#64748B"/>
+        </StackPanel>
       </Grid>
+
+      <Separator Height="1" Background="#F1F5F9" Margin="0,0,0,16"/>
+
+      <!-- Блок с ценой -->
+      <Border Background="#F8FAFC" CornerRadius="8" Padding="12" Margin="0,0,0,16">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="Цена за кг:" FontSize="13" Foreground="#64748B" VerticalAlignment="Center"/>
+          <TextBlock x:Name="PriceBlock" Grid.Column="1" FontSize="14" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center"/>
+        </Grid>
+      </Border>
+
+      <!-- Панель работы с интерактивными весами -->
+      <Border x:Name="ScalePanel" 
+              IsVisible="False" 
+              Background="#ECFDF5" 
+              BorderBrush="#A7F3D0"
+              BorderThickness="1"
+              CornerRadius="8" 
+              Padding="12" 
+              Margin="0,0,0,16">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+            <TextBlock Text="Данные с весов" FontSize="11" FontWeight="SemiBold" Foreground="#047857"/>
+            <TextBlock x:Name="LiveScaleText" FontSize="16" FontWeight="Bold" Foreground="#065F46"/>
+          </StackPanel>
+          <Button x:Name="FromScaleButton" 
+                  Grid.Column="1"
+                  Classes="btn-primary" 
+                  Background="#10B981"
+                  Content="Вставить" 
+                  Padding="12,4"
+                  Height="32"
+                  FontSize="12"
+                  Click="FromScale_Click"/>
+        </Grid>
+      </Border>
+
+      <!-- Поле ввода веса -->
+      <TextBlock Text="Укажите вес (кг)" FontSize="12" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,6"/>
+      <TextBox x:Name="WeightBox" 
+               Classes="ModernTextBox" 
+               Margin="0,0,0,20"
+               KeyDown="WeightBox_KeyDown"/>
+
+      <!-- Кнопки действий -->
+      <Grid ColumnDefinitions="*,10,*">
+        <Button Grid.Column="0" 
+                Classes="btn-secondary" 
+                Content="Отмена" 
+                Height="44" 
+                Click="Cancel_Click"/>
+        <Button x:Name="OkButton" 
+                Grid.Column="2" 
+                Classes="btn-primary" 
+                Content="Подтвердить"
+                Height="44" 
+                IsDefault="True" 
+                Click="Ok_Click"/>
+      </Grid>
+      
     </StackPanel>
   </Border>
 </Window>

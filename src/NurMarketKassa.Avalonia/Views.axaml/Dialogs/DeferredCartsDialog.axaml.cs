@@ -26,7 +26,19 @@ public partial class DeferredCartsDialog : Window
     {
         _actions = actions;
         InitializeComponent();
+
+        // Динамически обновляем кнопки при клике по элементам списка
+        CartListBox.SelectionChanged += (_, _) => UpdateButtonsState();
+
         ReloadList();
+    }
+
+    private void UpdateButtonsState()
+    {
+        var hasSelection = CartListBox.SelectedItems?.Count > 0;
+        DeleteSelectedButton.IsEnabled = hasSelection && !_busy;
+        MergeIntoCurrentButton.IsEnabled = hasSelection && !_busy;
+        LoadAsSeparateButton.IsEnabled = (CartListBox.SelectedItems?.Count == 1) && !_busy; // Открыть отдельным можно только 1 чек
     }
 
     private void ReloadList()
@@ -36,13 +48,11 @@ public partial class DeferredCartsDialog : Window
         SummaryText.Text = items.Count == 0
             ? "Очередь пуста."
             : $"В очереди: {items.Count} чек(ов). Последний: {items[0].SavedAt.LocalDateTime:g}.";
+
         foreach (var e in items)
             CartListBox.Items.Add(new DeferredCartListRow(e));
 
-        var hasItems = items.Count > 0;
-        DeleteSelectedButton.IsEnabled = hasItems && !_busy;
-        MergeIntoCurrentButton.IsEnabled = hasItems && !_busy;
-        LoadAsSeparateButton.IsEnabled = hasItems && !_busy;
+        UpdateButtonsState();
     }
 
     private static int CountLines(string cartJson)
@@ -169,6 +179,11 @@ public partial class DeferredCartsDialog : Window
         RestoreMode = mode;
         EntriesToRestore = rows.Select(r => r.Entry).ToList();
         Close(true);
+    }
+
+    private void Close_Click(object? sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     private sealed class DeferredCartListRow(DeferredCartEntry entry)

@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="using:NurMarketKassa.Models"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.OperationsSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList">
+
+        <Border Classes="SettingsHeaderCard">
+          <StackPanel Orientation="Horizontal">
+            <Border Width="40" Height="40" CornerRadius="10" Background="#DBEAFE" Margin="0,0,12,0">
+              <TextBlock Text="&#xE825;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                         Foreground="#0F172A" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Операции" Classes="SettingsPageTitle"/>
+              <TextBlock Text="QR-коды и логотипы банков для безналичной оплаты" Classes="SettingsPageSubtitle"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <ItemsControl x:Name="BankQrItemsControl" x:FieldModifier="public"
+                      VerticalAlignment="Top"
+                      HorizontalAlignment="Stretch">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Classes="SettingsCardList"/>
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="models:BankQrSetting">
+              <Border Classes="SettingsCard">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                  <Border Grid.Column="0" Width="52" Height="52" CornerRadius="10"
+                          Background="#F8FAFC" Margin="0,0,14,0"
+                          BorderBrush="#E2E8F0" BorderThickness="1"
+                          VerticalAlignment="Top">
+                    <Image Source="{Binding LogoPath}" Stretch="Uniform" Margin="6"/>
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                    <TextBlock Text="{Binding BankName}"
+                               FontSize="15" FontWeight="SemiBold" Foreground="#0F172A"/>
+                    <TextBlock Text="QR для оплаты"
+                               FontSize="12" Foreground="#64748B"
+                               IsVisible="{Binding !HasQrCode}"/>
+                    <Image Source="{Binding QrCodePath, TargetNullValue={x:Null}}"
+                           Width="72" Height="72" Stretch="Uniform" Margin="0,6,0,0"
+                           IsVisible="{Binding HasQrCode}"/>
+                  </StackPanel>
+                  <Button Grid.Column="2"
+                          Content="Загрузить QR"
+                          Classes="SettingsFlatButton"
+                          Height="36" Padding="14,6"
+                          Tag="{Binding}"
+                          VerticalAlignment="Center"
+                          Click="LoadQrCode_Click"/>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

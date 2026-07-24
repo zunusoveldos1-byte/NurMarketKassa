@@ -2,38 +2,127 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ReturnLineReasonDialog"
         Title="Причина возврата"
-        Width="480" Height="400"
-        MinHeight="340" MinWidth="400"
+        Width="480" Height="420"
+        MinHeight="360" MinWidth="420"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
-  <Border Margin="16" CornerRadius="12"
+
+  <Window.Styles>
+    <!-- Главная кнопка (Вернуть) -->
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="#F7D617"/>
+      <Setter Property="Foreground" Value="#111827"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E5C50F"/>
+      <Setter Property="Foreground" Value="#111827"/>
+    </Style>
+
+    <!-- Вторичная кнопка (Отмена) -->
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="Foreground" Value="#334155"/>
+      <Setter Property="BorderBrush" Value="#CBD5E1"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F8FAFC"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+      <Setter Property="BorderBrush" Value="#94A3B8"/>
+    </Style>
+
+    <!-- Поле ввода причины -->
+    <Style Selector="TextBox.ModernTextArea">
+      <Setter Property="Padding" Value="12,10"/>
+      <Setter Property="Background" Value="#F8FAFC"/>
+      <Setter Property="BorderBrush" Value="#CBD5E1"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Foreground" Value="#0F172A"/>
+    </Style>
+    <Style Selector="TextBox.ModernTextArea:focus /template/ Border#PART_BorderElement">
+      <Setter Property="BorderBrush" Value="#F7D617"/>
+      <Setter Property="Background" Value="#FFFFFF"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="16"
           Background="#FFFFFF"
           BorderBrush="#E2E8F0" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
           Padding="24">
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
-      <TextBlock Grid.Row="0" Text="Укажите причину возврата"
-                 FontSize="18" FontWeight="Bold"/>
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+      
+      <!-- Заголовок -->
+      <TextBlock Grid.Row="0" 
+                 Text="Укажите причину возврата"
+                 FontSize="18" FontWeight="Bold" 
+                 Foreground="#0F172A"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"/>
+      
+      <!-- Подсказка -->
       <TextBlock x:Name="HintText" Grid.Row="1"
-                 Margin="0,8,0,0" TextWrapping="Wrap"
-                 Foreground="#64748B"/>
+                 Margin="0,8,0,16" 
+                 TextWrapping="Wrap"
+                 FontSize="14"
+                 Foreground="#64748B"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"/>
+      
+      <!-- Многострочное поле ввода -->
       <TextBox x:Name="ReasonBox" Grid.Row="2"
-               Margin="0,12,0,0" Height="100"
-               TextWrapping="Wrap" AcceptsReturn="True"/>
-      <TextBlock x:Name="ErrorText" Grid.Row="4"
-                 Margin="0,8,0,0" Foreground="#C5221F"
+               Classes="ModernTextArea"
+               Margin="0,0,0,12" 
+               Watermark="Введите причину..."
+               TextWrapping="Wrap" 
+               AcceptsReturn="True"/>
+      
+      <!-- Текст ошибки -->
+      <TextBlock x:Name="ErrorText" Grid.Row="3"
+                 Margin="0,0,0,12" 
+                 FontSize="13"
+                 FontWeight="Medium"
+                 Foreground="#C5221F"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
                  IsVisible="False"/>
-      <StackPanel Grid.Row="5" Orientation="Horizontal"
-                  HorizontalAlignment="Right" Spacing="10"
-                  Margin="0,14,0,0">
-        <Button Content="Отмена" MinWidth="100" MinHeight="40"
+      
+      <!-- Кнопки управления -->
+      <Grid Grid.Row="4" ColumnDefinitions="*,12,*">
+        <Button Grid.Column="0" 
+                Classes="btn-secondary"
+                Content="Отмена" 
+                Height="44"
+                HorizontalAlignment="Stretch"
                 Click="Cancel_Click"/>
-        <Button Content="Вернуть" MinWidth="140" MinHeight="44"
-                IsDefault="True" Click="Ok_Click"/>
-      </StackPanel>
+        <Button Grid.Column="2" 
+                Classes="btn-primary"
+                Content="Вернуть" 
+                Height="44"
+                HorizontalAlignment="Stretch"
+                IsDefault="True" 
+                Click="Ok_Click"/>
+      </Grid>
+      
     </Grid>
   </Border>
 </Window>

@@ -1,128 +1,258 @@
-<UserControl x:Class="NurMarketKassa.AvaloniaHost.Views.ShiftSummaryView"
-             xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="using:NurMarketKassa.Models"
              xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.ShiftSummaryView"
              x:DataType="vm:ShiftHistoryViewModel"
              x:CompileBindings="True"
+             FontFamily="Segoe UI, Inter, Noto Sans"
              HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+
+    <UserControl.Styles>
+        <!-- Поля ввода и выпадающие списки -->
+        <Style Selector="CalendarDatePicker">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+
+        <!-- Кнопки экспорт и основные -->
+        <Style Selector="Button.ExportButton">
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.ExportButton:pointerover">
+            <Setter Property="Background" Value="#1D4ED8"/>
+        </Style>
+
+        <!-- Метки полей -->
+        <Style Selector="TextBlock.ShiftFieldLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+    </UserControl.Styles>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
-            <RowDefinition/>
-            <RowDefinition/>
+            <!-- 0: Заголовок -->
+            <RowDefinition Height="Auto"/>
+            <!-- 1: Панель фильтров -->
+            <RowDefinition Height="Auto"/>
+            <!-- 2: Основной контент (Итоги + Таблица) -->
             <RowDefinition Height="*"/>
-            <RowDefinition/>
+            <!-- 3: Пагинация -->
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Общий план" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-            <TextBlock Text="Сводка операций и итоги за выбранный период"
-                       FontSize="13" Foreground="{DynamicResource BrushTextSoft}" Margin="0,4,0,0"/>
-        </StackPanel>
-
-        <Grid Grid.Row="1" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                <TextBlock Text="Период с" Classes="ShiftFieldLabel"/>
-                <CalendarDatePicker SelectedDate="{Binding FilterDateFrom, Mode=TwoWay}" MinHeight="42"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                <TextBlock Text="Период по" Classes="ShiftFieldLabel"/>
-                <CalendarDatePicker SelectedDate="{Binding FilterDateTo, Mode=TwoWay}" MinHeight="42"/>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                <TextBlock Text="Кассир" Classes="ShiftFieldLabel"/>
-                <ComboBox ItemsSource="{Binding CashierFilterOptions}"
-                          SelectedItem="{Binding FilterCashier, Mode=TwoWay}"/>
-            </StackPanel>
-            <StackPanel Grid.Column="3" Margin="0,0,8,0">
-                <TextBlock Text="Тип операции" Classes="ShiftFieldLabel"/>
-                <ComboBox ItemsSource="{Binding OperationTypeFilterOptions}"
-                          SelectedItem="{Binding FilterOperationType, Mode=TwoWay}"/>
-            </StackPanel>
-            <Button Grid.Column="4" Content="Экспорт" VerticalAlignment="Bottom"
-                    Classes="ShiftFlatButton" Padding="20,0"
-                    Command="{Binding ExportSummaryCommand}"/>
-        </Grid>
-
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="320"/>
-                <ColumnDefinition Width="12"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0" Classes="ShiftSettingsCard">
-                <StackPanel>
-                    <TextBlock Text="Итоги за период" FontWeight="SemiBold" FontSize="15"
-                               Foreground="{DynamicResource BrushText}" Margin="0,0,0,12"/>
-                    <TextBlock Text="Баланс на начало" Classes="ShiftFieldLabel"/>
-                    <TextBlock Text="{Binding OpeningBalanceText}" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="+ Внесено" Classes="ShiftFieldLabel"/>
-                    <TextBlock Text="{Binding DepositedTotalText}" Foreground="#059669" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="- Изъято" Classes="ShiftFieldLabel"/>
-                    <TextBlock Text="{Binding WithdrawnTotalText}" Foreground="#B91C1C" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock Text="Фактический баланс" Foreground="{DynamicResource BrushTextSoft}" FontSize="13"/>
-                    <TextBlock Text="{Binding ActualBalanceText}" FontSize="22" FontWeight="Bold"/>
-                    <TextBlock Text="{Binding DifferenceText}" FontWeight="Bold" FontSize="16"
-                               Foreground="{DynamicResource BrushAccentStrong}" Margin="0,8,0,0"/>
+        <!-- 0: Шапка -->
+        <Border Grid.Row="0"
+                Background="#FFFFFF"
+                CornerRadius="12"
+                Padding="16,12"
+                Margin="0,0,0,16"
+                BoxShadow="0 2 6 0 #0F000000">
+            <DockPanel LastChildFill="True">
+                <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <Border Background="#EFF6FF" CornerRadius="8" Padding="8">
+                        <TextBlock Text="📊" FontSize="18" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Общий план смены" FontSize="18" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="Сводка операций и финансовые итоги за выбранный период"
+                                   FontSize="12" Foreground="#64748B" Margin="0,2,0,0"/>
+                    </StackPanel>
                 </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- 1: Фильтры -->
+        <Border Grid.Row="1"
+                Background="#FFFFFF"
+                CornerRadius="12"
+                Padding="16"
+                Margin="0,0,0,16"
+                BoxShadow="0 2 6 0 #0F000000">
+            <Grid ColumnDefinitions="*, *, *, *, Auto" RowDefinitions="Auto">
+                
+                <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                    <TextBlock Text="Период с" Classes="ShiftFieldLabel"/>
+                    <CalendarDatePicker SelectedDate="{Binding FilterDateFrom, Mode=TwoWay}" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                    <TextBlock Text="Период по" Classes="ShiftFieldLabel"/>
+                    <CalendarDatePicker SelectedDate="{Binding FilterDateTo, Mode=TwoWay}" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Margin="0,0,10,0">
+                    <TextBlock Text="Кассир" Classes="ShiftFieldLabel"/>
+                    <ComboBox ItemsSource="{Binding CashierFilterOptions}"
+                              SelectedItem="{Binding FilterCashier, Mode=TwoWay}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="3" Margin="0,0,10,0">
+                    <TextBlock Text="Тип операции" Classes="ShiftFieldLabel"/>
+                    <ComboBox ItemsSource="{Binding OperationTypeFilterOptions}"
+                              SelectedItem="{Binding FilterOperationType, Mode=TwoWay}"
+                              HorizontalAlignment="Stretch"/>
+                </StackPanel>
+
+                <Button Grid.Column="4"
+                        Content="📥 Экспорт"
+                        Classes="ExportButton"
+                        VerticalAlignment="Bottom"
+                        Command="{Binding ExportSummaryCommand}"/>
+            </Grid>
+        </Border>
+
+        <!-- 2: Основная часть -->
+        <Grid Grid.Row="2" ColumnDefinitions="320, 16, *">
+
+            <!-- Карточка "Итоги за период" -->
+            <Border Grid.Column="0"
+                    Background="#FFFFFF"
+                    CornerRadius="12"
+                    Padding="18"
+                    BoxShadow="0 2 8 0 #0F000000">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Итоги за период" FontWeight="Bold" FontSize="16" Foreground="#0F172A"/>
+
+                        <Separator Height="1" Background="#E2E8F0"/>
+
+                        <!-- Баланс на начало -->
+                        <Border Background="#F8FAFC" CornerRadius="8" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="Баланс на начало" Classes="ShiftFieldLabel"/>
+                                <TextBlock Text="{Binding OpeningBalanceText}" FontWeight="Bold" FontSize="15" Foreground="#1E293B"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Внесено -->
+                        <Border Background="#ECFDF5" CornerRadius="8" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="+ Внесено" Classes="ShiftFieldLabel" Foreground="#047857"/>
+                                <TextBlock Text="{Binding DepositedTotalText}" Foreground="#059669" FontWeight="Bold" FontSize="16"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Изъято -->
+                        <Border Background="#FEF2F2" CornerRadius="8" Padding="12">
+                            <StackPanel>
+                                <TextBlock Text="- Изъято" Classes="ShiftFieldLabel" Foreground="#B91C1C"/>
+                                <TextBlock Text="{Binding WithdrawnTotalText}" Foreground="#DC2626" FontWeight="Bold" FontSize="16"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Separator Height="1" Background="#E2E8F0" Margin="0,4"/>
+
+                        <!-- Фактический баланс -->
+                        <Border Background="#FEF9C3" CornerRadius="10" Padding="14">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Фактический баланс" Foreground="#854D0E" FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding ActualBalanceText}" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                                <TextBlock Text="{Binding DifferenceText}" FontWeight="Bold" FontSize="14" Foreground="#D97706"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </Border>
 
-            <Border Grid.Column="2" Classes="ShiftSettingsCard" Padding="0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Операции" FontWeight="SemiBold"
-                               Foreground="{DynamicResource BrushText}" Margin="16,14,16,0"/>
-                    <DataGrid Grid.Row="1" Classes="ShiftModernDataGrid"
+            <!-- Таблица с операциями -->
+            <Border Grid.Column="2"
+                    Background="#FFFFFF"
+                    CornerRadius="12"
+                    Padding="16"
+                    BoxShadow="0 2 8 0 #0F000000">
+                <Grid RowDefinitions="Auto, *">
+                    <TextBlock Grid.Row="0" Text="Журнал операций" FontWeight="Bold" FontSize="16"
+                               Foreground="#0F172A" Margin="0,0,0,12"/>
+
+                    <DataGrid Grid.Row="1"
                               x:CompileBindings="False"
-                              ItemsSource="{Binding PagedFilteredOperations}" Margin="0,8,0,0"
-                              IsVisible="{Binding HasFilteredOperations}">
+                              ItemsSource="{Binding PagedFilteredOperations}"
+                              IsVisible="{Binding HasFilteredOperations}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#F1F5F9"
+                              RowHeight="40">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="*"/>
-                            <DataGridTextColumn Header="Тип операции" Binding="{ReflectionBinding Type}" Width="*"/>
-                            <DataGridTextColumn Header="Кассир" Binding="{ReflectionBinding Cashier}" Width="*"/>
-                            <DataGridTextColumn Header="Сумма" Binding="{ReflectionBinding AmountDisplay}" Width="*"/>
-                            <DataGridTextColumn Header="Комментарий" Binding="{ReflectionBinding Note}" Width="2*"/>
+                            <DataGridTextColumn Header="Дата" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="140"/>
+                            <DataGridTextColumn Header="Тип операции" Binding="{ReflectionBinding Type}" Width="140"/>
+                            <DataGridTextColumn Header="Кассир" Binding="{ReflectionBinding Cashier}" Width="140"/>
+                            <DataGridTextColumn Header="Сумма" Binding="{ReflectionBinding AmountDisplay}" Width="120"/>
+                            <DataGridTextColumn Header="Комментарий" Binding="{ReflectionBinding Note}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="1" Text="Нет операций за выбранный период"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{DynamicResource BrushTextSoft}"
-                               IsVisible="{Binding !HasFilteredOperations}"/>
+
+                    <!-- Заглушка, если нет данных -->
+                    <StackPanel Grid.Row="1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="8"
+                                IsVisible="{Binding !HasFilteredOperations}">
+                        <TextBlock Text="🔍" FontSize="32" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Нет операций за выбранный период"
+                                   HorizontalAlignment="Center"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="#64748B"/>
+                    </StackPanel>
                 </Grid>
             </Border>
         </Grid>
 
-        <Border Grid.Row="3" Padding="0,12,0,4" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Margin="0,12,0,0"
+        <!-- 3: Пагинация -->
+        <Border Grid.Row="3"
+                Padding="0,12,0,0"
+                Margin="0,12,0,0"
                 IsVisible="{Binding ShowSummaryPager}">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button Content="◀" Classes="ShiftPagerNavButton"
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="6">
+                <Button Content="◀"
+                        Classes="SecondaryButton"
                         Command="{Binding SummaryPreviousPageCommand}"/>
-                <ItemsControl ItemsSource="{Binding SummaryPagerEntries}" Margin="4,0">
+                
+                <ItemsControl ItemsSource="{Binding SummaryPagerEntries}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal"/>
+                            <StackPanel Orientation="Horizontal" Spacing="4"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:PagerEntry">
-                            <Button Margin="4,0" Content="{Binding Display}"
-                                    Classes="ShiftPagerButton"
+                            <Button Content="{Binding Display}"
+                                    Classes="SecondaryButton"
                                     Command="{Binding $parent[UserControl].((vm:ShiftHistoryViewModel)DataContext).GoToSummaryPageCommand}"
                                     CommandParameter="{Binding PageNumber}"/>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Button Content="▶" Classes="ShiftPagerNavButton"
+
+                <Button Content="▶"
+                        Classes="SecondaryButton"
                         Command="{Binding SummaryNextPageCommand}"/>
             </StackPanel>
         </Border>

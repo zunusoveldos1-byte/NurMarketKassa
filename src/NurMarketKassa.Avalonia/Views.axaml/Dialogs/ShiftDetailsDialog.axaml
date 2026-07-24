@@ -1,12 +1,136 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.ShiftDetailsDialog"
-        Title="ShiftDetailsDialog"
-        Width="640" Height="480"
+        Title="Просмотр смены"
+        Width="560" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        CanResize="True">
-  <Grid Margin="16">
-    <TextBlock Text="ShiftDetailsDialog" FontSize="18" FontWeight="SemiBold"
-               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-  </Grid>
+        CanResize="False"
+        FontFamily="Segoe UI"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+  <Window.Styles>
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="Foreground" Value="#334155"/>
+      <Setter Property="BorderBrush" Value="#CBD5E1"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F1F5F9"/>
+    </Style>
+    <Style Selector="Button.btn-chrome">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" CornerRadius="16"
+          Background="#FFFFFF"
+          BorderBrush="#E2E8F0" BorderThickness="1"
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="24">
+    <StackPanel Spacing="18">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="Просмотр смены"
+                     FontSize="20" FontWeight="Bold"
+                     Foreground="#0F172A"/>
+          <TextBlock Text="Детали текущей или закрытой смены"
+                     FontSize="13" Foreground="#64748B" Margin="0,4,0,0"/>
+        </StackPanel>
+        <Button Grid.Column="1"
+                Classes="btn-chrome"
+                VerticalAlignment="Top"
+                Click="Close_Click"
+                ToolTip.Tip="Закрыть">
+          <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
+                     FontSize="12" Foreground="#64748B"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Button>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,16,*">
+        <Border Grid.Column="0"
+                Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                CornerRadius="12" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Смена" FontWeight="SemiBold" Foreground="#1F2937"/>
+            <TextBlock Text="Номер смены" FontSize="12" Foreground="#64748B"/>
+            <TextBlock x:Name="ShiftNumberText" FontSize="15" FontWeight="SemiBold" Foreground="#0F172A" Text="—"/>
+            <TextBlock Text="Открыта" FontSize="12" Foreground="#64748B" Margin="0,4,0,0"/>
+            <TextBlock x:Name="OpenedAtText" FontSize="14" Foreground="#334155" Text="—"/>
+            <TextBlock Text="Закрыта" FontSize="12" Foreground="#64748B" Margin="0,4,0,0"/>
+            <TextBlock x:Name="ClosedAtText" FontSize="14" Foreground="#334155" Text="—"/>
+            <TextBlock Text="Кассир" FontSize="12" Foreground="#64748B" Margin="0,4,0,0"/>
+            <TextBlock x:Name="CashierText" FontSize="14" Foreground="#334155" Text="—"/>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2"
+                Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                CornerRadius="12" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Итоги" FontWeight="SemiBold" Foreground="#1F2937"/>
+            <TextBlock Text="Статус" FontSize="12" Foreground="#64748B"/>
+            <Border x:Name="StatusBadge" Height="28" CornerRadius="14" Padding="10,0"
+                    HorizontalAlignment="Left" Background="#D1FAE5">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#059669"/>
+                <TextBlock x:Name="StatusText" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#059669" Text="—"/>
+              </StackPanel>
+            </Border>
+            <TextBlock Text="Выручка за смену" FontSize="12" Foreground="#64748B" Margin="0,8,0,0"/>
+            <TextBlock x:Name="RevenueText" FontSize="28" FontWeight="Bold" Foreground="#0F172A" Text="—"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,10,*,10,*">
+        <Border Grid.Column="0" Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1"
+                CornerRadius="12" Padding="12">
+          <StackPanel>
+            <TextBlock Text="Продажи" FontSize="12" Foreground="#92400E"/>
+            <TextBlock x:Name="SalesCountText" FontSize="18" FontWeight="Bold"
+                       Foreground="#78350F" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="2" Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1"
+                CornerRadius="12" Padding="12">
+          <StackPanel>
+            <TextBlock Text="Наличные" FontSize="12" Foreground="#065F46"/>
+            <TextBlock x:Name="CashText" FontSize="18" FontWeight="Bold"
+                       Foreground="#047857" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="4" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                CornerRadius="12" Padding="12">
+          <StackPanel>
+            <TextBlock Text="Безналичные" FontSize="12" Foreground="#1E40AF"/>
+            <TextBlock x:Name="CardText" FontSize="18" FontWeight="Bold"
+                       Foreground="#1D4ED8" Margin="0,4,0,0" Text="—"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <Button Content="Закрыть"
+              Classes="btn-secondary"
+              Height="46" MinWidth="120"
+              HorizontalAlignment="Right"
+              IsCancel="True"
+              Click="Close_Click"/>
+    </StackPanel>
+  </Border>
 </Window>

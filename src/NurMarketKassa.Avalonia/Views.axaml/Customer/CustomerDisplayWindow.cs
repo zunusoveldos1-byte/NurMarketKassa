@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Threading;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services;
 
@@ -73,6 +74,12 @@ public sealed class CustomerDisplayWindow : Window
 
     private void RefreshUi()
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RefreshUi);
+            return;
+        }
+
         var snapshot = _state.CurrentSnapshot;
         _totalText.Text = $"Итого: {snapshot.Total.ToString("0.00", CultureInfo.InvariantCulture)} сом";
 

@@ -47,7 +47,6 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<ICartService, CartService>();
         services.AddSingleton<IShiftStateService, ShiftStateService>();
         services.AddSingleton<Core.Contracts.IOfflinePosStateStore, OfflinePosStateStoreAdapter>();
-        services.AddSingleton<IReceiptPrinterService, VirtualReceiptPrinterService>();
         services.AddSingleton<ICashShiftService, CashShiftService>();
         services.AddSingleton<IPosCheckoutService, PosCheckoutService>();
         services.AddSingleton<IDeferredCartService, DeferredCartService>();
@@ -57,11 +56,45 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<CustomerDisplayStateService>();
         services.AddSingleton<ICustomerDisplayService, AvaloniaCustomerDisplayService>();
 
+        // Prefer AppSettings already registered by AddAuthInfrastructure.
+        AppSettings settings = AppSettings.Load();
+        foreach (var descriptor in services)
+        {
+            if (descriptor.ServiceType == typeof(AppSettings)
+                && descriptor.ImplementationInstance is AppSettings registered)
+            {
+                settings = registered;
+                break;
+            }
+        }
+
+        if (HardwareModeHelper.UsePhysicalScale())
+            services.AddSingleton<IWeightScaleService, ComWeightScaleService>();
+        else if (HardwareModeHelper.UseDemoHardware(settings))
+            services.AddSingleton<IWeightScaleService, VirtualWeightScaleService>();
+        else
+            services.AddSingleton<IWeightScaleService, ComWeightScaleService>();
+
+        if (HardwareModeHelper.UsePhysicalPrinter())
+            services.AddSingleton<IReceiptPrinterService, LptReceiptPrinterService>();
+        else if (HardwareModeHelper.UseDemoHardware(settings))
+            services.AddSingleton<IReceiptPrinterService, VirtualReceiptPrinterService>();
+        else
+            services.AddSingleton<IReceiptPrinterService, LptReceiptPrinterService>();
+
         services.AddSingleton<MySqlSettings>(sp => sp.GetRequiredService<AppSettings>().MySql);
         services.AddSingleton<MySqlAuditService>(sp =>
         {
             var audit = new MySqlAuditService(sp.GetRequiredService<MySqlSettings>());
-            try { audit.Initialize(); } catch { /* optional */ }
+            try
+            {
+                audit.Initialize();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"MySql audit init skipped: {ex}", "AUDIT");
+            }
+
             return audit;
         });
 
@@ -71,6 +104,7 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<IWeightInputPrompt, AvaloniaWeightInputPrompt>();
         services.AddSingleton<IShiftOpenCoordinator, AvaloniaShiftOpenCoordinator>();
         services.AddSingleton<ScaleWeightProvider>();
+        services.AddSingleton<IScaleWeightProvider>(sp => sp.GetRequiredService<ScaleWeightProvider>());
     }
 
     public static void InitializeAuthInfrastructure(IServiceProvider services)
@@ -81,7 +115,10 @@ internal static class AvaloniaHostServiceRegistration
             services.GetRequiredService<DatabaseService>().EnsureSchema();
             services.GetRequiredService<ILocalAccountsStore>().EnsureSchema();
         }
-        catch { /* offline */ }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Auth schema init skipped (offline): {ex}", "AUTH");
+        }
     }
 
     public static void InitializePosInfrastructure(IServiceProvider services)
@@ -92,7 +129,7 @@ internal static class AvaloniaHostServiceRegistration
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"STOCK init failed: {ex.Message}", "STOCK");
+            PosLogger.Log($"STOCK init failed: {ex}", "STOCK");
         }
 
         try
@@ -102,7 +139,7 @@ internal static class AvaloniaHostServiceRegistration
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"CATALOG warm-up failed: {ex.Message}", "CATALOG");
+            PosLogger.Log($"CATALOG warm-up failed: {ex}", "CATALOG");
         }
     }
 }

@@ -5,47 +5,167 @@
              x:DataType="vm:BasketPanelViewModel"
              x:CompileBindings="True">
 
-    <Border Classes="main-panel">
+    <UserControl.Styles>
+        <Style Selector="Button.cart-action">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="8,10"/>
+            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+        </Style>
+        <Style Selector="Button.cart-action:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <Style Selector="Button.cart-qty, RepeatButton.cart-qty">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="RepeatButton.cart-qty">
+            <Setter Property="Delay" Value="300"/>
+            <Setter Property="Interval" Value="100"/>
+        </Style>
+        <Style Selector="Button.cart-delete">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.cart-chip">
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.cart-accent">
+            <Setter Property="Background" Value="#FACC15"/>
+            <Setter Property="Foreground" Value="#000000"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ListBox.cart-list">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.cart-list ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Background="{DynamicResource BrushWindowAlt}" Padding="16,14">
         <DockPanel LastChildFill="True">
-            <ScrollViewer DockPanel.Dock="Top"
-                          
-                          
-                          Margin="0,0,0,12">
-                <ItemsControl ItemsSource="{Binding ReceiptTabs}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="8"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ReceiptTabVm">
-                            <Border Padding="12,7"
-                                    CornerRadius="8"
-                                    BorderThickness="1"
-                                    BorderBrush="{DynamicResource BrushBorder}"
-                                    Background="{DynamicResource BrushInputAlt}">
-                                <TextBlock Text="{Binding Title}"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"/>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+
+            <Grid DockPanel.Dock="Top"
+                  ColumnDefinitions="*,Auto"
+                  Margin="0,0,0,12">
+                <ScrollViewer Grid.Column="0"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding ReceiptTabs}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ReceiptTabVm">
+                                <Button Padding="0"
+                                        BorderThickness="0"
+                                        Background="Transparent"
+                                        Cursor="Hand"
+                                        Command="{Binding SelectCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Panel>
+                                        <Border Padding="12,7"
+                                                CornerRadius="8"
+                                                Background="#FACC15"
+                                                IsVisible="{Binding IsActive}">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#000000"/>
+                                        </Border>
+                                        <Border Padding="12,7"
+                                                CornerRadius="8"
+                                                Background="{DynamicResource BrushInputAlt}"
+                                                IsVisible="{Binding !IsActive}">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource BrushTextMuted}"/>
+                                        </Border>
+                                    </Panel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                <Button Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Padding="12,7"
+                        MinHeight="34"
+                        Background="{DynamicResource BrushInputAlt}"
+                        BorderThickness="0"
+                        CornerRadius="8"
+                        Foreground="{DynamicResource BrushTextSoft}"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Cursor="Hand"
+                        Content="+ Новый чек"
+                        Command="{Binding NewReceiptCommand}"/>
+            </Grid>
 
             <StackPanel DockPanel.Dock="Bottom" Spacing="10">
-                <Grid ColumnDefinitions="*,Auto,Auto">
+                <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,2">
                     <Border Grid.Column="0"
                             Background="{DynamicResource BrushInput}"
                             BorderBrush="{DynamicResource BrushBorder}"
                             BorderThickness="1"
-                            CornerRadius="12"
+                            CornerRadius="10"
                             Margin="0,0,8,0"
                             Padding="12,0">
                         <TextBox Text="{Binding BarcodeInput}"
                                  Watermark="Введите код товара или название..."
                                  BorderThickness="0"
                                  Background="Transparent"
+                                 Foreground="{DynamicResource BrushText}"
                                  MinHeight="42"
                                  FontSize="13"
                                  VerticalAlignment="Center"/>
@@ -55,98 +175,135 @@
                             BorderBrush="{DynamicResource BrushBorder}"
                             BorderThickness="1"
                             CornerRadius="10"
-                            Margin="0,0,8,0">
-                        <TextBox Text="{Binding ManualQuantity}"
-                                 Width="48"
-                                 BorderThickness="0"
-                                 Background="Transparent"
-                                 TextAlignment="Center"
-                                 FontWeight="Bold"
-                                 VerticalAlignment="Center"/>
+                            Margin="0,0,8,0"
+                            Padding="2,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <RepeatButton Classes="cart-qty"
+                                          Width="34" Height="40"
+                                          Background="Transparent"
+                                          Content="−"
+                                          Delay="300"
+                                          Interval="100"
+                                          Command="{Binding DecreaseManualQuantityCommand}"/>
+                            <TextBox Text="{Binding ManualQuantity}"
+                                     Width="28"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     Foreground="{DynamicResource BrushText}"
+                                     TextAlignment="Center"
+                                     FontWeight="Bold"
+                                     VerticalAlignment="Center"/>
+                            <RepeatButton Classes="cart-qty"
+                                          Width="34" Height="40"
+                                          Background="Transparent"
+                                          Content="+"
+                                          Delay="300"
+                                          Interval="100"
+                                          Command="{Binding IncreaseManualQuantityCommand}"/>
+                        </StackPanel>
                     </Border>
                     <Button Grid.Column="2"
-                            Classes="main-primary"
-                            Content="Добавить"
+                            Classes="cart-accent"
+                            MinHeight="42"
                             MinWidth="110"
+                            Padding="18,10"
+                            FontSize="13"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="Добавить"
                             Command="{Binding AddByBarcodeCommand}"/>
                 </Grid>
 
-            <UniformGrid Columns="3">
-              <Button Classes="main-secondary"
-                      Margin="0,0,6,0"
-                      Command="{Binding DeferCartCommand}"
-                      IsEnabled="{Binding HasItems}">
-                <TextBlock Text="Отложить чек" HorizontalAlignment="Center"/>
-              </Button>
-              <Button Classes="main-secondary"
-                      Margin="0,0,6,0"
-                      Command="{Binding DeleteReceiptCommand}"
-                      IsEnabled="{Binding HasItems}">
-                <TextBlock Text="Удалить чек" HorizontalAlignment="Center"/>
-              </Button>
-              <Button Classes="main-secondary"
-                      Command="{Binding ToggleMoreActionsCommand}"
-                      IsEnabled="{Binding HasItems}">
-                <TextBlock Text="Ещё" HorizontalAlignment="Center"/>
-              </Button>
-            </UniformGrid>
+                <UniformGrid Columns="3">
+                    <Button Classes="cart-action"
+                            Command="{Binding DeferCartCommand}"
+                            IsEnabled="{Binding HasItems}">
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                            <PathIcon Width="14" Height="14"
+                                      Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M16.2,16.2L11,13V7H12.5V12.2L17,14.9L16.2,16.2Z"/>
+                            <TextBlock Text="Отложить чек" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="cart-action"
+                            Command="{Binding DeleteReceiptCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                            <PathIcon Width="14" Height="14"
+                                      Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
+                            <TextBlock Text="Удалить чек" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="cart-action"
+                            Margin="0,0,0,6"
+                            Command="{Binding ToggleMoreActionsCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                            <PathIcon Width="14" Height="14"
+                                      Data="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z"/>
+                            <TextBlock Text="Ещё" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </UniformGrid>
 
-            <StackPanel IsVisible="{Binding IsMoreActionsVisible}" Spacing="8" Margin="0,0,0,4">
-              <UniformGrid Columns="2">
-                <Button Classes="main-secondary" Margin="0,0,6,0"
-                        Content="Список отлож."
-                        Command="{Binding OpenDeferredCartsCommand}"/>
-                <Button Classes="main-secondary"
-                        Content="Скидка %"
-                        Command="{Binding ApplyOrderDiscountCommand}"/>
-              </UniformGrid>
-            </StackPanel>
-
-            <Border Background="{DynamicResource BrushInputAlt}"
-                        BorderBrush="{DynamicResource BrushBorder}"
-                        BorderThickness="1"
-                        CornerRadius="12"
-                        Padding="14">
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                            <TextBlock Text="Итого" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding SubtotalDisplay}" FontWeight="SemiBold"/>
-                        </Grid>
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
-                            <TextBlock Text="Скидка" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding DiscountDisplay}" FontWeight="SemiBold"/>
-                        </Grid>
-                        <Border Grid.Row="2" Height="1" Background="{DynamicResource BrushBorder}" Margin="0,4,0,8"/>
-                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                            <TextBlock Text="К оплате" FontWeight="Bold" FontSize="16"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding TotalDisplay}"
-                                       FontWeight="Bold"
-                                       FontSize="16"
-                                       Foreground="{DynamicResource BrushAccentStrong}"/>
-                        </Grid>
-                    </Grid>
-                </Border>
+                <UniformGrid Columns="3"
+                             Margin="0,-2,0,0"
+                             IsVisible="{Binding IsMoreActionsVisible}">
+                    <Button Classes="cart-action"
+                            Content="Вернуть"
+                            Command="{Binding RestoreLastHeldReceiptCommand}"
+                            IsEnabled="{Binding HasHeldReceipts}"/>
+                    <Button Classes="cart-action"
+                            Content="Список отлож."
+                            Command="{Binding OpenDeferredCartsCommand}"/>
+                    <Button Classes="cart-action"
+                            Margin="0,0,0,6"
+                            Content="Скидка %"
+                            Command="{Binding ApplyOrderDiscountCommand}"
+                            IsEnabled="{Binding HasItems}"/>
+                </UniformGrid>
 
                 <TextBlock Text="{Binding CartMessage}"
-                           FontSize="11"
-                           Foreground="{DynamicResource BrushTextSoft}"
-                           TextWrapping="Wrap"/>
+                           FontSize="12"
+                           Foreground="{DynamicResource BrushUiStatusOk}"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasCartMessage}"/>
 
-                <Button Classes="main-primary"
-                        Command="{Binding PayCommand}"
-                        MinHeight="48"
-                        FontSize="15"
-                        FontWeight="Bold"
-                        Content="{Binding PayButtonText}"/>
+                <TextBlock Text="Промежуточный итог"
+                           FontSize="14"
+                           Foreground="{DynamicResource BrushTextSoft}"
+                           Margin="0,2,0,0"/>
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,-4,0,4">
+                    <TextBlock Text="{Binding TotalAmount}"
+                               FontSize="34"
+                               FontWeight="Bold"
+                               Foreground="#FACC15"/>
+                    <TextBlock Text="сом"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource BrushText}"
+                               VerticalAlignment="Bottom"
+                               Margin="0,0,0,6"/>
+                </StackPanel>
+
+                <Button Classes="cart-accent"
+                        Height="52"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        FontSize="18"
+                        Command="{Binding PayCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                        <PathIcon Width="20" Height="20"
+                                  Foreground="#000000"
+                                  Data="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                        <TextBlock Text="{Binding PayButtonText}"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Foreground="#000000"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
 
-            <Border Background="{DynamicResource BrushInputAlt}"
-                    BorderBrush="{DynamicResource BrushBorder}"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="8"
-                    MinHeight="200">
+            <Border Background="Transparent" Padding="0" Margin="0,0,0,10" MinHeight="200">
                 <Grid>
                     <TextBlock Text="Чек пуст. Добавьте товар по штрихкоду или из каталога."
                                Foreground="{DynamicResource BrushTextSoft}"
@@ -155,48 +312,96 @@
                                TextWrapping="Wrap"
                                Margin="16"
                                IsVisible="{Binding IsEmpty}"/>
-                    <ListBox ItemsSource="{Binding Lines}"
-                             Background="Transparent"
+                    <ListBox Classes="cart-list"
+                             ItemsSource="{Binding Lines}"
                              IsVisible="{Binding HasLines}">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:CartLineItemVm">
-                                <Border CornerRadius="8"
-                                        Padding="10"
-                                        Margin="0,0,0,6"
-                                        BorderBrush="#E2E8F0"
+                                <Border Background="{DynamicResource BrushCatalogTileBg}"
+                                        BorderBrush="{DynamicResource BrushCatalogTileBorder}"
                                         BorderThickness="1"
-                                        Background="{DynamicResource BrushCatalogTileBg}">
-                                    <Grid ColumnDefinitions="*,Auto,Auto">
-                                        <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,8,0">
+                                        CornerRadius="8"
+                                        Padding="10,8"
+                                        Margin="0,0,0,8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0"
+                                                    Spacing="2"
+                                                    Margin="0,0,10,0"
+                                                    VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Title}"
-                                                       FontWeight="SemiBold"
-                                                       FontSize="13"
+                                                       FontWeight="Bold"
+                                                       FontSize="15"
+                                                       Foreground="{DynamicResource BrushText}"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{Binding PriceQuantityLine}"
-                                                       FontSize="11"
+                                                       FontSize="13"
                                                        Foreground="{DynamicResource BrushTextSoft}"/>
                                         </StackPanel>
+
                                         <StackPanel Grid.Column="1"
-                                                    VerticalAlignment="Center"
-                                                    HorizontalAlignment="Right"
-                                                    Margin="0,0,8,0"
-                                                    Spacing="2">
-                                            <TextBlock Text="{Binding QuantityDisplay}"
-                                                       FontWeight="SemiBold"
-                                                       HorizontalAlignment="Right"/>
-                                            <TextBlock Text="{Binding LineTotalDisplay}"
-                                                       FontWeight="Bold"
-                                                       HorizontalAlignment="Right"/>
+                                                    Orientation="Horizontal"
+                                                    Spacing="6"
+                                                    VerticalAlignment="Center">
+                                            <StackPanel Spacing="4"
+                                                        VerticalAlignment="Center"
+                                                        HorizontalAlignment="Right"
+                                                        Margin="0,0,2,0">
+                                                <TextBlock Text="{Binding LineTotalAmount}"
+                                                           FontSize="18"
+                                                           FontWeight="Bold"
+                                                           Foreground="#FACC15"
+                                                           HorizontalAlignment="Right"/>
+                                                <Button Width="24" Height="20"
+                                                        Padding="0"
+                                                        Background="{DynamicResource BrushInputAlt}"
+                                                        BorderThickness="0"
+                                                        CornerRadius="12"
+                                                        HorizontalContentAlignment="Center"
+                                                        VerticalContentAlignment="Center"
+                                                        Cursor="Hand"
+                                                        ToolTip.Tip="Скидка на товар"
+                                                        Command="{Binding DiscountCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock Text="%"
+                                                               FontSize="11"
+                                                               FontWeight="Bold"
+                                                               Foreground="{DynamicResource BrushTextMuted}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Button>
+                                            </StackPanel>
+
+                                            <Button Classes="cart-chip"
+                                                    Content="Взвесить"
+                                                    IsVisible="{Binding IsWeight}"
+                                                    ToolTip.Tip="Указать вес"
+                                                    Command="{Binding WeighCommand}"
+                                                    CommandParameter="{Binding}"/>
+
+                                            <RepeatButton Classes="cart-qty"
+                                                          Content="−"
+                                                          Delay="300"
+                                                          Interval="100"
+                                                          ToolTip.Tip="Уменьшить"
+                                                          Command="{Binding DecreaseCommand}"
+                                                          CommandParameter="{Binding}"/>
+                                            <RepeatButton Classes="cart-qty"
+                                                          Content="+"
+                                                          Delay="300"
+                                                          Interval="100"
+                                                          ToolTip.Tip="Увеличить"
+                                                          Command="{Binding IncreaseCommand}"
+                                                          CommandParameter="{Binding}"/>
+
+                                            <Button Classes="cart-delete"
+                                                    ToolTip.Tip="Убрать из чека"
+                                                    Command="{Binding RemoveCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <PathIcon Width="14" Height="14"
+                                                          Foreground="{DynamicResource BrushDanger}"
+                                                          Data="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/>
+                                            </Button>
                                         </StackPanel>
-                                        <Button Grid.Column="2"
-                                                Classes="main-ghost"
-                                                Width="32" Height="32"
-                                                Padding="0"
-                                                VerticalAlignment="Center"
-                                                Content="❌"
-                                                ToolTip.Tip="Удалить позицию"
-                                                Command="{Binding $parent[UserControl].((vm:BasketPanelViewModel)DataContext).RemoveLineCommand}"
-                                                CommandParameter="{Binding}"/>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

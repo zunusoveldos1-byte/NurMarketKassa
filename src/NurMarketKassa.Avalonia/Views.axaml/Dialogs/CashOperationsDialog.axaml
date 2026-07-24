@@ -2,24 +2,82 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.CashOperationsDialog"
         Title="Кассовые операции"
-        Width="520" SizeToContent="Height"
+        Width="480" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
-  <Border Margin="16" CornerRadius="12"
+
+  <Border Margin="16" CornerRadius="16"
           Background="#FFFFFF"
           BorderBrush="#E2E8F0" BorderThickness="1"
-          Padding="24">
-    <StackPanel Spacing="12">
-      <TextBlock Text="Кассовые операции" FontSize="18" FontWeight="Bold"/>
-      <TextBlock Text="Управление сменой и кассовыми операциями."
-                 TextWrapping="Wrap" Foreground="#64748B"/>
-      <Button Content="Открыть смену" Height="42" Click="OpenShift_Click"/>
-      <Button Content="Закрыть смену" Height="42" Click="CloseShift_Click"/>
-      <Button Content="Закрыть" Height="42" HorizontalAlignment="Right" Click="Close_Click"/>
+          BoxShadow="0 12 32 0 #33101828"
+          Padding="28,24">
+
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+
+      <!-- Заголовок -->
+      <TextBlock Text="Кассовые операции"
+                 FontSize="20" FontWeight="Bold"
+                 Foreground="#0F172A"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,6"/>
+
+      <!-- Подзаголовок / Описание -->
+      <TextBlock Text="Управление сменой и кассовыми операциями"
+                 FontSize="14" TextWrapping="Wrap"
+                 Foreground="#64748B"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,22"/>
+
+      <!-- Кнопки управления сменой -->
+      <StackPanel Width="320" Spacing="10" HorizontalAlignment="Center">
+
+        <Button Content="Открыть смену"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="#F7D617"
+                Foreground="#111827"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                Click="OpenShift_Click"/>
+
+        <Button Content="Закрыть смену"
+                Height="46"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="#F1F5F9"
+                Foreground="#334155"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                Click="CloseShift_Click"/>
+
+        <Button Content="Закрыть"
+                Height="46"
+                Margin="0,6,0,0"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Background="#FFFFFF"
+                Foreground="#64748B"
+                BorderBrush="#CBD5E1"
+                BorderThickness="1.5"
+                FontWeight="SemiBold"
+                CornerRadius="10"
+                Cursor="Hand"
+                Click="Close_Click"/>
+
+      </StackPanel>
+
     </StackPanel>
   </Border>
 </Window>

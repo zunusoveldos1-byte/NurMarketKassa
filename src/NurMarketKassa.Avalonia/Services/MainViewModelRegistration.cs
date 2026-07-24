@@ -5,6 +5,7 @@ using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Interfaces;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.Api;
 using NurMarketKassa.Ui.Shared;
 using NurMarketKassa.ViewModels;
 using NurMarketKassa.ViewModels.Main;
@@ -47,7 +48,10 @@ internal static class MainViewModelRegistration
                 sp.GetRequiredService<ICatalogCacheService>(),
                 sp.GetRequiredService<IDispatcher>(),
                 sp.GetRequiredService<IConnectivityService>(),
-                product => bridge.TryAddProduct(product));
+                product => bridge.TryAddProduct(product),
+                sp.GetService<ICatalogApiService>(),
+                sp.GetService<MySqlAuditService>(),
+                sp.GetService<IUserPrompts>());
 
             MainWindowViewModel? main = null;
 

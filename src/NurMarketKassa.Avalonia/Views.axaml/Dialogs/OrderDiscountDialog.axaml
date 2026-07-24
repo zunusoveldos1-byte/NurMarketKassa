@@ -2,43 +2,155 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.OrderDiscountDialog"
         Title="Скидка"
-        Width="520" SizeToContent="Height"
+        Width="480" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         FontFamily="Segoe UI"
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
-  <Border Margin="16" CornerRadius="12"
-          Background="#FFFFFF"
-          BorderBrush="#E2E8F0" BorderThickness="1"
-          Padding="18">
-    <StackPanel>
-      <TextBlock x:Name="HeaderTitleText" Text="Скидка"
-                 FontSize="18" FontWeight="Bold" Margin="0,0,0,8"/>
-      <TextBlock x:Name="ItemTitleLabel" IsVisible="False" FontWeight="SemiBold" Margin="0,0,0,8"/>
-      <StackPanel x:Name="ScopePanel" Margin="0,0,0,8">
-        <TextBlock Text="Применить к" Margin="0,0,0,6"/>
-        <StackPanel Orientation="Horizontal" Spacing="12">
-          <RadioButton x:Name="RbCheck" Content="Весь чек" GroupName="Scope" IsChecked="True"/>
-          <RadioButton x:Name="RbItem" Content="Выбранному товару" GroupName="Scope" IsVisible="False"/>
+
+    <Window.Styles>
+        <!-- Кастомный стиль для ToggleSwitch (On/Off) -->
+        <Style Selector="ToggleSwitch">
+            <Setter Property="OffContent" Value=""/>
+            <Setter Property="OnContent" Value=""/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        
+        <!-- Стиль для Чекбокса -->
+        <Style Selector="CheckBox">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#334155"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="16"
+            Background="#FFFFFF"
+            BorderBrush="#E2E8F0" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="28,24">
+
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+
+            <!-- Заголовок диалога -->
+            <TextBlock x:Name="HeaderTitleText" Text="Скидка"
+                       FontSize="20" FontWeight="Bold"
+                       Foreground="#0F172A"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,0,0,8"/>
+
+            <TextBlock x:Name="ItemTitleLabel" IsVisible="False"
+                       FontWeight="SemiBold"
+                       Foreground="#475569"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,0,0,12"/>
+
+            <!-- Выбор: Чекбокс для применимости к отдельному товару -->
+            <StackPanel x:Name="ScopePanel" HorizontalAlignment="Center" Margin="0,0,0,16" Width="320">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="Применить к выбранному товару"
+                               FontSize="14" FontWeight="Medium"
+                               Foreground="#334155"
+                               VerticalAlignment="Center"/>
+
+                    <CheckBox x:Name="ScopeCheckBox"
+                              Grid.Column="1"
+                              IsChecked="False"
+                              VerticalAlignment="Center"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Переключатель On/Off: Тип скидки (Процент / Сумма) -->
+            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,16" Width="320">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock x:Name="DiscountTypeLabel" Text="Режим скидки: Сумма (сом)"
+                               FontSize="14" FontWeight="Medium"
+                               Foreground="#334155"
+                               VerticalAlignment="Center"/>
+
+                    <ToggleSwitch x:Name="DiscountTypeToggle"
+                                  Grid.Column="1"
+                                  IsChecked="False"
+                                  IsCheckedChanged="DiscountType_Changed"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Ввод значения -->
+            <StackPanel Width="320" HorizontalAlignment="Center" Margin="0,0,0,12">
+                <TextBlock x:Name="ValueLabel" Text="Введите сумму скидки"
+                           FontSize="13" FontWeight="Medium"
+                           Foreground="#64748B"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,6"/>
+
+                <TextBox x:Name="ValueBox"
+                         Height="44"
+                         Padding="12,10"
+                         FontSize="15"
+                         HorizontalContentAlignment="Center"
+                         VerticalContentAlignment="Center"
+                         CornerRadius="10"
+                         BorderBrush="#CBD5E1"
+                         BorderThickness="1.5"
+                         Background="#F8FAFC"/>
+            </StackPanel>
+
+            <!-- Текст ошибки -->
+            <TextBlock x:Name="ErrorText"
+                       Foreground="#DC2626"
+                       FontSize="13"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       IsVisible="False"
+                       Margin="0,0,0,12"/>
+
+            <!-- Кнопки действий -->
+            <Grid ColumnDefinitions="*,8,*,8,*" Width="340" HorizontalAlignment="Center" Margin="0,8,0,0">
+                <Button Grid.Column="0" Content="Сбросить"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="#F1F5F9"
+                        Foreground="#475569"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        Click="Clear_Click"/>
+
+                <Button Grid.Column="2" Content="Отмена"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="#FFFFFF"
+                        Foreground="#334155"
+                        BorderBrush="#CBD5E1"
+                        BorderThickness="1.5"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        Click="Cancel_Click"/>
+
+                <Button Grid.Column="4" Content="Применить"
+                        Height="44"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="#F7D617"
+                        Foreground="#111827"
+                        FontWeight="SemiBold"
+                        CornerRadius="10"
+                        Cursor="Hand"
+                        IsDefault="True"
+                        Click="Apply_Click"/>
+            </Grid>
+
         </StackPanel>
-      </StackPanel>
-      <TextBlock Text="Тип скидки" Margin="0,0,0,6"/>
-      <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,12">
-        <RadioButton x:Name="RbPercent" Content="Процент" GroupName="DiscountType" IsChecked="True"
-                     IsCheckedChanged="DiscountType_Changed"/>
-        <RadioButton x:Name="RbSum" Content="Сумма" GroupName="DiscountType"
-                     IsCheckedChanged="DiscountType_Changed"/>
-      </StackPanel>
-      <TextBlock x:Name="ValueLabel" Text="Введите процент скидки"/>
-      <TextBox x:Name="ValueBox" Margin="0,4,0,8"/>
-      <TextBlock x:Name="ErrorText" Foreground="#C5221F" IsVisible="False" Margin="0,0,0,12"/>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-        <Button Content="Сбросить" Click="Clear_Click"/>
-        <Button Content="Отмена" Click="Cancel_Click"/>
-        <Button Content="Применить" IsDefault="True" Click="Apply_Click"/>
-      </StackPanel>
-    </StackPanel>
-  </Border>
+    </Border>
 </Window>

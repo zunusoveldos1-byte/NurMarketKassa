@@ -438,7 +438,7 @@
                             </Grid>
                         </Border>
 
-                        <TextBlock Text="Enter — войти" HorizontalAlignment="Right"
+                        <TextBlock Text="Enter — войти" HorizontalAlignment="Left"
                         Margin="0,8,0,8" FontSize="11"
                         Foreground="{StaticResource LoginTextSoftBrush}" />
 

@@ -22,15 +22,17 @@ public partial class OrderDiscountDialog : Window
 
         if (!string.IsNullOrEmpty(sum))
         {
-            RbSum.IsChecked = true;
+            DiscountTypeToggle.IsChecked = false; // sum
             ValueBox.Text = sum;
         }
         else
         {
-            RbPercent.IsChecked = true;
+            DiscountTypeToggle.IsChecked = true; // percent
             ValueBox.Text = pct;
         }
 
+        ScopeCheckBox.IsChecked = false; // весь чек
+        DiscountScope = "check";
         SyncModeUi();
     }
 
@@ -41,19 +43,19 @@ public partial class OrderDiscountDialog : Window
         ItemTitleLabel.Text = itemTitle;
         ItemTitleLabel.IsVisible = true;
         ScopePanel.IsVisible = false;
-        RbItem.IsChecked = true;
+        ScopeCheckBox.IsChecked = true;
         DiscountScope = "item";
 
         if (currentDiscountValue.HasValue && currentDiscountType != null)
         {
             if (currentDiscountType == "percent")
             {
-                RbPercent.IsChecked = true;
+                DiscountTypeToggle.IsChecked = true;
                 ValueBox.Text = currentDiscountValue.Value.ToString("F0", CultureInfo.InvariantCulture);
             }
             else if (currentDiscountType == "sum")
             {
-                RbSum.IsChecked = true;
+                DiscountTypeToggle.IsChecked = false;
                 ValueBox.Text = currentDiscountValue.Value.ToString("F2", CultureInfo.InvariantCulture);
             }
         }
@@ -69,9 +71,13 @@ public partial class OrderDiscountDialog : Window
 
     private void SyncModeUi()
     {
-        var isPercent = RbPercent.IsChecked == true;
+        var isPercent = DiscountTypeToggle.IsChecked == true;
         DiscountMode = isPercent ? "percent" : "sum";
         ValueLabel.Text = isPercent ? "Введите процент скидки" : "Введите сумму скидки";
+        DiscountTypeLabel.Text = isPercent ? "Режим скидки: Процент (%)" : "Режим скидки: Сумма (сом)";
+
+        if (ScopePanel.IsVisible)
+            DiscountScope = ScopeCheckBox.IsChecked == true ? "item" : "check";
     }
 
     private void Apply_Click(object? sender, RoutedEventArgs e)
@@ -83,7 +89,8 @@ public partial class OrderDiscountDialog : Window
         var raw = (ValueBox.Text ?? "").Trim();
         string? error = null;
 
-        if (decimal.TryParse(raw, out var val))
+        if (decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var val)
+            || decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out val))
         {
             if (DiscountMode == "percent")
             {

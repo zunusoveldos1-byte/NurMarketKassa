@@ -52,7 +52,7 @@ namespace NurMarketKassa.Services
                 vm.Unit = unitEl.GetString()?.Trim();
 
             var qty = StockSyncService.ResolveStockQuantity(p, mustWeigh);
-            vm.Quantity = qty;
+            StockSyncService.ApplyQuantityToTile(vm, qty, mustWeigh);
 
             // Категория и бренд
             if (p.TryGetProperty("category", out var cat) && cat.ValueKind == JsonValueKind.String)
@@ -105,7 +105,7 @@ namespace NurMarketKassa.Services
 
             vm.Unit = dto.Unit;
             var qty = dto.ResolvesQuantity(mustWeigh);
-            vm.Quantity = qty;
+            StockSyncService.ApplyQuantityToTile(vm, qty, mustWeigh);
             return ProductUnitNormalizer.TryPrepareCatalogTile(vm) ? vm : null;
         }
 

@@ -6,6 +6,8 @@
   <Application.Resources>
     <ResourceDictionary>
       <conv:BoolToIsVisibleConverter x:Key="BoolToVis"/>
+      <conv:HexToBrushConverter x:Key="HexToBrushConverter"/>
+      <conv:PriceAmountConverter x:Key="PriceAmountConverter"/>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
           <ResourceDictionary.MergedDictionaries>

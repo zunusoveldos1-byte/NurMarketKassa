@@ -14,24 +14,32 @@
           BorderBrush="#E2E8F0" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
           Padding="28,24">
-    <StackPanel>
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
       <TextBlock x:Name="TitleText"
                  FontSize="18" FontWeight="Bold"
                  Foreground="#0F172A"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
                  Margin="0,0,0,12"/>
+
       <TextBlock x:Name="MessageText"
                  FontSize="14" TextWrapping="Wrap"
                  Foreground="#64748B"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
                  Margin="0,0,0,22"/>
+
       <Button x:Name="OkButton"
               Content="Понятно"
-              Height="46"
-              HorizontalAlignment="Stretch"
+              Height="46" Width="240"
+              HorizontalAlignment="Center"
               HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
               Background="#F7D617"
               Foreground="#111827"
               FontWeight="SemiBold"
               CornerRadius="10"
+              Cursor="Hand"
               Click="OkButton_Click"/>
     </StackPanel>
   </Border>

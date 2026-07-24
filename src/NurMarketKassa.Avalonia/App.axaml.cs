@@ -5,6 +5,7 @@ using Avalonia.Styling;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.ViewModels;
 using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.AvaloniaHost.Views.MainKassir;
@@ -109,8 +110,12 @@ public partial class App : Application
         AvaloniaHostServiceRegistration.AddPosInfrastructure(services);
         MainViewModelRegistration.AddMainWindowViewModels(services);
 
+        // ViewModels (host-local + shared)
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<LoginViewModel>();
+        services.AddTransient<WarehouseViewModel>();
+
+        // Windows / views
         services.AddTransient<LoginWindow>();
         services.AddTransient<MainWindow>();
         services.AddTransient<CheckoutDialog>();
@@ -153,6 +158,10 @@ public partial class App : Application
     private static IAppSession? TryGetSession()
     {
         try { return AppHost?.Services.GetService<IAppSession>(); }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"TryGetSession failed: {ex}");
+            return null;
+        }
     }
 }

@@ -1,95 +1,270 @@
-<Window x:Class="NurMarketKassa.AvaloniaHost.Views.WarehouseWindow"
-        xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:NurMarketKassa.ViewModels"
+        xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
         xmlns:models="using:NurMarketKassa.Models"
+        x:Class="NurMarketKassa.AvaloniaHost.Views.WarehouseWindow"
         x:DataType="vm:WarehouseViewModel"
         x:CompileBindings="True"
         Title="Склад — ревизия и списание"
-        Height="720" Width="1100" MinHeight="500" MinWidth="800"
+        Height="760" Width="1120" MinHeight="550" MinWidth="850"
         WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI, Inter, Noto Sans"
+        Background="#F1F5F9"
         KeyDown="Window_KeyDown"
         Loaded="Window_Loaded"
         Closed="Window_Closed">
-    <Grid Margin="16">
+
+    <Window.Styles>
+        <!-- Кастомный стиль вкладок TabControl -->
+        <Style Selector="TabControl">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="CornerRadius" Value="10,10,0,0"/>
+        </Style>
+        <Style Selector="TabItem:pointerover">
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="Background" Value="#E2E8F0"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <!-- Единый стиль полей ввода TextBox / ComboBox -->
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBox:focus, ComboBox:focus">
+            <Setter Property="BorderBrush" Value="#2563EB"/>
+        </Style>
+
+        <!-- Кастомный стиль кнопок -->
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="#F7D617"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.PrimaryButton:pointerover">
+            <Setter Property="Background" Value="#EAB308"/>
+        </Style>
+
+        <Style Selector="Button.SecondaryButton">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#334155"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style Selector="Button.SecondaryButton:pointerover">
+            <Setter Property="Background" Value="#CBD5E1"/>
+        </Style>
+
+        <!-- Стиль для DataGrid -->
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="#F1F5F9"/>
+        </Style>
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="SeparatorBrush" Value="#E2E8F0"/>
+        </Style>
+        <Style Selector="DataGridRow">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Margin" Value="2,1"/>
+        </Style>
+        <Style Selector="DataGridRow:pointerover">
+            <Setter Property="Background" Value="#F1F5F9"/>
+        </Style>
+        <Style Selector="DataGridRow:selected">
+            <Setter Property="Background" Value="#EFF6FF"/>
+            <Setter Property="Foreground" Value="#1E40AF"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition />
-            <RowDefinition Height="*" />
+            <!-- Шапка окна -->
+            <RowDefinition Height="Auto"/>
+            <!-- Контент вкладок -->
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="True">
-            <TextBlock Text="Управление складом" FontSize="22" FontWeight="Bold"
-                       Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" DockPanel.Dock="Left" />
-            <Button DockPanel.Dock="Right" Content="Закрыть" Padding="14,8" Margin="12,0,0,0"
-                    Click="CloseButton_Click" />
-            <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="16,0,0,0"
-                       Foreground="{DynamicResource BrushTextSoft}"
-                       Text="Сканируйте штрих-код для быстрого ввода" />
-        </DockPanel>
+        <!-- Шапка окна -->
+        <Border Grid.Row="0"
+                Background="#FFFFFF"
+                CornerRadius="14"
+                Padding="16,14"
+                Margin="0,0,0,16"
+                BoxShadow="0 2 8 0 #0F000000">
+            <DockPanel LastChildFill="True">
+                <StackPanel Orientation="Horizontal" Spacing="10" DockPanel.Dock="Left" VerticalAlignment="Center">
+                    <Border Background="#FEF9C3" CornerRadius="8" Padding="8">
+                        <TextBlock Text="📦" FontSize="20" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Управление складом" FontSize="20" FontWeight="Bold"
+                               Foreground="#0F172A" VerticalAlignment="Center" />
+                </StackPanel>
 
+                <Button DockPanel.Dock="Right" Content="Закрыть" Classes="SecondaryButton"
+                        Click="CloseButton_Click" VerticalAlignment="Center"/>
+
+                <Border DockPanel.Dock="Right" Background="#F1F5F9" CornerRadius="8"
+                        Padding="12,6" Margin="16,0,12,0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="🔍" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock Foreground="#64748B" FontSize="13" FontWeight="Medium"
+                                   Text="Сканируйте штрих-код для быстрого ввода" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </DockPanel>
+        </Border>
+
+        <!-- Основной блок с вкладками -->
         <TabControl x:Name="WarehouseTabs" Grid.Row="1">
-            <TabItem Header="Ревизия (Инвентаризация)">
-                <Grid Margin="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition />
-                    </Grid.RowDefinitions>
-                    <DataGrid x:Name="RevisionGrid"
-                              x:CompileBindings="False"
-                              ItemsSource="{Binding RevisionLines}"
-                              SelectedItem="{Binding FocusedRevisionLine, Mode=TwoWay}"
-                              AutoGenerateColumns="False" IsReadOnly="False" RowHeight="40">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Штрих-код" Width="140" Binding="{ReflectionBinding Barcode}" IsReadOnly="True" />
-                            <DataGridTextColumn Header="Наименование" Width="*" Binding="{ReflectionBinding ProductName}" IsReadOnly="True" />
-                            <DataGridTextColumn Header="Ожидаемый остаток" Width="150"
-                                                Binding="{ReflectionBinding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
-                            <DataGridTextColumn Header="Фактический остаток" Width="150"
-                                                Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}" />
-                            <DataGridTextColumn Header="Разница" Width="110"
-                                                Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                    <Button Grid.Row="1" Content="Зафиксировать ревизию"
-                            HorizontalAlignment="Right" Margin="0,12,0,0" Padding="18,10"
-                            Command="{Binding CommitRevisionCommand}" />
-                </Grid>
+            
+            <!-- Вкладка 1: Ревизия -->
+            <TabItem Header="📋 Ревизия (Инвентаризация)">
+                <Border Background="#FFFFFF" CornerRadius="0,14,14,14" Padding="16" BoxShadow="0 4 12 0 #0D000000">
+                    <Grid RowDefinitions="*, Auto">
+                        <DataGrid x:Name="RevisionGrid"
+                                  Grid.Row="0"
+                                  x:CompileBindings="False"
+                                  ItemsSource="{Binding RevisionLines}"
+                                  SelectedItem="{Binding FocusedRevisionLine, Mode=TwoWay}"
+                                  AutoGenerateColumns="False" 
+                                  IsReadOnly="False" 
+                                  RowHeight="44">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Штрих-код" Width="150" Binding="{ReflectionBinding Barcode}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Наименование товара" Width="*" Binding="{ReflectionBinding ProductName}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Ожидаемый остаток" Width="160"
+                                                    Binding="{ReflectionBinding ExpectedQty, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Фактический остаток" Width="170"
+                                                    Binding="{ReflectionBinding ActualQty, StringFormat=\{0:0.###\}}" />
+                                <DataGridTextColumn Header="Разница" Width="130"
+                                                    Binding="{ReflectionBinding Difference, StringFormat=\{0:0.###\}}" IsReadOnly="True" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0" Spacing="12">
+                            <Button Content="Зафиксировать ревизию"
+                                    Classes="PrimaryButton"
+                                    Command="{Binding CommitRevisionCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </TabItem>
-            <TabItem Header="Списание товара">
-                <Grid Margin="8" MaxWidth="520" HorizontalAlignment="Left">
-                    <Grid.RowDefinitions>
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                        <RowDefinition />
-                    </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                        <TextBlock Text="Товар" Margin="0,0,0,4" Foreground="{DynamicResource BrushTextSoft}" />
-                        <TextBox IsReadOnly="True" Text="{Binding WriteOffProductName, Mode=OneWay}" />
-                        <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource BrushTextMuted}" FontSize="11"
-                                   Text="{Binding WriteOffBarcode, StringFormat=Штрих-код: \{0\}}" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="1" Margin="0,0,0,16">
-                        <TextBlock Text="Количество" Margin="0,0,0,4" Foreground="{DynamicResource BrushTextSoft}" />
-                        <TextBox x:Name="WriteOffQuantityBox" Text="{Binding WriteOffQuantity}" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="2" Margin="0,0,0,16">
-                        <TextBlock Text="Причина списания" Margin="0,0,0,4" Foreground="{DynamicResource BrushTextSoft}" />
-                        <ComboBox ItemsSource="{Binding WriteOffReasonOptions}"
-                                  SelectedItem="{Binding WriteOffReason}" />
-                    </StackPanel>
-                    <Button Grid.Row="3" Content="Списать товар" Padding="18,10"
-                            Command="{Binding WriteOffCommand}" />
-                </Grid>
+
+            <!-- Вкладка 2: Списание -->
+            <TabItem Header="🗑️ Списание товара">
+                <Border Background="#FFFFFF" CornerRadius="0,14,14,14" Padding="24" BoxShadow="0 4 12 0 #0D000000">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Border MaxWidth="560" HorizontalAlignment="Left"
+                                Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="12" Padding="20">
+                            <StackPanel Spacing="18">
+                                <TextBlock Text="Оформление акта списания" FontSize="16" FontWeight="Bold" Foreground="#1E293B"/>
+
+                                <!-- Товар -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Выбранный товар" FontWeight="SemiBold" Foreground="#475569" FontSize="13" />
+                                    <TextBox IsReadOnly="True"
+                                             Text="{Binding WriteOffProductName, Mode=OneWay}"
+                                             FontWeight="Bold"
+                                             Foreground="#0F172A"
+                                             Background="#F1F5F9" />
+                                    <TextBlock Foreground="#64748B" FontSize="12" Margin="2,0,0,0"
+                                               Text="{Binding WriteOffBarcode, StringFormat=Штрих-код: \{0\}}" />
+                                </StackPanel>
+
+                                <!-- Количество -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Количество для списания" FontWeight="SemiBold" Foreground="#475569" FontSize="13" />
+                                    <TextBox x:Name="WriteOffQuantityBox" 
+                                             Text="{Binding WriteOffQuantity}"
+                                             FontSize="16" 
+                                             FontWeight="Bold"/>
+                                </StackPanel>
+
+                                <!-- Причина -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Причина списания" FontWeight="SemiBold" Foreground="#475569" FontSize="13" />
+                                    <ComboBox ItemsSource="{Binding WriteOffReasonOptions}"
+                                              SelectedItem="{Binding WriteOffReason}"
+                                              HorizontalAlignment="Stretch" />
+                                </StackPanel>
+
+                                <Separator Height="1" Background="#E2E8F0" Margin="0,6"/>
+
+                                <!-- Кнопка отправки -->
+                                <Button Content="Подтвердить списание"
+                                        Classes="PrimaryButton"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Command="{Binding WriteOffCommand}" />
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+                </Border>
             </TabItem>
         </TabControl>
 
-        <Border Grid.RowSpan="2" Background="#40000000" ZIndex="10"
-                IsVisible="{Binding IsBusy}">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="Сохранение..." Foreground="White" FontSize="18" Margin="0,0,0,12" />
-                <ProgressBar IsIndeterminate="True" Width="200" Height="8" />
-            </StackPanel>
+        <!-- Модальный индикатор загрузки (IsBusy) -->
+        <Border Grid.RowSpan="2"
+                Background="#60000000"
+                ZIndex="10"
+                IsVisible="{Binding IsBusy}"
+                CornerRadius="12">
+            <Border Background="#FFFFFF"
+                    CornerRadius="16"
+                    Padding="32,24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    BoxShadow="0 20 25 -5 #20000000">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                    <ProgressBar IsIndeterminate="True" Width="220" Height="6" CornerRadius="3" Foreground="#2563EB"/>
+                    <TextBlock Text="Сохранение данных..." Foreground="#1E293B" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
         </Border>
     </Grid>
 </Window>

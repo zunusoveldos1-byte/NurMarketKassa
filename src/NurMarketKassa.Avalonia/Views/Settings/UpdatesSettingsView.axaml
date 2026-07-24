@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.UpdatesSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList">
+
+        <Border Classes="SettingsHeaderCard">
+          <StackPanel Orientation="Horizontal">
+            <Border Width="40" Height="40" CornerRadius="10" Background="#FEF3C7" Margin="0,0,12,0">
+              <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                         Foreground="#0F172A" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Обновления" Classes="SettingsPageTitle"/>
+              <TextBlock Text="Проверка и установка новых версий кассы" Classes="SettingsPageSubtitle"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Текущая версия" Classes="SettingsCardTitle"/>
+            <TextBlock x:Name="AppVersionText" x:FieldModifier="public"
+                       Classes="SettingsCardBody" FontSize="14" Foreground="#0F172A"/>
+            <Button x:Name="CheckUpdateButton" x:FieldModifier="public"
+                    Content="Проверить обновления"
+                    Classes="SettingsFlatButton"
+                    HorizontalAlignment="Left"
+                    MinWidth="220" Padding="16,8"/>
+            <ProgressBar x:Name="UpdateProgressBar" x:FieldModifier="public"
+                         Height="6" IsVisible="False" IsIndeterminate="False"
+                         Minimum="0" Maximum="100"
+                         VerticalAlignment="Top"/>
+            <TextBlock x:Name="UpdateStatusText" x:FieldModifier="public"
+                       Classes="SettingsCardBody" IsVisible="False"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Диагностика" Classes="SettingsCardTitle"/>
+            <TextBlock Text="Техническая информация каталога (для администратора и разработчика)."
+                       Classes="SettingsCardBody"/>
+            <TextBlock x:Name="CatalogDiagnosticsText" x:FieldModifier="public"
+                       FontSize="11" Foreground="#475569"
+                       TextWrapping="Wrap" FontFamily="Consolas"/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

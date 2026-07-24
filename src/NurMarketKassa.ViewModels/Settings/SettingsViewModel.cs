@@ -44,6 +44,10 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool HasBackgroundImage => !string.IsNullOrWhiteSpace(BackgroundImagePath);
 
+    /// <summary>
+    /// Плотность белой подложки поверх обоев (0.05–0.8).
+    /// Не влияет на Opacity фонового Image — только на альфа-канал подложки.
+    /// </summary>
     public double BackgroundOpacity
     {
         get => _backgroundOpacity;

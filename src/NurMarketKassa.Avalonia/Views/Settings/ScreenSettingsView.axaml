@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScreenSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList">
+
+        <Border Classes="SettingsHeaderCard">
+          <StackPanel Orientation="Horizontal">
+            <Border Width="40" Height="40" CornerRadius="10" Background="#E0E7FF" Margin="0,0,12,0">
+              <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                         Foreground="#0F172A" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="Экран" Classes="SettingsPageTitle"/>
+              <TextBlock Text="Отображение интерфейса и поведение кассы" Classes="SettingsPageSubtitle"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Режим окна" Classes="SettingsCardTitle"/>
+            <CheckBox x:Name="FullscreenCheck" x:FieldModifier="public"
+                      Content="Полноэкранный режим" Classes="ToggleSwitch" Foreground="#0F172A"/>
+            <CheckBox x:Name="AutostartCheck" x:FieldModifier="public"
+                      Content="Запускать с Windows" Classes="ToggleSwitch" Foreground="#0F172A"/>
+            <CheckBox x:Name="AutoTouchKeyboardCheck" x:FieldModifier="public"
+                      Content="Авто‑показ клавиатуры" Classes="ToggleSwitch" Foreground="#0F172A"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="0">
+            <TextBlock Text="Название магазина в чеке" Classes="FieldLabel"/>
+            <TextBox x:Name="StoreNameBox" x:FieldModifier="public"
+                     Classes="ModernTextBox"
+                     ToolTip.Tip="Отображается в верхней части чека"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="0">
+            <TextBlock Text="Адрес магазина" Classes="FieldLabel"/>
+            <TextBox x:Name="StoreAddressBox" x:FieldModifier="public"
+                     Classes="ModernTextBox"
+                     ToolTip.Tip="Печатается в чеке, если включён пункт «Адрес» и поле не пустое"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Данные в чеке" Classes="SettingsCardTitle"/>
+            <CheckBox x:Name="ShowInnCheck" x:FieldModifier="public"
+                      Content="ИНН" Classes="ToggleSwitch" Foreground="#0F172A"
+                      ToolTip.Tip="Печатать ИНН компании в шапке чека"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Добавление в чек" Classes="SettingsCardTitle"/>
+            <StackPanel Orientation="Horizontal" Spacing="0">
+              <RadioButton x:Name="DoubleClickToCartRadio" x:FieldModifier="public"
+                           Content="Двойной клик" Classes="DatePill" Margin="0,0,-1,0" Foreground="#0F172A"/>
+              <RadioButton x:Name="SingleClickToCartRadio" x:FieldModifier="public"
+                           Content="Один клик" Classes="DatePill" Foreground="#0F172A"/>
+            </StackPanel>
+            <CheckBox x:Name="ResetManualAddQtyCheck" x:FieldModifier="public"
+                      Content="Сбрасывать количество после добавления"
+                      Classes="ToggleSwitch"
+                      Foreground="#0F172A"/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

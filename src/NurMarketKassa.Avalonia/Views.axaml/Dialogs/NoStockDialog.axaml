@@ -9,37 +9,59 @@
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
-  <Border Margin="16" CornerRadius="16"
-          Background="#FFFFFF"
-          BorderBrush="#E2E8F0" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="30,25">
-    <StackPanel HorizontalAlignment="Center">
-      <TextBlock x:Name="TitleText"
-                 Text="Товар закончился на складе"
-                 FontWeight="Bold" FontSize="20"
-                 HorizontalAlignment="Center" Margin="0,0,0,10"/>
-      <TextBlock x:Name="ProductNameText"
-                 TextWrapping="Wrap" TextAlignment="Center"
-                 FontSize="14" FontWeight="SemiBold"
-                 HorizontalAlignment="Center" Margin="0,0,0,8"/>
-      <TextBlock x:Name="MessageText"
-                 TextWrapping="Wrap" TextAlignment="Center"
-                 FontSize="14" Foreground="#6B7280"
-                 HorizontalAlignment="Center" Margin="0,0,0,12"/>
-      <TextBlock x:Name="AvailableText"
-                 TextAlignment="Center" FontSize="14"
-                 FontWeight="SemiBold" Foreground="#C5221F"
-                 HorizontalAlignment="Center" Margin="0,0,0,20"/>
-      <Button x:Name="BtnCancel"
-              Content="ОК"
-              Width="140"
-              Height="36"
-              HorizontalAlignment="Center"
-              HorizontalContentAlignment="Center"
-              Background="#F3F4F6"
-              CornerRadius="10"
-              Click="BtnCancel_Click"/>
-    </StackPanel>
-  </Border>
+
+    <Window.Styles>
+        <Style Selector="Button.btn-ok">
+            <Setter Property="Background" Value="#F3F4F6"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.btn-ok:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#E5E7EB"/>
+            <Setter Property="Foreground" Value="#111827"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Margin="16" CornerRadius="16"
+            Background="#FFFFFF"
+            BorderBrush="#E2E8F0" BorderThickness="1"
+            BoxShadow="0 12 32 0 #33101828"
+            Padding="30,25">
+        <StackPanel HorizontalAlignment="Center">
+            <TextBlock x:Name="TitleText"
+                       Text="Товар закончился на складе"
+                       FontWeight="Bold" FontSize="20"
+                       HorizontalAlignment="Center" Margin="0,0,0,10"/>
+            
+            <TextBlock x:Name="ProductNameText"
+                       TextWrapping="Wrap" TextAlignment="Center"
+                       FontSize="14" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Margin="0,0,0,8"/>
+            
+            <TextBlock x:Name="MessageText"
+                       TextWrapping="Wrap" TextAlignment="Center"
+                       FontSize="14" Foreground="#6B7280"
+                       HorizontalAlignment="Center" Margin="0,0,0,12"/>
+            
+            <TextBlock x:Name="AvailableText"
+                       TextAlignment="Center" FontSize="14"
+                       FontWeight="SemiBold" Foreground="#C5221F"
+                       HorizontalAlignment="Center" Margin="0,0,0,20"/>
+            
+            <Button x:Name="BtnCancel"
+                    Content="ОК"
+                    Classes="btn-ok"
+                    Width="140"
+                    Height="40"
+                    IsCancel="True"
+                    IsDefault="True"
+                    HorizontalAlignment="Center"
+                    Click="BtnCancel_Click"/>
+        </StackPanel>
+    </Border>
 </Window>

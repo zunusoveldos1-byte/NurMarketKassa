@@ -19,13 +19,19 @@ public static class PaymentErrorMessages
                || message.Contains("скидку в процентах", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static string ForCashier(Exception ex) =>
-        ex is ApiException api
-            ? LooksLikeDiscountError(api.Message)
-                ? DiscountFailure
-                : string.IsNullOrWhiteSpace(api.Message) ? GenericFailure : api.Message
-            : GenericFailure;
+    public static string ForCashier(Exception ex)
+    {
+        if (ex is ApiException api)
+        {
+            if (LooksLikeDiscountError(api.Message))
+                return DiscountFailure;
+
+            return string.IsNullOrWhiteSpace(api.Message) ? GenericFailure : api.Message;
+        }
+
+        return string.IsNullOrWhiteSpace(ex.Message) ? GenericFailure : ex.Message;
+    }
 
     public static void Log(string context, Exception ex) =>
-        PosLogger.Log($"{context}: {ex.Message}", "PAYMENT ERROR");
+        PosLogger.Log($"{context}: {ex}", "PAYMENT ERROR");
 }

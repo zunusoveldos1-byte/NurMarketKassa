@@ -220,6 +220,7 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            PosLogger.Log($"ShiftHistory LoadAsync failed: {ex}", "SHIFTS");
             PosMessageBox.Show(_owner, $"Не удалось загрузить данные: {ex.Message}", "История смен",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
@@ -405,8 +406,8 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
                 PosDialogHost.Show(new ShiftDetailsDialog(shift), _owner);
                 break;
             case ShiftMenuAction.Print:
-                PosMessageBox.Show(_owner, $"Печать отчёта по смене {shift.ShiftNumber} будет доступна в следующем обновлении.",
-                    "Печать", MessageBoxButton.OK, MessageBoxImage.Information);
+                PosMessageBox.Show(_owner, $"Z-отчёт по смене {shift.ShiftNumber} будет доступен в следующем обновлении.",
+                    "Z-отчёт", MessageBoxButton.OK, MessageBoxImage.Information);
                 break;
             case ShiftMenuAction.Deposit:
                 OpenTypedOperation(isDeposit: true);
@@ -415,8 +416,8 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
                 OpenTypedOperation(isDeposit: false);
                 break;
             case ShiftMenuAction.Export:
-                PosMessageBox.Show(_owner, $"Экспорт смены {shift.ShiftNumber} будет доступен в следующем обновлении.",
-                    "Экспорт", MessageBoxButton.OK, MessageBoxImage.Information);
+                PosMessageBox.Show(_owner, $"X-отчёт по смене {shift.ShiftNumber} будет доступен в следующем обновлении.",
+                    "X-отчёт", MessageBoxButton.OK, MessageBoxImage.Information);
                 break;
             case ShiftMenuAction.Delete:
                 if (PosMessageBox.Show(_owner, $"Удалить смену {shift.ShiftNumber} из локального списка?",

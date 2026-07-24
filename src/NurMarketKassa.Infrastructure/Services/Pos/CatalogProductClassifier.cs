@@ -15,7 +15,7 @@ public static class CatalogProductClassifier
             vm.Unit = unitEl.GetString()?.Trim();
 
         var qty = StockSyncService.ResolveStockQuantity(product, mustWeigh);
-        vm.Quantity = qty;
+        StockSyncService.ApplyQuantityToTile(vm, qty, mustWeigh);
         ProductUnitNormalizer.TryPrepareCatalogTile(vm);
     }
 

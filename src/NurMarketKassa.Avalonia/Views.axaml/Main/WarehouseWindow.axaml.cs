@@ -4,9 +4,9 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.ViewModels;
 using NurMarketKassa.Interfaces;
 using NurMarketKassa.Models;
-using NurMarketKassa.ViewModels;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 

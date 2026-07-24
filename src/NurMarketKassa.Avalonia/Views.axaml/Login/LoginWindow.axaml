@@ -243,7 +243,7 @@
                                 HorizontalAlignment="Stretch">
                             <Grid ColumnDefinitions="Auto,*">
                                 <Border Width="36" Height="36" CornerRadius="10"
-                                            Background="{StaticResource LoginAccentSoftBrush}"
+                                        Background="{StaticResource LoginAccentSoftBrush}"
                                         VerticalAlignment="Top">
                                     <TextBlock Text="&#xEA18;" FontFamily="Segoe MDL2 Assets"
                                                FontSize="16" HorizontalAlignment="Center"
@@ -276,8 +276,10 @@
                 <StackPanel VerticalAlignment="Center" MaxWidth="440"
                             Margin="56,24,56,24">
 
-                    <!-- Шапка формы: жёлтый замок + заголовок -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                    <!-- Шапка формы: жёлтый замок + заголовок (по центру) -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,0,0,18">
                         <Border Width="44" Height="44" CornerRadius="12"
                                 Background="{StaticResource LoginAccentBrush}"
                                 Margin="0,0,14,0"
@@ -296,7 +298,7 @@
                     </StackPanel>
 
                     <!-- Email -->
-                    <TextBlock Text="Email" Classes="LoginFieldLabel" />
+                    <TextBlock Text="Email" Classes="LoginFieldLabel"  />
                     <Border x:Name="EmailFieldBorder" Classes="LoginFluentField"
                             Margin="0,0,0,14">
                         <Grid Margin="16,0" ColumnDefinitions="Auto,*,Auto">
@@ -363,15 +365,15 @@
                         </Grid>
                     </Border>
 
-                    <TextBlock Text="Enter — войти" HorizontalAlignment="Right"
-                               Margin="0,6,2,0" FontSize="11"
-                               Foreground="{StaticResource LoginTextSoftBrush}" />
-
                     <CheckBox x:Name="RememberMeCheckBox"
                               Classes="ToggleSwitch"
                               Margin="0,10,0,0"
                               Content="Запомнить меня"
                               IsCheckedChanged="RememberMeCheckBox_Changed" />
+
+                    <TextBlock Text="Enter — войти" HorizontalAlignment="Center"
+                               Margin="0,6,2,0" FontSize="11"
+                               Foreground="{StaticResource LoginTextSoftBrush}" />
 
                     <TextBlock Text="{Binding ErrorMessage}" FontSize="13" FontWeight="SemiBold"
                                Foreground="{StaticResource LoginDangerBrush}"
@@ -398,7 +400,8 @@
                     <!-- Войти -->
                     <Button x:Name="LoginButton" Margin="0,18,0,0"
                             Classes="LoginPrimaryButton"
-                            Command="{Binding LoginCommand}">
+                            Command="{Binding LoginCommand}"
+                            IsDefault="True">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="&#xE72A;" FontFamily="Segoe MDL2 Assets"
                                        FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0" />

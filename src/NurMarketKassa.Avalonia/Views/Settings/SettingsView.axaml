@@ -5,90 +5,126 @@
              x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.SettingsView"
              x:DataType="vm:SettingsViewModel"
              x:CompileBindings="True"
-             VerticalAlignment="Top">
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
 
   <UserControl.Resources>
     <conv:AssetPathToBitmapConverter x:Key="AssetPathToBitmap"/>
   </UserControl.Resources>
 
-  <Grid VerticalAlignment="Top">
-    <Image Source="{Binding BackgroundImage, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}}"
-           Stretch="UniformToFill"
-           Opacity="{Binding BackgroundOpacity}"
-           IsVisible="{Binding HasBackgroundImage}"/>
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled"
-                  VerticalAlignment="Top">
-      <StackPanel Spacing="16" Margin="0,0,8,24" VerticalAlignment="Top">
+    <Style Selector="Button.btn-primary">
+      <Setter Property="Background" Value="#EAB308"/>
+      <Setter Property="Foreground" Value="#111827"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#CA8A04"/>
+      <Setter Property="Foreground" Value="#111827"/>
+    </Style>
 
-        <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,4">
-          <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BrushAccentSoft}">
-            <TextBlock Text="🎨" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-          <StackPanel VerticalAlignment="Center" Spacing="2">
-            <TextBlock Text="Кастомизация" FontSize="18" FontWeight="SemiBold"/>
-            <TextBlock Text="Фон правой панели настроек и прозрачность подложки"
-                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+    <Style Selector="Button.btn-secondary">
+      <Setter Property="Background" Value="#F1F5F9"/>
+      <Setter Property="Foreground" Value="#475569"/>
+      <Setter Property="BorderBrush" Value="#E2E8F0"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.btn-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E2E8F0"/>
+      <Setter Property="Foreground" Value="#334155"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList">
+
+        <Border Classes="SettingsHeaderCard">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Border Width="40" Height="40" CornerRadius="10" Background="#FCE7F3">
+              <TextBlock Text="🎨" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+              <TextBlock Text="Кастомизация" Classes="SettingsPageTitle"/>
+              <TextBlock Text="Фон правой панели настроек и прозрачность подложки" Classes="SettingsPageSubtitle"/>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
+        </Border>
 
-        <Border CornerRadius="12"
-                BorderBrush="#E2E8F0"
-                BorderThickness="1"
-                Padding="20"
-                Background="{DynamicResource BrushCatalogTileBg}">
+        <Border Classes="SettingsCard">
           <StackPanel Spacing="14">
-            <TextBlock Text="Обои" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock Text="Обои" Classes="SettingsCardTitle"/>
             <TextBlock Text="Выберите изображение (PNG, JPG, JPEG, WEBP). Изменения применяются сразу."
-                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                       Classes="SettingsCardBody"/>
             <StackPanel Orientation="Horizontal" Spacing="10">
               <Button Classes="main-primary"
                       Content="Выбрать изображение"
                       Command="{Binding PickBackgroundCommand}"
-                      MinHeight="40" Padding="16,8"/>
+                      MinHeight="40" Padding="16,8"
+                      VerticalAlignment="Top"/>
               <Button Classes="main-secondary"
                       Content="Сбросить"
                       Command="{Binding ClearBackgroundCommand}"
                       IsEnabled="{Binding HasBackgroundImage}"
-                      MinHeight="40" Padding="16,8"/>
+                      MinHeight="40" Padding="16,8"
+                      VerticalAlignment="Top"/>
             </StackPanel>
             <TextBlock Text="{Binding BackgroundImagePath}"
                        FontSize="11"
-                       Foreground="{DynamicResource BrushTextSoft}"
+                       Foreground="#64748B"
                        TextWrapping="Wrap"
                        IsVisible="{Binding HasBackgroundImage}"/>
           </StackPanel>
         </Border>
 
-        <Border CornerRadius="12"
-                BorderBrush="#E2E8F0"
-                BorderThickness="1"
-                Padding="20"
-                Background="{DynamicResource BrushCatalogTileBg}">
+        <Border Classes="SettingsCard">
           <StackPanel Spacing="12">
-            <TextBlock Text="Прозрачность подложки" FontSize="15" FontWeight="SemiBold"/>
-            <TextBlock Text="От 5% до 80%. Чем выше значение, тем заметнее изображение под контентом."
-                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+            <TextBlock Text="Прозрачность подложки" Classes="SettingsCardTitle"/>
+            <TextBlock Text="От 5% до 80%. Чем выше значение, тем плотнее белая подложка поверх обоев. Сами обои остаются яркими."
+                       Classes="SettingsCardBody"/>
             <Slider Minimum="0.05"
                     Maximum="0.8"
                     Value="{Binding BackgroundOpacity}"
                     TickFrequency="0.05"
-                    IsSnapToTickEnabled="True"/>
+                    IsSnapToTickEnabled="True"
+                    VerticalAlignment="Top"/>
             <TextBlock Text="{Binding BackgroundOpacityPercent}"
                        FontSize="13"
                        FontWeight="SemiBold"
+                       Foreground="#0F172A"
                        HorizontalAlignment="Right"/>
           </StackPanel>
         </Border>
 
-        <Button Classes="main-primary"
-                Content="Сохранить"
-                Command="{Binding SaveCustomizationCommand}"
-                HorizontalAlignment="Left"
-                MinWidth="140"
-                MinHeight="40"/>
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Left"
+                    Spacing="12"
+                    VerticalAlignment="Top">
+          <Button Content="Сохранить"
+                  Classes="btn-primary"
+                  Width="130"
+                  Height="40"
+                  Click="Save_Click"/>
+          <Button Content="Закрыть"
+                  Classes="btn-secondary"
+                  Width="110"
+                  Height="40"
+                  Click="Close_Click"/>
+        </StackPanel>
+
       </StackPanel>
     </ScrollViewer>
-  </Grid>
+  </Border>
 </UserControl>

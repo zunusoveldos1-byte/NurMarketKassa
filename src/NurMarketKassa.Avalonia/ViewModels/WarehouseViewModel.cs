@@ -3,9 +3,9 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using NurMarketKassa.Models;
-using NurMarketKassa.Ui.Shared;
+using NurMarketKassa.ViewModels;
 
-namespace NurMarketKassa.ViewModels;
+namespace NurMarketKassa.AvaloniaHost.ViewModels;
 
 /// <summary>Avalonia warehouse VM (local stub until full inventory services are ported).</summary>
 public sealed class WarehouseViewModel : INotifyPropertyChanged

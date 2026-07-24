@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -11,6 +9,7 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 
 /// <summary>
 /// Avalonia-реализация экрана покупателя: открывает окно на втором мониторе и синхронизирует состояние.
+/// Все обращения к Window выполняются только через Dispatcher.UIThread.
 /// </summary>
 public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, IDisposable
 {
@@ -25,8 +24,8 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
 
     public void Show()
     {
-        Dispatcher.UIThread.Post(EnsureWindowVisible);
         _state.Show();
+        Dispatcher.UIThread.Post(EnsureWindowVisible);
     }
 
     public void Hide()
@@ -35,7 +34,11 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
         Dispatcher.UIThread.Post(() => _window?.Hide());
     }
 
-    public void UpdateCart(CustomerDisplayCartSnapshot snapshot) => _state.UpdateCart(snapshot);
+    public void UpdateCart(CustomerDisplayCartSnapshot snapshot)
+    {
+        // Состояние можно обновить с любого потока; RefreshUi окна сам маршалится.
+        _state.UpdateCart(snapshot);
+    }
 
     public void SetPaymentStatus(CustomerDisplayPaymentStatus status, string? message = null) =>
         _state.SetPaymentStatus(status, message);
@@ -50,14 +53,27 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
 
     private void EnsureWindowVisible()
     {
-        if (_window is null)
+        if (!Dispatcher.UIThread.CheckAccess())
         {
-            _window = new CustomerDisplayWindow(_state);
-            PlaceOnSecondScreen(_window);
+            Dispatcher.UIThread.Post(EnsureWindowVisible);
+            return;
         }
 
-        if (!_window.IsVisible)
-            _window.Show();
+        try
+        {
+            if (_window is null)
+            {
+                _window = new CustomerDisplayWindow(_state);
+                PlaceOnSecondScreen(_window);
+            }
+
+            if (!_window.IsVisible)
+                _window.Show();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"CustomerDisplay EnsureWindowVisible failed: {ex}", "CUSTOMER_DISPLAY");
+        }
     }
 
     private static void PlaceOnSecondScreen(Window window)

@@ -74,7 +74,7 @@ public sealed class PosCheckoutService : IPosCheckoutService
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Checkout discount failed: {ex.Message}", "PAYMENT");
+            PosLogger.Log($"Checkout discount failed: {ex}", "PAYMENT");
             return false;
         }
     }
@@ -107,16 +107,23 @@ public sealed class PosCheckoutService : IPosCheckoutService
         }
         catch (ApiException ex)
         {
+            PaymentErrorMessages.Log("Checkout API error", ex);
             return PosCheckoutResult.Failed(PaymentErrorMessages.ForCashier(ex));
         }
         catch (HttpRequestException ex)
         {
-            PosLogger.Log($"Checkout network error, saving offline: {ex.Message}", "PAYMENT");
+            PosLogger.Log($"Checkout network error, saving offline: {ex}", "PAYMENT");
             return CompleteOfflineCheckout(request, cartJsonSnapshot, total, ex.Message);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            PosLogger.Log($"Checkout canceled/timeout: {ex}", "PAYMENT");
             return CompleteOfflineCheckout(request, cartJsonSnapshot, total, "Таймаут оплаты или потеря сети.");
+        }
+        catch (Exception ex)
+        {
+            PaymentErrorMessages.Log("Checkout unexpected error", ex);
+            return PosCheckoutResult.Failed(PaymentErrorMessages.ForCashier(ex));
         }
     }
 
@@ -146,18 +153,19 @@ public sealed class PosCheckoutService : IPosCheckoutService
         }
         catch (ApiException ex) when (OfflineModeHelper.CanOperateWithoutServer)
         {
+            PosLogger.Log($"Restart sale offline after API error: {ex}", "PAYMENT");
             LocalCartService.StartNewLocalCart(_cart);
             return null;
         }
         catch (HttpRequestException ex) when (OfflineModeHelper.CanOperateWithoutServer)
         {
             LocalCartService.StartNewLocalCart(_cart);
-            PosLogger.Log($"Restart sale offline after network error: {ex.Message}", "PAYMENT");
+            PosLogger.Log($"Restart sale offline after network error: {ex}", "PAYMENT");
             return null;
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Restart sale failed: {ex.Message}", "PAYMENT");
+            PosLogger.Log($"Restart sale failed: {ex}", "PAYMENT");
             return ex.Message;
         }
     }
@@ -207,6 +215,12 @@ public sealed class PosCheckoutService : IPosCheckoutService
         var body = BuildCheckoutRequestBody(request.PaymentMethod, request.CashReceived, request.PrintReceipt);
         var checkoutIds = CartDisplayHelper.CollectCheckoutTargetIds(_cart.Root, cartId);
 
+        PosLogger.Log(
+            $"Checkout API: ids=[{string.Join(", ", checkoutIds)}], method={body.GetValueOrDefault("payment_method")}, " +
+            $"cash={body.GetValueOrDefault("cash_received")}, shift={body.GetValueOrDefault("shift_id")}, " +
+            $"cashbox={body.GetValueOrDefault("cashbox_id")}",
+            "PAYMENT");
+
         var checkoutResponse = await _salesApi
             .PosCheckoutAsync(checkoutIds, body, cancellationToken)
             .ConfigureAwait(false);
@@ -214,15 +228,34 @@ public sealed class PosCheckoutService : IPosCheckoutService
         CheckoutResponseHelper.FormatSuccess(checkoutResponse);
 
         var saleId = CheckoutResponseHelper.TrySaleId(checkoutResponse) ?? cartId;
+        PosLogger.Log($"Checkout API OK: saleId={saleId}", "PAYMENT");
+
         var cartSnapshot = _cart.Root.Clone();
         await PublishSaleFinalizedAsync(saleId, cartSnapshot).ConfigureAwait(false);
-        _ = Task.Run(() => StockSyncService.RefreshSoldItemsStockAsync(cartSnapshot, CancellationToken.None));
+        PosLogger.Log("Checkout stock commit published", "PAYMENT");
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await StockSyncService.RefreshSoldItemsStockAsync(cartSnapshot, CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Background stock refresh failed: {ex}", "STOCK");
+            }
+        });
 
         PosApp.AuditDb.LogSale(saleId, total, request.PaymentMethod ?? "", PosApp.CurrentUserId);
 
         if (request.PrintReceipt)
+        {
+            PosLogger.Log("Checkout print receipt", "PAYMENT");
             TryPrintReceipt(cartJsonSnapshot, request.PaymentMethod, request.CashReceived, checkoutResponse: checkoutResponse);
+        }
 
+        PosLogger.Log("Checkout restart sale session", "PAYMENT");
         await RestartSaleSessionAsync(cancellationToken).ConfigureAwait(false);
 
         return PosCheckoutResult.Succeeded(total, cartJsonSnapshot, checkoutResponse);
@@ -291,13 +324,14 @@ public sealed class PosCheckoutService : IPosCheckoutService
                 if (tile == null)
                     continue;
 
-                tile.Quantity = Math.Max(0, tile.Quantity - soldQty);
-                LocalProductRepository.Instance.UpdateStock(productId, tile.Quantity, tile.MustWeigh);
+                var next = Math.Max(0, tile.Quantity - soldQty);
+                LocalProductRepository.Instance.UpdateStock(productId, next, tile.MustWeigh);
+                StockSyncService.ApplyQuantityToTile(tile, next, tile.MustWeigh);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            /* остатки подтянутся при синхронизации каталога */
+            PosLogger.Log($"Offline stock decrement skipped: {ex}", "STOCK");
         }
     }
 
@@ -324,7 +358,7 @@ public sealed class PosCheckoutService : IPosCheckoutService
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Print failed: {ex.Message}", "PRINTER");
+            PosLogger.Log($"Print failed: {ex}", "PRINTER");
         }
     }
 }

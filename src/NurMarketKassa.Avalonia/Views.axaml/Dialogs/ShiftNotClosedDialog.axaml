@@ -9,45 +9,62 @@
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
+  
   <Border Margin="16" CornerRadius="16"
           Background="#FFFFFF"
           BorderBrush="#E2E8F0" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
           Padding="28,24">
-    <StackPanel>
+    <StackPanel HorizontalAlignment="Stretch">
+      
+      <!-- Заголовок отцентрирован -->
       <TextBlock Text="Смена не закрыта"
                  FontSize="18" FontWeight="Bold"
                  Foreground="#0F172A"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
                  Margin="0,0,0,12"/>
+      
+      <!-- Текст предупреждения отцентрирован -->
       <TextBlock Text="У вас осталась открытая смена.&#x0a;Закрыть её перед выходом?"
                  FontSize="14" TextWrapping="Wrap"
                  Foreground="#64748B"
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
                  Margin="0,0,0,22"/>
+      
+      <!-- Кнопки управления -->
       <Grid ColumnDefinitions="*,12,*">
         <Button Grid.Column="0"
                 Content="Отмена"
                 Height="46"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
                 Background="#FFFFFF"
                 Foreground="#334155"
                 BorderBrush="#CBD5E1"
                 BorderThickness="1.5"
                 FontWeight="SemiBold"
                 CornerRadius="10"
+                Cursor="Hand"
                 Click="CancelButton_Click"/>
+                
         <Button Grid.Column="2"
                 Content="Закрыть"
                 Height="46"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
                 Background="#F7D617"
                 Foreground="#111827"
                 FontWeight="SemiBold"
                 CornerRadius="10"
                 IsDefault="True"
+                Cursor="Hand"
                 Click="CloseShiftButton_Click"/>
       </Grid>
+      
     </StackPanel>
   </Border>
 </Window>

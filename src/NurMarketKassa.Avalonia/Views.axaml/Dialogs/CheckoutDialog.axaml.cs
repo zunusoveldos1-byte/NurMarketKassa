@@ -19,7 +19,7 @@ public partial class CheckoutDialog : Window
     private readonly IDialogService _dialogService;
 
     public CheckoutDialog() : this(
-        ResolveService<CheckoutViewModel>(),
+        new CheckoutViewModel(new CartTotalsCalculator.CartTotals(), "", ""),
         ResolveService<IDialogService>())
     {
     }

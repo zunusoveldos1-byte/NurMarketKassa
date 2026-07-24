@@ -40,7 +40,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"CATALOG load from SQLite failed: {ex.Message}", "CATALOG");
+            PosLogger.Log($"CATALOG load from SQLite failed: {ex}", "CATALOG");
             return false;
         }
     }
@@ -74,6 +74,14 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             }
 
             await StockSyncService.OverlayAgentStockAsync(newList, cancellationToken).ConfigureAwait(false);
+
+            // Гарантируем StockInfo перед записью в SQLite (на случай отсутствия overlay).
+            foreach (var vm in newList)
+            {
+                if (string.IsNullOrWhiteSpace(vm.StockInfo))
+                    StockSyncService.ApplyQuantityToTile(vm, vm.Quantity, vm.MustWeigh);
+            }
+
             var (added, changed, deleted) = LocalProductRepository.Instance.SyncReplaceAllWithDiff(newList);
 
             if (remoteVersion != null && !remoteVersion.IsEmpty)

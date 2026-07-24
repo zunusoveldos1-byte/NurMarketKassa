@@ -24,6 +24,7 @@
             <conv:LessThanConverter x:Key="LessThanConverter" />
             <conv:StringTruncationConverter x:Key="StringTruncationConverter" />
             <conv:PriceAmountConverter x:Key="PriceAmountConverter" />
+            <conv:HexToBrushConverter x:Key="HexToBrushConverter" />
 
             <system:Double x:Key="CatalogTileWidth"
                 xmlns:system="clr-namespace:System;assembly=System.Runtime">175</system:Double>
@@ -212,7 +213,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
-                            <RowDefinition Height="16"/>
+                            <RowDefinition Height="18"/>
                         </Grid.RowDefinitions>
                         <Grid Grid.Row="0">
                             <Grid.RowDefinitions>
@@ -238,7 +239,8 @@
                                 VerticalAlignment="Top"
                                 Background="Transparent"
                                 BorderThickness="0"
-                                Click="ToggleFavorite_Click">
+                                Click="ToggleFavorite_Click"
+                                ToolTip="Избранное">
                             <Path Width="15" Height="15" Stretch="Uniform"
                                   Data="M12,17.27 L18.18,21 L16.54,13.97 L22,9.24 L14.81,8.62 L12,2 L9.19,8.62 L2,9.24 L7.45,13.97 L5.82,21 L12,17.27 Z">
                                 <Path.Style>
@@ -258,7 +260,7 @@
                         </Button>
                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,0">
                             <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
-                                       FontSize="20"
+                                       FontSize="22"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource BrushCatalogPrice}"
                                        VerticalAlignment="Bottom"/>
@@ -271,18 +273,15 @@
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,4,0,2">
                             <TextBlock FontFamily="Segoe MDL2 Assets"
                                        FontSize="14"
-                                       Foreground="{DynamicResource BrushCatalogMeta}"
+                                       Foreground="{Binding StockForeground, Converter={StaticResource HexToBrushConverter}}"
                                        VerticalAlignment="Center"
                                        Margin="0,0,4,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="&#xE7B8;"/>
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding MustWeigh}" Value="True">
+                                            <DataTrigger Binding="{Binding IsWeighted}" Value="True">
                                                 <Setter Property="Text" Value="&#xEF3F;" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsLowStock}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -290,10 +289,11 @@
                             </TextBlock>
                             <TextBlock Text="{Binding StockInfo, Mode=OneWay}"
                                        FontSize="14"
-                                       Foreground="{DynamicResource BrushCatalogMeta}"
+                                       Foreground="{Binding StockForeground, Converter={StaticResource HexToBrushConverter}}"
                                        VerticalAlignment="Center">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Normal"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsUnitInvalid}" Value="True">
                                                 <Setter Property="Foreground" Value="{DynamicResource BrushUiStatusWarn}"/>
@@ -301,9 +301,8 @@
                                                         Value="Внимание: Данные товара заполнены неправильно в базе данных! Пожалуйста, передайте администратору."/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsLowStock}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
                                                 <Setter Property="FontWeight" Value="SemiBold"/>
-                                                <Setter Property="ToolTip" Value="Остаток близок к лимиту (меньше 3)"/>
+                                                <Setter Property="ToolTip" Value="Остаток близок к лимиту (меньше 10)"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -318,56 +317,17 @@
                         </Grid>
                         <Border Grid.Row="1"
                                 Margin="-12,0,-12,0"
-                                CornerRadius="0,0,11,11"
-                                Height="16"
-                                VerticalAlignment="Bottom">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#F59E0B"/>
-                                    <Setter Property="ToolTip" Value="Штучный товар"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding MustWeigh}" Value="True">
-                                            <Setter Property="Background" Value="#22C55E"/>
-                                            <Setter Property="ToolTip" Value="Весовой товар"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <StackPanel Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center">
-                                <TextBlock FontFamily="Segoe MDL2 Assets"
-                                           FontSize="9"
-                                           Foreground="#FFFFFF"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,4,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="&#xE7B8;"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MustWeigh}" Value="True">
-                                                    <Setter Property="Text" Value="&#xEF3F;"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <TextBlock FontSize="9"
-                                           FontWeight="SemiBold"
-                                           Foreground="#FFFFFF"
-                                           VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="Штучный"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MustWeigh}" Value="True">
-                                                    <Setter Property="Text" Value="Весовой"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
+                                CornerRadius="0,0,12,12"
+                                Height="18"
+                                VerticalAlignment="Bottom"
+                                Background="{Binding TypeBadgeBackground, Converter={StaticResource HexToBrushConverter}}"
+                                ToolTip="{Binding TypeBadgeText}">
+                            <TextBlock Text="{Binding TypeBadgeText}"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
                         </Border>
                     </Grid>
                 </Border>

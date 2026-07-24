@@ -1,0 +1,96 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="NurMarketKassa.AvaloniaHost.Views.Settings.ScaleSettingsView"
+             x:CompileBindings="False"
+             VerticalAlignment="Stretch"
+             HorizontalAlignment="Stretch">
+
+  <UserControl.Styles>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
+  </UserControl.Styles>
+
+  <Border Classes="SettingsContentHost">
+    <ScrollViewer Classes="SettingsPageScroll">
+      <StackPanel Classes="SettingsCardList">
+
+        <Border Classes="SettingsHeaderCard">
+          <Grid ColumnDefinitions="Auto,*">
+            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="12" Background="#FEF3C7" Margin="0,0,14,0">
+              <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                         Foreground="#D97706" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock Text="Весы" Classes="SettingsPageTitle"/>
+              <TextBlock Text="Настройка оборудования весов и параметров подключения" Classes="SettingsPageSubtitle"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Text="Параметры подключения" Classes="SettingsCardTitle" VerticalAlignment="Center"/>
+            <CheckBox Grid.Column="1" x:Name="ScaleEnabledCheck" x:FieldModifier="public"
+                      Content="Включить опрос весов" Classes="ToggleSwitch"/>
+          </Grid>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="0">
+            <TextBlock Text="COM-порт" Classes="FieldLabel"/>
+            <ComboBox x:Name="ScaleComCombo" x:FieldModifier="public"
+                      Classes="TouchComboBox" HorizontalAlignment="Stretch"
+                      IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+            <TextBlock x:Name="StatusScalePortText" x:FieldModifier="public"
+                       Text="○ COM-порт не найден"
+                       FontSize="12" FontWeight="Medium" Margin="2,6,0,0"
+                       Foreground="#DC2626"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="0">
+            <TextBlock Text="Скорость (baud)" Classes="FieldLabel"/>
+            <TextBox x:Name="ScaleBaudBox" x:FieldModifier="public"
+                     Text="9600" Classes="ModernTextBox"
+                     IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="0">
+            <TextBlock Text="Запрос веса (hex)" Classes="FieldLabel"/>
+            <TextBox x:Name="ScaleHexBox" x:FieldModifier="public"
+                     Classes="ModernTextBox"
+                     IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"
+                     Watermark="например: 05 02 01 01"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="0">
+            <TextBlock Text="Интервал опроса (мс)" Classes="FieldLabel"/>
+            <TextBox x:Name="ScalePollBox" x:FieldModifier="public"
+                     Text="0" Classes="ModernTextBox"
+                     IsEnabled="{Binding IsChecked, ElementName=ScaleEnabledCheck}"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="SettingsCard">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Проверка подключения" Classes="SettingsCardTitle"/>
+            <Button x:Name="CheckScaleButton" x:FieldModifier="public"
+                    Content="Проверить весы"
+                    Classes="SettingsFlatButton"
+                    HorizontalAlignment="Left"
+                    Padding="24,10"/>
+            <Border x:Name="ScaleAlert" x:FieldModifier="public" Classes="AlertBlock" IsVisible="False" Margin="0">
+              <TextBlock x:Name="ScaleAlertText" x:FieldModifier="public"
+                         TextWrapping="Wrap" FontSize="13" Foreground="#0F172A"/>
+            </Border>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

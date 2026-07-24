@@ -17,6 +17,8 @@ namespace NurMarketKassa.ViewModels.Main;
 /// </summary>
 public sealed class BasketPanelViewModel : ViewModelBase
 {
+    public const int MaxOpenReceipts = 10;
+
     private readonly ICartService _cart;
     private readonly IUserPrompts _prompts;
     private readonly IPosCheckoutService _checkout;
@@ -43,6 +45,11 @@ public sealed class BasketPanelViewModel : ViewModelBase
     private bool _isBusy;
     private string _orderDiscountPercent = "";
     private string _orderDiscountSum = "";
+    private int _nextReceiptNumber = 2;
+    private string _activeSessionId = "";
+    private readonly List<OpenReceiptSession> _sessions = new();
+    private bool _suppressTabRebuild;
+    private bool _isMoreActionsVisible;
 
     public BasketPanelViewModel(
         ICartService cart,
@@ -76,17 +83,29 @@ public sealed class BasketPanelViewModel : ViewModelBase
         AddByBarcodeCommand = new AsyncRelayCommand(AddByBarcodeAsync, CanAddByBarcode);
         PayCommand = new AsyncRelayCommand(PayAsync, () => HasItems && !IsBusy);
         DeferCartCommand = new AsyncRelayCommand(DeferCartAsync, () => HasItems && !IsBusy);
-        DeleteReceiptCommand = new RelayCommand(ClearReceipt, () => HasItems);
+        HoldReceiptCommand = DeferCartCommand;
+        DeleteReceiptCommand = new RelayCommand(DeleteActiveReceipt, CanDeleteActiveReceiptCore);
         ClearCartCommand = DeleteReceiptCommand;
+        NewReceiptCommand = new RelayCommand(CreateNewReceipt);
+        SelectReceiptTabCommand = new RelayCommand<ReceiptTabVm>(SelectReceiptTab, tab => tab != null && !tab.IsActive);
         RemoveLineCommand = new RelayCommand<CartLineItemVm>(RemoveLine, line => line != null && !string.IsNullOrEmpty(line.ItemId));
+        IncreaseQuantityCommand = new RelayCommand<CartLineItemVm>(IncreaseQuantity, CanChangeLineQuantity);
+        DecreaseQuantityCommand = new RelayCommand<CartLineItemVm>(DecreaseQuantity, CanDecreaseLineQuantity);
+        WeighLineCommand = new RelayCommand<CartLineItemVm>(WeighLine, line => line is { IsWeight: true } && !string.IsNullOrEmpty(line.ItemId));
+        LineDiscountCommand = new RelayCommand<CartLineItemVm>(_ => { }, line => line != null && HasItems);
+        IncreaseManualQuantityCommand = new RelayCommand(IncreaseManualQuantity);
+        DecreaseManualQuantityCommand = new RelayCommand(DecreaseManualQuantity);
         ToggleMoreActionsCommand = new RelayCommand(() => IsMoreActionsVisible = !IsMoreActionsVisible);
         OpenDeferredCartsCommand = new AsyncRelayCommand(OpenDeferredCartsAsync, () => !IsBusy);
         ApplyOrderDiscountCommand = new AsyncRelayCommand(ApplyOrderDiscountAsync, () => HasItems && !IsBusy);
+        ReturnPreviousReceiptCommand = new AsyncRelayCommand(RestoreLastHeldReceiptAsync, () => !IsBusy && HasHeldReceipts);
+        RestoreLastHeldReceiptCommand = ReturnPreviousReceiptCommand;
 
-        ReceiptTabs.Add(new ReceiptTabVm("Основной чек", isActive: true));
-        Lines.CollectionChanged += (_, _) => NotifyLineState();
         EnsureCartInitialized();
+        EnsurePrimarySession();
+        Lines.CollectionChanged += (_, _) => NotifyLineState();
         UpdateCartTotals();
+        RebuildReceiptTabs();
         _customerDisplay.Show();
     }
 
@@ -146,6 +165,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             if (!SetProperty(ref _total, value))
                 return;
             OnPropertyChanged(nameof(TotalDisplay));
+            OnPropertyChanged(nameof(TotalAmount));
             OnPropertyChanged(nameof(PayButtonText));
         }
     }
@@ -165,13 +185,21 @@ public sealed class BasketPanelViewModel : ViewModelBase
     public string SubtotalDisplay => $"{Subtotal.ToString("0.00", CultureInfo.InvariantCulture)} сом";
     public string DiscountDisplay => $"{Discount.ToString("0.00", CultureInfo.InvariantCulture)} сом";
     public string TotalDisplay => $"{Total.ToString("0.00", CultureInfo.InvariantCulture)} сом";
-    public string PayButtonText => $"Оплатить {Total.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+    public string TotalAmount => Total.ToString("0.00", CultureInfo.InvariantCulture);
+    public string PayButtonText => "Оплатить";
 
     public string CartMessage
     {
         get => _cartMessage;
-        set => SetProperty(ref _cartMessage, value ?? "");
+        set
+        {
+            if (!SetProperty(ref _cartMessage, value ?? ""))
+                return;
+            OnPropertyChanged(nameof(HasCartMessage));
+        }
     }
+
+    public bool HasCartMessage => !string.IsNullOrWhiteSpace(CartMessage);
 
     public bool IsBusy
     {
@@ -185,10 +213,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
             (DeferCartCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             (OpenDeferredCartsCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             (ApplyOrderDiscountCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            (ReturnPreviousReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            (DeleteReceiptCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
-
-    private bool _isMoreActionsVisible;
 
     public bool IsMoreActionsVisible
     {
@@ -199,16 +227,30 @@ public sealed class BasketPanelViewModel : ViewModelBase
     public bool HasItems => Lines.Count > 0;
     public bool HasLines => HasItems;
     public bool IsEmpty => Lines.Count == 0;
+    public bool HasHeldReceipts => DeferredCartsStore.Count() > 0;
+    public bool CanDeleteActiveReceipt => CanDeleteActiveReceiptCore();
+    public bool IsAtReceiptLimit => _sessions.Count >= MaxOpenReceipts;
 
     public ICommand AddByBarcodeCommand { get; }
     public ICommand PayCommand { get; }
     public ICommand DeferCartCommand { get; }
+    public ICommand HoldReceiptCommand { get; }
     public ICommand DeleteReceiptCommand { get; }
     public ICommand ClearCartCommand { get; }
+    public ICommand NewReceiptCommand { get; }
+    public ICommand SelectReceiptTabCommand { get; }
     public ICommand RemoveLineCommand { get; }
+    public ICommand IncreaseQuantityCommand { get; }
+    public ICommand DecreaseQuantityCommand { get; }
+    public ICommand WeighLineCommand { get; }
+    public ICommand LineDiscountCommand { get; }
+    public ICommand IncreaseManualQuantityCommand { get; }
+    public ICommand DecreaseManualQuantityCommand { get; }
     public ICommand ToggleMoreActionsCommand { get; }
     public ICommand OpenDeferredCartsCommand { get; }
     public ICommand ApplyOrderDiscountCommand { get; }
+    public ICommand ReturnPreviousReceiptCommand { get; }
+    public ICommand RestoreLastHeldReceiptCommand { get; }
 
     public void RefreshFromCart()
     {
@@ -228,7 +270,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
             _cart.AddItem(product, qty);
             SyncLinesFromCart();
             UpdateCartTotals();
-            CartMessage = "";
+            CartMessage = "Товар добавлен.";
         }
         catch (Exception ex)
         {
@@ -239,19 +281,60 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     public void CreateNewReceipt()
     {
+        if (!TryEnsureReceiptSlotAvailable())
+            return;
+
+        PersistActiveSessionSnapshot();
+
+        var number = _nextReceiptNumber++;
+        var session = new OpenReceiptSession
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Number = number,
+            BaseName = $"Чек {number}",
+            CartJson = "{}",
+        };
+        _sessions.Add(session);
+        _activeSessionId = session.Id;
+        ActiveReceiptTitle = session.BaseName;
+
         _cart.ResetForNewReceipt();
         SyncLinesFromCart();
         UpdateCartTotals();
-        CartMessage = "Создан новый чек.";
+        CartMessage = $"Открыт «{session.BaseName}».";
+        RaiseCartCommands();
     }
 
     public void ClearAfterShiftClose()
     {
         _cart.Clear();
+        _sessions.Clear();
+        _nextReceiptNumber = 2;
+        EnsurePrimarySession();
         SyncLinesFromCart();
         UpdateCartTotals();
         CartMessage = "";
         PushCustomerDisplay();
+        RaiseCartCommands();
+    }
+
+    private void SelectReceiptTab(ReceiptTabVm? tab)
+    {
+        if (tab is null || tab.IsActive || string.IsNullOrWhiteSpace(tab.Id))
+            return;
+
+        var target = _sessions.FirstOrDefault(s => s.Id == tab.Id);
+        if (target is null)
+            return;
+
+        PersistActiveSessionSnapshot();
+        _activeSessionId = target.Id;
+        ActiveReceiptTitle = target.BaseName;
+        ApplySessionToCart(target);
+        SyncLinesFromCart();
+        UpdateCartTotals();
+        CartMessage = $"Активен «{target.BaseName}».";
+        RaiseCartCommands();
     }
 
     private bool CanAddByBarcode() =>
@@ -299,6 +382,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
         if (Lines.Count == 0)
             return;
 
+        PosLogger.Log("PAY start", "PAYMENT");
+
         await RunOnUiThreadAsync(() =>
         {
             IsBusy = true;
@@ -307,14 +392,25 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
         try
         {
-            if (_checkoutUiFlow != null && !await _checkoutUiFlow.PrepareCheckoutAsync().ConfigureAwait(false))
+            if (_checkoutUiFlow != null)
             {
-                await RunOnUiThreadAsync(() =>
-                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle)).ConfigureAwait(false);
-                return;
+                PosLogger.Log("PAY prepare checkout (stock check)", "PAYMENT");
+                var prepared = await _checkoutUiFlow.PrepareCheckoutAsync().ConfigureAwait(false);
+                if (!prepared)
+                {
+                    PosLogger.Log("PAY aborted: stock blocked", "PAYMENT");
+                    await RunOnUiThreadAsync(() =>
+                        _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle)).ConfigureAwait(false);
+                    return;
+                }
             }
 
             var totals = CartTotalsCalculator.Calculate(_cart.Root);
+            PosLogger.Log(
+                $"PAY dialog open: lines={_cart.LineCount}, total={totals.TotalDue:0.00}",
+                "PAYMENT");
+
+            // Диалог оплаты всегда открывается через AvaloniaWindowService на UI-потоке.
             var checkoutVm = new CheckoutViewModel(totals, _orderDiscountPercent, _orderDiscountSum);
             var confirmed = await _windowService
                 .ShowDialogAsync<CheckoutViewModel, bool?>(checkoutVm)
@@ -322,6 +418,7 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
             if (confirmed != true)
             {
+                PosLogger.Log("PAY canceled by cashier", "PAYMENT");
                 await RunOnUiThreadAsync(() =>
                     _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle)).ConfigureAwait(false);
                 return;
@@ -333,6 +430,10 @@ public sealed class BasketPanelViewModel : ViewModelBase
                     : totals.TotalDue.ToString("0.00", CultureInfo.InvariantCulture)
                 : "0.00";
 
+            PosLogger.Log(
+                $"PAY API checkout: method={checkoutVm.PaymentMethod}, cash={cashReceived}, print={checkoutVm.IsPrintReceiptEnabled}",
+                "PAYMENT");
+
             var result = await _checkout.CheckoutAsync(new PosCheckoutRequest
             {
                 PaymentMethod = checkoutVm.PaymentMethod,
@@ -343,13 +444,21 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
             if (!result.IsSuccess)
             {
+                var error = string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? PaymentErrorMessages.GenericFailure
+                    : result.ErrorMessage;
+                PosLogger.Log($"PAY failed result: {error}", "PAYMENT");
                 await RunOnUiThreadAsync(() =>
                 {
-                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Failed, result.ErrorMessage);
-                    _prompts.ShowError(result.ErrorMessage ?? PaymentErrorMessages.GenericFailure);
+                    _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Failed, error);
+                    _prompts.ShowError(error);
                 }).ConfigureAwait(false);
                 return;
             }
+
+            PosLogger.Log(
+                $"PAY success: offline={result.SavedOffline}, total={result.TotalAmount:0.00}",
+                "PAYMENT");
 
             await RunOnUiThreadAsync(() =>
             {
@@ -362,25 +471,47 @@ public sealed class BasketPanelViewModel : ViewModelBase
             }).ConfigureAwait(false);
 
             if (_checkoutUiFlow != null)
+            {
+                PosLogger.Log("PAY show success dialog", "PAYMENT");
                 await _checkoutUiFlow.ShowPaymentSuccessAsync(totals.TotalDue, checkoutVm.IsPrintReceiptEnabled)
                     .ConfigureAwait(false);
+            }
             else if (!string.IsNullOrWhiteSpace(result.InfoMessage) && result.SavedOffline)
+            {
                 await _dialogService.ShowInfoAsync(result.InfoMessage).ConfigureAwait(false);
+            }
+
+            PosLogger.Log("PAY finished", "PAYMENT");
         }
         catch (Exception ex)
         {
             PosLogger.Log($"PAY failed: {ex}", "PAYMENT");
+            System.Diagnostics.Debug.WriteLine(ex.ToString());
+            var error = PaymentErrorMessages.ForCashier(ex);
             await RunOnUiThreadAsync(() =>
             {
-                _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Failed, ex.Message);
-                _prompts.ShowError(PaymentErrorMessages.GenericFailure);
+                _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Failed, error);
+                _prompts.ShowError(error);
             }).ConfigureAwait(false);
         }
         finally
         {
             await RunOnUiThreadAsync(() => IsBusy = false).ConfigureAwait(false);
-            _ = Task.Delay(4000).ContinueWith(_ =>
-                _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle));
+            _ = ResetCustomerDisplayStatusAfterDelayAsync();
+        }
+    }
+
+    private async Task ResetCustomerDisplayStatusAfterDelayAsync()
+    {
+        try
+        {
+            await Task.Delay(4000).ConfigureAwait(false);
+            await RunOnUiThreadAsync(() =>
+                _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle)).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"PAY status reset failed: {ex}", "PAYMENT");
         }
     }
 
@@ -389,7 +520,25 @@ public sealed class BasketPanelViewModel : ViewModelBase
         await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
         try
         {
-            var result = await _deferredCart.DeferCurrentCartAsync().ConfigureAwait(false);
+            if (!HasItems)
+            {
+                await RunOnUiThreadAsync(() =>
+                    _prompts.ShowWarning("Корзина пуста — нечего откладывать.")).ConfigureAwait(false);
+                return;
+            }
+
+            if (_sessions.Count >= MaxOpenReceipts)
+            {
+                await RunOnUiThreadAsync(ShowReceiptLimitReached).ConfigureAwait(false);
+                return;
+            }
+
+            PersistActiveSessionSnapshot();
+            var snapshotJson = OpenReceiptSnapshot.CloneCartJson(OpenReceiptSnapshot.Capture(_cart).CartJson);
+
+            var result = await _deferredCart
+                .DeferCurrentCartAsync(startNewSale: false)
+                .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
                 await RunOnUiThreadAsync(() =>
@@ -399,9 +548,25 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
             await RunOnUiThreadAsync(() =>
             {
+                // Копия товаров уходит во вкладку «Чек N», фокус остаётся на текущем (очищенном) чеке.
+                var number = _nextReceiptNumber++;
+                var copySession = new OpenReceiptSession
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    Number = number,
+                    BaseName = $"Чек {number}",
+                    CartJson = snapshotJson,
+                };
+                _sessions.Add(copySession);
+
+                _cart.ResetForNewReceipt();
+                PersistActiveSessionSnapshot();
                 SyncLinesFromCart();
                 UpdateCartTotals();
-                CartMessage = $"Отложено: «{result.Label}».";
+                CartMessage =
+                    $"Отложено: «{result.Label}». Копия во вкладке «{copySession.BaseName}». Текущий чек очищен.";
+                NotifyHeldReceiptsChanged();
+                RaiseCartCommands();
             }).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -416,9 +581,94 @@ public sealed class BasketPanelViewModel : ViewModelBase
         }
     }
 
+    private async Task RestoreLastHeldReceiptAsync()
+    {
+        await RunOnUiThreadAsync(() => IsBusy = true).ConfigureAwait(false);
+        try
+        {
+            var latest = DeferredCartsStore.TryGetLatest();
+            if (latest is null)
+            {
+                await RunOnUiThreadAsync(() =>
+                    _prompts.ShowWarning("Нет отложенных чеков для возврата.")).ConfigureAwait(false);
+                return;
+            }
+
+            await RunOnUiThreadAsync(() =>
+            {
+                PersistActiveSessionSnapshot();
+                var currentHasItems = HasItems;
+                var currentJson = OpenReceiptSnapshot.CloneCartJson(OpenReceiptSnapshot.Capture(_cart).CartJson);
+
+                if (currentHasItems)
+                {
+                    // Вариант Б: SWAP — текущий уходит в архив.
+                    DeferredCartsStore.Add(new DeferredCartEntry
+                    {
+                        Label = BuildHeldLabel("Обмен"),
+                        CartJson = currentJson,
+                    });
+                }
+
+                ApplyCartJson(latest.CartJson);
+                DeferredCartsStore.RemoveIds(new[] { latest.Id });
+
+                SyncLinesFromCart();
+                UpdateCartTotals();
+                CartMessage = currentHasItems
+                    ? "Чеки обменяны с последним отложенным."
+                    : $"Возвращён отложенный чек «{latest.Label}».";
+                NotifyHeldReceiptsChanged();
+                RaiseCartCommands();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"RESTORE held failed: {ex}", "DEFER");
+            await RunOnUiThreadAsync(() =>
+                _prompts.ShowError("Не удалось вернуть отложенный чек.")).ConfigureAwait(false);
+        }
+        finally
+        {
+            await RunOnUiThreadAsync(() => IsBusy = false).ConfigureAwait(false);
+        }
+    }
+
+    private bool CanDeleteActiveReceiptCore()
+    {
+        var active = GetActiveSession();
+        return active is { IsPrimary: false } && !IsBusy;
+    }
+
+    private void DeleteActiveReceipt()
+    {
+        var active = GetActiveSession();
+        if (active is null || active.IsPrimary)
+        {
+            _prompts.ShowWarning("«Основной чек» удалить нельзя.");
+            return;
+        }
+
+        var index = _sessions.FindIndex(s => s.Id == active.Id);
+        if (index < 0)
+            return;
+
+        _sessions.RemoveAt(index);
+        var prevIndex = Math.Clamp(index - 1, 0, _sessions.Count - 1);
+        var previous = _sessions[prevIndex];
+        _activeSessionId = previous.Id;
+        ActiveReceiptTitle = previous.BaseName;
+        ApplySessionToCart(previous);
+        SyncLinesFromCart();
+        UpdateCartTotals();
+        CartMessage = $"Чек удалён. Активен «{previous.BaseName}».";
+        RaiseCartCommands();
+    }
+
     private void ClearReceipt()
     {
         _cart.ResetForNewReceipt();
+        PersistActiveSessionSnapshot();
         SyncLinesFromCart();
         UpdateCartTotals();
         CartMessage = "";
@@ -436,6 +686,208 @@ public sealed class BasketPanelViewModel : ViewModelBase
         RaiseCartCommands();
     }
 
+    private static bool CanChangeLineQuantity(CartLineItemVm? line) =>
+        line != null && !string.IsNullOrEmpty(line.ItemId);
+
+    private static bool CanDecreaseLineQuantity(CartLineItemVm? line) =>
+        CanChangeLineQuantity(line) && line!.Quantity > 1;
+
+    private void IncreaseQuantity(CartLineItemVm? line)
+    {
+        if (!CanChangeLineQuantity(line))
+            return;
+
+        var step = line!.IsWeight ? 0.1 : 1;
+        var next = Math.Round(line.Quantity + step, line.IsWeight ? 3 : 0);
+        _cart.UpdateQuantity(line.ItemId, next);
+        SyncLinesFromCart();
+        UpdateCartTotals();
+        RaiseCartCommands();
+    }
+
+    private void DecreaseQuantity(CartLineItemVm? line)
+    {
+        if (!CanChangeLineQuantity(line))
+            return;
+
+        if (line!.Quantity <= 1)
+        {
+            CartMessage = "Меньше 1 нельзя.";
+            return;
+        }
+
+        var step = line.IsWeight ? 0.1 : 1;
+        var next = Math.Round(line.Quantity - step, line.IsWeight ? 3 : 0);
+        if (next < 1)
+            next = 1;
+
+        _cart.UpdateQuantity(line.ItemId, next);
+        SyncLinesFromCart();
+        UpdateCartTotals();
+        RaiseCartCommands();
+    }
+
+    private void WeighLine(CartLineItemVm? line)
+    {
+        if (line is null || !line.IsWeight || string.IsNullOrWhiteSpace(line.ItemId))
+            return;
+
+        CartMessage = "Укажите вес через диалог взвешивания в каталоге или отсканируйте товар заново.";
+    }
+
+    private void IncreaseManualQuantity()
+    {
+        if (!double.TryParse(ManualQuantity.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var qty)
+            || qty < 1)
+            qty = 1;
+        ManualQuantity = Math.Round(qty + 1, 0).ToString("0", CultureInfo.InvariantCulture);
+    }
+
+    private void DecreaseManualQuantity()
+    {
+        if (!double.TryParse(ManualQuantity.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var qty)
+            || qty <= 1)
+        {
+            ManualQuantity = "1";
+            return;
+        }
+
+        ManualQuantity = Math.Round(qty - 1, 0).ToString("0", CultureInfo.InvariantCulture);
+    }
+
+    private void RefreshReceiptTabs()
+    {
+        if (_suppressTabRebuild)
+            return;
+
+        PersistActiveSessionSnapshot();
+        RebuildReceiptTabs();
+    }
+
+    private void RebuildReceiptTabs()
+    {
+        ReceiptTabs.Clear();
+        foreach (var session in _sessions)
+        {
+            var isActive = session.Id == _activeSessionId;
+            var (lines, total) = isActive
+                ? (LineCount, Total)
+                : GetSessionSummary(session.CartJson);
+            ReceiptTabs.Add(new ReceiptTabVm(
+                session.Id,
+                FormatTabTitle(session.BaseName, lines, total),
+                isActive,
+                SelectReceiptTabCommand));
+        }
+
+        (SelectReceiptTabCommand as RelayCommand<ReceiptTabVm>)?.RaiseCanExecuteChanged();
+    }
+
+    private void EnsurePrimarySession(bool resetCart = false)
+    {
+        if (_sessions.Count == 0)
+        {
+            var primary = new OpenReceiptSession
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Number = 1,
+                BaseName = "Основной чек",
+                CartJson = "{}",
+            };
+            _sessions.Add(primary);
+            _activeSessionId = primary.Id;
+            ActiveReceiptTitle = primary.BaseName;
+            _nextReceiptNumber = Math.Max(_nextReceiptNumber, 2);
+        }
+
+        if (resetCart)
+        {
+            _cart.ResetForNewReceipt();
+            var active = GetActiveSession();
+            if (active != null)
+                active.CartJson = "{}";
+        }
+    }
+
+    private OpenReceiptSession? GetActiveSession() =>
+        _sessions.FirstOrDefault(s => s.Id == _activeSessionId) ?? _sessions.FirstOrDefault();
+
+    private void PersistActiveSessionSnapshot()
+    {
+        var active = GetActiveSession();
+        if (active is null)
+            return;
+
+        active.CartJson = OpenReceiptSnapshot.Capture(_cart).CartJson;
+        active.BaseName = string.IsNullOrWhiteSpace(ActiveReceiptTitle)
+            ? active.BaseName
+            : ActiveReceiptTitle.Trim();
+    }
+
+    private void ApplySessionToCart(OpenReceiptSession session) =>
+        ApplyCartJson(session.CartJson);
+
+    private void ApplyCartJson(string? cartJson)
+    {
+        if (string.IsNullOrWhiteSpace(cartJson) || cartJson == "{}")
+        {
+            _cart.ResetForNewReceipt();
+            return;
+        }
+
+        new OpenReceiptSnapshot { CartJson = cartJson }.ApplyTo(_cart);
+        if (!_cart.HasCart)
+            _cart.ResetForNewReceipt();
+    }
+
+    private bool TryEnsureReceiptSlotAvailable()
+    {
+        if (_sessions.Count < MaxOpenReceipts)
+            return true;
+
+        ShowReceiptLimitReached();
+        return false;
+    }
+
+    private void ShowReceiptLimitReached()
+    {
+        const string message =
+            "Достигнут лимит открытых чеков (максимум 10). Завершите или удалите существующие чеки.";
+        _prompts.ShowWarning(message);
+        _ = _dialogService.ShowInfoAsync(message);
+    }
+
+    private static string BuildHeldLabel(string prefix) =>
+        $"{prefix} #{DeferredCartsStore.Count() + 1} ({DateTime.Now:HH:mm})";
+
+    private void NotifyHeldReceiptsChanged()
+    {
+        OnPropertyChanged(nameof(HasHeldReceipts));
+        (ReturnPreviousReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+    }
+
+    private static (int Lines, double Total) GetSessionSummary(string cartJson)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(
+                string.IsNullOrWhiteSpace(cartJson) ? "{}" : cartJson);
+            var root = doc.RootElement;
+            var lines = OpenReceiptSnapshot.CountLines(cartJson);
+            var total = root.ValueKind == System.Text.Json.JsonValueKind.Object
+                ? CartTotalsCalculator.Calculate(root).TotalDue
+                : 0;
+            return (lines, total);
+        }
+        catch
+        {
+            return (0, 0);
+        }
+    }
+
+    private static string FormatTabTitle(string baseName, int lineCount, double total) =>
+        $"{baseName} • {lineCount} тов. • {total.ToString("0.00", CultureInfo.InvariantCulture)} сом";
+
     private void EnsureCartInitialized()
     {
         if (_cart.HasCart)
@@ -446,21 +898,37 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
     private void SyncLinesFromCart()
     {
-        Lines.Clear();
-        foreach (var item in _cart.Items)
+        _suppressTabRebuild = true;
+        try
         {
-            Lines.Add(new CartLineItemVm
+            Lines.Clear();
+            foreach (var item in _cart.Items)
             {
-                ItemId = item.Id ?? "",
-                Title = item.Name,
-                Unit = item.MustWeigh ? "кг" : "шт",
-                UnitPrice = (double)item.UnitPrice,
-                Quantity = item.Quantity,
-                LineTotal = (double)item.LineTotal,
-            });
+                Lines.Add(new CartLineItemVm
+                {
+                    ItemId = item.Id ?? "",
+                    Title = item.Name,
+                    Unit = item.MustWeigh ? "кг" : "шт",
+                    UnitPrice = (double)item.UnitPrice,
+                    Quantity = item.Quantity,
+                    LineTotal = (double)item.LineTotal,
+                    IsWeight = item.MustWeigh,
+                    RemoveCommand = RemoveLineCommand,
+                    IncreaseCommand = IncreaseQuantityCommand,
+                    DecreaseCommand = DecreaseQuantityCommand,
+                    WeighCommand = WeighLineCommand,
+                    DiscountCommand = LineDiscountCommand,
+                });
+            }
+        }
+        finally
+        {
+            _suppressTabRebuild = false;
         }
 
         RaiseCartCommands();
+        PersistActiveSessionSnapshot();
+        RebuildReceiptTabs();
         PushCustomerDisplay();
     }
 
@@ -473,6 +941,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
             Total = 0;
             LineCount = 0;
             TotalQuantity = 0;
+            PersistActiveSessionSnapshot();
+            RebuildReceiptTabs();
             PushCustomerDisplay();
             return;
         }
@@ -483,6 +953,8 @@ public sealed class BasketPanelViewModel : ViewModelBase
         Total = totals.TotalDue;
         LineCount = totals.LineCount;
         TotalQuantity = _cart.TotalQuantity;
+        PersistActiveSessionSnapshot();
+        RebuildReceiptTabs();
         PushCustomerDisplay();
     }
 
@@ -519,8 +991,14 @@ public sealed class BasketPanelViewModel : ViewModelBase
         (DeferCartCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (OpenDeferredCartsCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (ApplyOrderDiscountCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        (ReturnPreviousReceiptCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         (DeleteReceiptCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (ClearCartCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (IncreaseQuantityCommand as RelayCommand<CartLineItemVm>)?.RaiseCanExecuteChanged();
+        (DecreaseQuantityCommand as RelayCommand<CartLineItemVm>)?.RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(CanDeleteActiveReceipt));
+        OnPropertyChanged(nameof(IsAtReceiptLimit));
+        OnPropertyChanged(nameof(HasHeldReceipts));
     }
 
     private async Task OpenDeferredCartsAsync()
@@ -530,7 +1008,12 @@ public sealed class BasketPanelViewModel : ViewModelBase
 
         await RunOnUiThreadAsync(() => IsMoreActionsVisible = false).ConfigureAwait(false);
         await _openDeferredCarts().ConfigureAwait(true);
-        await RunOnUiThreadAsync(RefreshFromCart).ConfigureAwait(false);
+        await RunOnUiThreadAsync(() =>
+        {
+            RefreshFromCart();
+            NotifyHeldReceiptsChanged();
+            RaiseCartCommands();
+        }).ConfigureAwait(false);
     }
 
     private async Task ApplyOrderDiscountAsync()
@@ -551,20 +1034,47 @@ public sealed class BasketPanelViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasLines));
         OnPropertyChanged(nameof(IsEmpty));
     }
+
+    /// <summary>Локальная сессия открытого чека (снимок корзины + имя вкладки).</summary>
+    private sealed class OpenReceiptSession
+    {
+        public string Id { get; init; } = "";
+        public int Number { get; init; }
+        public string BaseName { get; set; } = "Основной чек";
+        public string CartJson { get; set; } = "{}";
+        public bool IsPrimary => Number == 1;
+    }
 }
 
 /// <summary>
-/// Этот файл описывает вкладку чека в панели корзины:
-/// отображает заголовок вкладки и признак активного чека.
+/// Вкладка открытого чека в панели корзины.
 /// </summary>
-public sealed class ReceiptTabVm
+public sealed class ReceiptTabVm : ViewModelBase
 {
-    public ReceiptTabVm(string title, bool isActive = false)
+    private string _title;
+    private bool _isActive;
+
+    public ReceiptTabVm(string id, string title, bool isActive = false, ICommand? selectCommand = null)
     {
-        Title = title;
-        IsActive = isActive;
+        Id = id;
+        _title = title;
+        _isActive = isActive;
+        SelectCommand = selectCommand;
     }
 
-    public string Title { get; }
-    public bool IsActive { get; }
+    public string Id { get; }
+
+    public string Title
+    {
+        get => _title;
+        set => SetProperty(ref _title, value ?? "");
+    }
+
+    public bool IsActive
+    {
+        get => _isActive;
+        set => SetProperty(ref _isActive, value);
+    }
+
+    public ICommand? SelectCommand { get; }
 }

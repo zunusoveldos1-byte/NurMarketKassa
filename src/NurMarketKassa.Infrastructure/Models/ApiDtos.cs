@@ -78,12 +78,22 @@ namespace NurMarketKassa.Models
 
         public double ResolvesQuantity(bool mustWeigh)
         {
-            var qty = Quantity ?? 0;
-            var stockQty = StockQuantity ?? 0;
-            var stockWeight = StockWeight ?? 0;
-            return mustWeigh
-                ? (stockWeight > 0 ? stockWeight : (stockQty > 0 ? stockQty : qty))
-                : (stockQty > 0 ? stockQty : qty);
+            if (mustWeigh)
+            {
+                if (StockWeight is > 0)
+                    return StockWeight.Value;
+                if (StockQuantity is not null)
+                    return StockQuantity.Value;
+                return Quantity ?? 0;
+            }
+
+            if (StockQuantity is not null)
+                return StockQuantity.Value;
+            if (Quantity is not null)
+                return Quantity.Value;
+            if (StockWeight is not null)
+                return StockWeight.Value;
+            return 0;
         }
     }
 

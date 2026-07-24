@@ -92,7 +92,7 @@ public partial class MainWindow
 
         if (!StockAvailabilityService.CanAddQuantity(vm.Id, qtyToAdd, cart))
         {
-            ShowNoStockBlocked(vm.Title, vm.Id);
+            await ShowNoStockBlockedAsync(vm.Title, vm.Id).ConfigureAwait(true);
             return;
         }
 
@@ -255,14 +255,16 @@ public partial class MainWindow
         return new CatalogProductTileVm(productId, title, price + " сом", mustWeigh);
     }
 
-    private void ShowNoStockBlocked(string productName, string productId)
+    private async Task ShowNoStockBlockedAsync(string productName, string productId)
     {
         var warehouse = StockAvailabilityService.GetWarehouseQuantity(productId);
         var reserved = StockAvailabilityService.CalculateReservedQuantity(productId);
         var available = StockAvailabilityService.GetAvailableToAdd(productId, ResolveCartService());
         var reservedElsewhere = reserved > 1e-6 || (warehouse > 1e-6 && available <= 1e-6);
+
         var dialog = new NoStockDialog(productName, available, reservedElsewhere);
-        PosDialogHost.Show(dialog, this);
+        var owner = PosDialogHost.ResolveOwner(this);
+        await dialog.ShowDialog<bool?>(owner).ConfigureAwait(true);
     }
 
     private ICartService ResolveCartService() =>

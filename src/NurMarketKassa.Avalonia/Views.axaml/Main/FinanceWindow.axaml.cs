@@ -518,7 +518,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (tag == "Custom")
             {
                 var dlg = new FinanceDateRangeDialog();
-                await dlg.ShowDialog<bool>(this);
+                if (await dlg.ShowDialog<bool>(this) == true)
+                {
+                    _historyFrom = dlg.FromDate;
+                    _historyTo = dlg.ToDate;
+                    FromPicker.SelectedDate = new DateTimeOffset(dlg.FromDate);
+                    ToPicker.SelectedDate = new DateTimeOffset(dlg.ToDate);
+                    await LoadDataAsync(_historyFrom, _historyTo);
+                }
                 CustomDatePill.IsChecked = false;
                 return;
             }

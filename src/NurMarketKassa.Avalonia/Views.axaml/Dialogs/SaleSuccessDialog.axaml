@@ -9,45 +9,66 @@
         SystemDecorations="None"
         TransparencyLevelHint="Transparent"
         Background="Transparent">
+
   <Border Margin="16" CornerRadius="16"
           Background="#FFFFFF"
           BorderBrush="#E2E8F0" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
           Padding="28,24">
-    <StackPanel HorizontalAlignment="Center">
+    
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
       <TextBlock Text="Оплата выполнена"
                  FontSize="20" FontWeight="Bold"
+                 Foreground="#0F172A"
                  HorizontalAlignment="Center"
+                 TextAlignment="Center"
                  Margin="0,0,0,8"/>
+
       <TextBlock x:Name="AmountText"
                  FontSize="32" FontWeight="Bold"
                  Foreground="#059669"
                  HorizontalAlignment="Center"
+                 TextAlignment="Center"
                  Margin="0,0,0,24"/>
+
       <Button Content="Напечатать чек"
-              Height="46" MinWidth="280"
-              HorizontalAlignment="Stretch"
+              Height="46" Width="280"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
               Margin="0,0,0,10"
               Background="#F7D617"
+              Foreground="#111827"
               FontWeight="SemiBold"
               CornerRadius="10"
+              Cursor="Hand"
               Click="PrintButton_Click"/>
+
       <Button Content="Предпросмотр чека"
-              Height="46" MinWidth="280"
-              HorizontalAlignment="Stretch"
+              Height="46" Width="280"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
               Margin="0,0,0,10"
               Background="#F1F5F9"
+              Foreground="#0F172A"
               FontWeight="SemiBold"
               CornerRadius="10"
+              Cursor="Hand"
               Click="PreviewButton_Click"/>
+
       <Button Content="Закрыть"
-              Height="46" MinWidth="280"
-              HorizontalAlignment="Stretch"
+              Height="46" Width="280"
+              HorizontalAlignment="Center"
+              HorizontalContentAlignment="Center"
+              VerticalContentAlignment="Center"
               Background="#FFFFFF"
+              Foreground="#334155"
               BorderBrush="#CBD5E1"
               BorderThickness="1"
               FontWeight="SemiBold"
               CornerRadius="10"
+              Cursor="Hand"
               Click="CloseButton_Click"/>
     </StackPanel>
   </Border>

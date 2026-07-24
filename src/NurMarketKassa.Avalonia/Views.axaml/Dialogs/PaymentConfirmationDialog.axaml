@@ -14,37 +14,41 @@
           BorderBrush="#E2E8F0" BorderThickness="1"
           BoxShadow="0 12 32 0 #33101828"
           Padding="28,24">
-    <StackPanel>
-      <TextBlock Text="Подтверждение"
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="Подтвердить оплату?"
                  FontSize="18" FontWeight="Bold"
                  Foreground="#0F172A"
-                 Margin="0,0,0,12"/>
-      <TextBlock Text="Подтвердить оплату?"
-                 FontSize="14" TextWrapping="Wrap"
-                 Foreground="#64748B"
-                 Margin="0,0,0,22"/>
-      <Grid ColumnDefinitions="*,12,*">
+                 HorizontalAlignment="Center"
+                 TextAlignment="Center"
+                 Margin="0,0,0,24"/>
+
+      <Grid ColumnDefinitions="*,12,*" Width="300" HorizontalAlignment="Center">
         <Button Grid.Column="0"
                 Content="Нет"
                 Height="46"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
                 Background="#FFFFFF"
                 Foreground="#334155"
                 BorderBrush="#CBD5E1"
                 BorderThickness="1.5"
                 FontWeight="SemiBold"
                 CornerRadius="10"
+                Cursor="Hand"
                 Click="NoButton_Click"/>
+
         <Button Grid.Column="2"
                 Content="Подтвердить"
                 Height="46"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
                 Background="#F7D617"
                 Foreground="#111827"
                 FontWeight="SemiBold"
                 CornerRadius="10"
+                Cursor="Hand"
                 IsDefault="True"
                 Click="YesButton_Click"/>
       </Grid>

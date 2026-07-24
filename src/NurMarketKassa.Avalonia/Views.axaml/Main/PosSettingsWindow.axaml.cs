@@ -1,16 +1,19 @@
-﻿using NurMarketKassa.Configuration;
-using NurMarketKassa.Models;
-using NurMarketKassa.Services;
-using NurMarketKassa.AvaloniaHost.Views.Dialogs; using NurMarketKassa.AvaloniaHost.Services;
-using NurMarketKassa.ViewModels.Settings;
-using System.Collections.ObjectModel;
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Avalonia; using Avalonia.Controls; using Avalonia.Interactivity; using Avalonia.Media; using Avalonia.Threading; using Avalonia.Platform.Storage;
-
-
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using NurMarketKassa.AvaloniaHost.Services;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
+using NurMarketKassa.AvaloniaHost.Views.Settings;
+using NurMarketKassa.Configuration;
+using NurMarketKassa.Models;
+using NurMarketKassa.Services;
+using NurMarketKassa.ViewModels.Settings;
 
 #nullable enable
 
@@ -20,17 +23,70 @@ namespace NurMarketKassa.AvaloniaHost.Views
     {
         public SettingsViewModel SettingsVm { get; }
 
-        //private string? _recommendedEncoding;
-        //private string? _recommendedEscTable;   
+        private readonly ScaleSettingsView _scaleView = new();
+        private readonly PrintSettingsView _printView = new();
+        private readonly ScreenSettingsView _screenView = new();
+        private readonly UpdatesSettingsView _updatesView = new();
+        private readonly OperationsSettingsView _operationsView = new();
+        private readonly SettingsView _customizationView = new();
 
-        private ObservableCollection<BankQrSetting> _bankSettings;
-        private readonly string[] _banks = { "Элкарт", "MBank", "ФинкаБанк" };
-        private readonly Dictionary<string, string> _logoMap = new()
-        {
-    { "Элкарт",   "avares://NurMarketKassa.Assets/Assets/Elkart-logo.png" },
-    { "MBank",    "avares://NurMarketKassa.Assets/Assets/Mbank-logo.png" },
-    { "ФинкаБанк", "avares://NurMarketKassa.Assets/Assets/Finca-logo.png" }
-        };
+        private Button[] _navButtons = Array.Empty<Button>();
+
+        // --- Scale ---
+        private CheckBox ScaleEnabledCheck => _scaleView.ScaleEnabledCheck;
+        private ComboBox ScaleComCombo => _scaleView.ScaleComCombo;
+        private TextBlock StatusScalePortText => _scaleView.StatusScalePortText;
+        private TextBox ScaleBaudBox => _scaleView.ScaleBaudBox;
+        private TextBox ScaleHexBox => _scaleView.ScaleHexBox;
+        private TextBox ScalePollBox => _scaleView.ScalePollBox;
+        private Border ScaleAlert => _scaleView.ScaleAlert;
+        private TextBlock ScaleAlertText => _scaleView.ScaleAlertText;
+
+        // --- Print ---
+        private CheckBox ReceiptEnabledCheck => _printView.ReceiptEnabledCheck;
+        private TextBox ReceiptLptBox => _printView.ReceiptLptBox;
+        private TextBlock StatusPortText => _printView.StatusPortText;
+        private Button BtnPhysicalPrint => _printView.BtnPhysicalPrint;
+        private TextBox ReceiptRetryBox => _printView.ReceiptRetryBox;
+        private ComboBox ReceiptPaperWidthCombo => _printView.ReceiptPaperWidthCombo;
+        private TextBox GraphicWidthBox => _printView.GraphicWidthBox;
+        private RadioButton TextModeRadio => _printView.TextModeRadio;
+        private RadioButton GraphicModeRadio => _printView.GraphicModeRadio;
+        private ComboBox ReceiptEncCombo => _printView.ReceiptEncCombo;
+        private ComboBox ReceiptTableCombo => _printView.ReceiptTableCombo;
+        private TextBox ReceiptEscRBox => _printView.ReceiptEscRBox;
+        private CheckBox GraphicReceiptEnabledCheck => _printView.GraphicReceiptEnabledCheck;
+        private ComboBox GraphicFontCombo => _printView.GraphicFontCombo;
+        private ComboBox GraphicFontSizeCombo => _printView.GraphicFontSizeCombo;
+        private CheckBox ShowStoreNameCheck => _printView.ShowStoreNameCheck;
+        private CheckBox ShowAddressCheck => _printView.ShowAddressCheck;
+        private CheckBox ShowReceiptNumberCheck => _printView.ShowReceiptNumberCheck;
+        private CheckBox ShowDateCheck => _printView.ShowDateCheck;
+        private CheckBox ShowItemsCheck => _printView.ShowItemsCheck;
+        private CheckBox ShowTotalCheck => _printView.ShowTotalCheck;
+        private CheckBox ShowQrCodeCheck => _printView.ShowQrCodeCheck;
+        private TextBlock GraphicQrStatusText => _printView.GraphicQrStatusText;
+        private TextBox StatusText => _printView.StatusText;
+        private Border PrintErrorPanel => _printView.PrintErrorPanel;
+        private TextBox TxtPrintErrorDetails => _printView.TxtPrintErrorDetails;
+
+        // --- Screen ---
+        private CheckBox FullscreenCheck => _screenView.FullscreenCheck;
+        private CheckBox AutostartCheck => _screenView.AutostartCheck;
+        private CheckBox AutoTouchKeyboardCheck => _screenView.AutoTouchKeyboardCheck;
+        private TextBox StoreNameBox => _screenView.StoreNameBox;
+        private TextBox StoreAddressBox => _screenView.StoreAddressBox;
+        private CheckBox ShowInnCheck => _screenView.ShowInnCheck;
+        private RadioButton DoubleClickToCartRadio => _screenView.DoubleClickToCartRadio;
+        private RadioButton SingleClickToCartRadio => _screenView.SingleClickToCartRadio;
+        private CheckBox ResetManualAddQtyCheck => _screenView.ResetManualAddQtyCheck;
+
+        // --- Updates ---
+        private TextBlock AppVersionText => _updatesView.AppVersionText;
+        private ProgressBar UpdateProgressBar => _updatesView.UpdateProgressBar;
+        private TextBlock UpdateStatusText => _updatesView.UpdateStatusText;
+        private TextBlock CatalogDiagnosticsText => _updatesView.CatalogDiagnosticsText;
+
         public PosSettingsWindow() : this(ResolveSettingsViewModel())
         {
         }
@@ -44,8 +100,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DataContext = this;
             InitializeComponent();
 
-            _bankSettings = new ObservableCollection<BankQrSetting>();  // ← инициализация
-            LoadBankQrSettings();  // теперь безопасно
+            _customizationView.DataContext = SettingsVm;
+            WireChildEvents();
+            _operationsView.LoadBankQrSettings();
+
+            _navButtons = new[] { NavScales, NavPrint, NavScreen, NavUpdates, NavOperations, NavCustomization };
+            NavigateTo(0);
 
             if (UserPreferences.Instance.Fullscreen)
             {
@@ -71,11 +131,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             FullscreenCheck.IsChecked = prefs.Fullscreen;
             AutostartCheck.IsChecked = prefs.Autostart || AutostartHelper.IsEnabled();
             AutoTouchKeyboardCheck.IsChecked = prefs.AutoShowTouchKeyboard;
-            // Загрузка названия магазина
             StoreNameBox.Text = prefs.StoreName;
             StoreAddressBox.Text = prefs.StoreAddress;
             ShowInnCheck.IsChecked = prefs.ShowInn;
-            // Загрузка элементов чека
             ShowStoreNameCheck.IsChecked = prefs.ShowStoreName;
             ShowAddressCheck.IsChecked = prefs.ShowAddress;
             ShowReceiptNumberCheck.IsChecked = prefs.ShowReceiptNumber;
@@ -108,7 +166,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (ReceiptTableCombo.SelectedItem == null && ReceiptTableCombo.Items.Count > 0)
                 ReceiptTableCombo.SelectedIndex = 0;
 
-            // === Загрузка настроек графического чека ===
             GraphicReceiptEnabledCheck.IsChecked = prefs.GraphicReceiptEnabled;
             TextModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Text;
             GraphicModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Graphic;
@@ -127,7 +184,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (GraphicFontCombo.SelectedItem == null)
                 GraphicFontCombo.SelectedIndex = 0;
 
-            // Загрузка размера шрифта
             var fontSize = prefs.GraphicFontSize > 0 ? prefs.GraphicFontSize : TestReceiptLineBuilder.DefaultFontSizePt;
             if (prefs.GraphicFontSize <= 0)
                 prefs.GraphicFontSize = TestReceiptLineBuilder.DefaultFontSizePt;
@@ -135,20 +191,79 @@ namespace NurMarketKassa.AvaloniaHost.Views
             SelectGraphicFontSizeCombo(fontSize);
 
             if (!string.IsNullOrEmpty(prefs.QrCodePath))
-                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {System.IO.Path.GetFileName(prefs.QrCodePath)}";
+                GraphicQrStatusText.Text = $"✅ QR-код сохранён: {Path.GetFileName(prefs.QrCodePath)}";
             else
                 GraphicQrStatusText.Text = "QR-код не загружен";
 
             AppVersionText.Text = "Текущая версия: " + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "неизвестно");
             RefreshCatalogDiagnostics();
-
             RefreshPrinterPortStatus();
         }
 
-        private void ReceiptLptBox_TextChanged(object sender, TextChangedEventArgs e) =>
+        private void WireChildEvents()
+        {
+            ScaleComCombo.SelectionChanged += ScaleComCombo_SelectionChanged;
+            _scaleView.CheckScaleButton.Click += CheckScale_Click;
+
+            ReceiptLptBox.TextChanged += ReceiptLptBox_TextChanged;
+            ReceiptPaperWidthCombo.SelectionChanged += ReceiptPaperWidthCombo_SelectionChanged;
+            BtnPhysicalPrint.Click += BtnPhysicalPrint_Click;
+            _printView.TestTextPrintButton.Click += TestTextPrint_Click;
+            _printView.TestGraphicPrintButton.Click += TestGraphicPrint_Click;
+            _printView.LoadGraphicQrButton.Click += LoadGraphicQrCode_Click;
+            _printView.DeleteGraphicQrButton.Click += DeleteGraphicQrCode_Click;
+
+            DoubleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
+            SingleClickToCartRadio.IsCheckedChanged += ClickToCartMode_Changed;
+            ResetManualAddQtyCheck.IsCheckedChanged += ClickToCartMode_Changed;
+
+            _updatesView.CheckUpdateButton.Click += CheckUpdate_Click;
+        }
+
+        private void SidebarNav_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is not Button btn)
+                return;
+
+            int index = btn.Tag switch
+            {
+                int i => i,
+                string s when int.TryParse(s, out var n) => n,
+                _ => -1
+            };
+
+            if (index >= 0)
+                NavigateTo(index);
+        }
+
+        private void SidebarClose_Click(object? sender, RoutedEventArgs e) => Close(false);
+
+        private void NavigateTo(int index)
+        {
+            ContentHost.Content = index switch
+            {
+                0 => _scaleView,
+                1 => _printView,
+                2 => _screenView,
+                3 => _updatesView,
+                4 => _operationsView,
+                5 => _customizationView,
+                _ => _scaleView
+            };
+
+            for (int i = 0; i < _navButtons.Length; i++)
+            {
+                if (i == index)
+                    _navButtons[i].Classes.Add("nav-active");
+                else
+                    _navButtons[i].Classes.Remove("nav-active");
+            }
+        }
+
+        private void ReceiptLptBox_TextChanged(object? sender, TextChangedEventArgs e) =>
             RefreshPrinterPortStatus();
 
-        private void ReceiptPaperWidthCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ReceiptPaperWidthCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (ReceiptPaperWidthCombo?.SelectedItem is ComboBoxItem item
                 && int.TryParse(item.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int mm))
@@ -221,7 +336,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             PrintErrorPanel.IsVisible = true;
         }
 
-        private void BtnPhysicalPrint_Click(object sender, RoutedEventArgs e)
+        private void BtnPhysicalPrint_Click(object? sender, RoutedEventArgs e)
         {
             var devicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
             if (string.IsNullOrWhiteSpace(devicePath))
@@ -280,7 +395,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private void ClickToCartMode_Changed(object sender, RoutedEventArgs e)
+        private void ClickToCartMode_Changed(object? sender, RoutedEventArgs e)
         {
             var prefs = UserPreferences.Instance;
             prefs.SingleClickToCart = SingleClickToCartRadio.IsChecked == true;
@@ -288,51 +403,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.SaveToDisk();
         }
 
-        private void LoadBankQrSettings()
-        {
-            _bankSettings.Clear();
-            var prefs = UserPreferences.Instance;
-            foreach (var bank in _banks)
-            {
-                string? qrPath = prefs.BankQrPaths?.TryGetValue(bank, out var qr) == true ? qr : null;
-
-                _bankSettings.Add(new BankQrSetting
-                {
-                    BankName = bank,
-                    LogoPath = _logoMap[bank],          // фиксированный из Assets
-                    QrCodePath = qrPath
-                });
-            }
-            BankQrItemsControl.ItemsSource = _bankSettings;
-        }
-        private async void LoadQrCode_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button btn && btn.Tag is BankQrSetting setting)
-            {
-                var path = await PickImagePathAsync($"Выберите QR-код для банка {setting.BankName}");
-                if (!string.IsNullOrEmpty(path))
-                {
-                    setting.QrCodePath = path;
-                    SaveBankQrSettings();
-                }
-            }
-        }
-
-        private void SaveBankQrSettings()
-        {
-            var prefs = UserPreferences.Instance;
-            prefs.BankQrPaths ??= new Dictionary<string, string>();
-            prefs.BankQrPaths.Clear();
-            foreach (var bs in _bankSettings)
-            {
-                if (!string.IsNullOrEmpty(bs.QrCodePath))
-                    prefs.BankQrPaths[bs.BankName] = bs.QrCodePath;
-            }
-            prefs.SaveToDisk();  // ← обязательно сохраняем на диск
-        }
-
-
-        private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
+        private async void CheckUpdate_Click(object? sender, RoutedEventArgs e)
         {
             if (sender is Button btn) btn.IsEnabled = false;
             UpdateProgressBar.IsVisible = true;
@@ -385,9 +456,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             return TestReceiptLineBuilder.DefaultFontSizePt;
         }
 
-        private void Cancel_Click(object sender, RoutedEventArgs e) => Close(false);
+        private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
 
-        private void Save_Click(object sender, RoutedEventArgs e)
+        private void Save_Click(object? sender, RoutedEventArgs e)
         {
             var prefs = UserPreferences.Instance;
 
@@ -432,7 +503,6 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.SaveToDisk();
             AutostartHelper.SyncFromPreference(prefs.Autostart);
 
-            // Сохранение элементов чека
             prefs.ShowStoreName = ShowStoreNameCheck.IsChecked == true;
             prefs.ShowAddress = ShowAddressCheck.IsChecked == true;
             prefs.ShowReceiptNumber = ShowReceiptNumberCheck.IsChecked == true;
@@ -441,41 +511,29 @@ namespace NurMarketKassa.AvaloniaHost.Views
             prefs.ShowTotal = ShowTotalCheck.IsChecked == true;
             prefs.ShowQrCode = ShowQrCodeCheck.IsChecked == true;
 
-            // Сохранение названия магазина
             prefs.StoreName = StoreNameBox.Text?.Trim() ?? string.Empty;
             if (string.IsNullOrEmpty(prefs.StoreName))
                 prefs.StoreName = "MARKET PLUS";
             prefs.StoreAddress = StoreAddressBox.Text?.Trim() ?? string.Empty;
             prefs.ShowInn = ShowInnCheck.IsChecked == true;
 
-            // hardware prefs applied on next restart
-
-            // === Сохранение графических настроек ===
             prefs.GraphicReceiptEnabled = GraphicReceiptEnabledCheck.IsChecked == true;
-
-            // Сохранение размера шрифта
             prefs.GraphicFontSize = ReadGraphicFontSizeFromUi();
 
-            // Сохранение выбранного режима печати
             if (TextModeRadio.IsChecked == true)
                 prefs.SelectedPrintMode = PrintMode.Text;
             else if (GraphicModeRadio.IsChecked == true)
                 prefs.SelectedPrintMode = PrintMode.Graphic;
 
-            // Ширина бумаги синхронизируется с комбобоксом «Ширина ленты»
             prefs.GraphicPaperWidthPixels = ReceiptPaperProfile.GetRasterWidthPixels(prefs.ReceiptPaperWidthMm);
 
-            // Шрифт
             var fontItem = GraphicFontCombo.SelectedItem as ComboBoxItem;
             prefs.GraphicFontFamily = fontItem?.Tag?.ToString() ?? "Consolas";
-            // QrCodePath сохраняется отдельно в LoadGraphicQrCode_Click
 
             Close(true);
         }
 
-        // --- Обработчики графического чека ---
-
-        private async void LoadGraphicQrCode_Click(object sender, RoutedEventArgs e)
+        private async void LoadGraphicQrCode_Click(object? sender, RoutedEventArgs e)
         {
             var path = await PickImagePathAsync("Выберите QR-код (сохранится для будущего)");
             if (!string.IsNullOrEmpty(path))
@@ -487,7 +545,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private void DeleteGraphicQrCode_Click(object sender, RoutedEventArgs e)
+        private void DeleteGraphicQrCode_Click(object? sender, RoutedEventArgs e)
         {
             var prefs = UserPreferences.Instance;
             prefs.QrCodePath = "";
@@ -495,7 +553,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             GraphicQrStatusText.Text = "QR-код не загружен";
         }
 
-        private async void TestGraphicPrint_Click(object sender, RoutedEventArgs e)
+        private async void TestGraphicPrint_Click(object? sender, RoutedEventArgs e)
         {
             if (!GraphicReceiptEnabledCheck.IsChecked == true)
             {
@@ -528,7 +586,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private async void TestTextPrint_Click(object sender, RoutedEventArgs e)
+        private async void TestTextPrint_Click(object? sender, RoutedEventArgs e)
         {
             try
             {
@@ -609,32 +667,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
         }
 
-        private void CheckPrinter_Click(object sender, RoutedEventArgs e)
-        {
-            var cfg = UserPreferences.Instance.ToReceiptPrinterSettings();
-            if (string.IsNullOrWhiteSpace(cfg.DevicePath))
-            {
-                ShowAlert("PrinterAlert", "PrinterAlertText", "Не указан порт принтера.", true);
-                return;
-            }
-            if (!cfg.Enabled)
-            {
-                ShowAlert("PrinterAlert", "PrinterAlertText", "Печать выключена. Включите на вкладке «Печать».", true);
-                return;
-            }
-            try
-            {
-                EscPosTextReceiptPrinter.ValidateSettings(cfg);
-                EscPosSelfCheckPrinter.PrintSelfCheck(cfg);
-                ShowAlert("PrinterAlert", "PrinterAlertText", "Тестовая страница отправлена.", false);
-            }
-            catch (Exception ex)
-            {
-                ShowAlert("PrinterAlert", "PrinterAlertText", "Ошибка принтера: " + ex.Message, true);
-            }
-        }
-
-        private void ScaleComCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        private void ScaleComCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e) =>
             RefreshScalePortStatus();
 
         private void SelectScaleComPort(string? savedPort)
@@ -682,12 +715,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             };
         }
 
-        private void CheckScale_Click(object sender, RoutedEventArgs e)
+        private void CheckScale_Click(object? sender, RoutedEventArgs e)
         {
             var prefs = UserPreferences.Instance;
             if (!prefs.ScaleEnabled)
             {
-                ShowAlert("ScaleAlert", "ScaleAlertText", "Весы выключены. Включите на вкладке «Весы».", true);
+                ShowScaleAlert("Весы выключены. Включите на вкладке «Весы».", true);
                 return;
             }
             try
@@ -700,11 +733,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 string status = scale.Status;
                 scale.Stop();
                 string msg = weight.HasValue ? $"Текущий вес: {weight.Value:F3} кг. Статус: {status}." : $"Статус: {status}. Данные не получены.";
-                ShowAlert("ScaleAlert", "ScaleAlertText", msg, false);
+                ShowScaleAlert(msg, false);
             }
             catch (Exception ex)
             {
-                ShowAlert("ScaleAlert", "ScaleAlertText", "Ошибка весов: " + ex.Message, true);
+                ShowScaleAlert("Ошибка весов: " + ex.Message, true);
             }
             finally
             {
@@ -720,15 +753,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             CatalogDiagnosticsText.Text = "Диагностика каталога недоступна в Avalonia-сборке.";
         }
 
-        private void ShowAlert(string borderName, string textBlockName, string message, bool isError)
+        private void ShowScaleAlert(string message, bool isError)
         {
-            var border = this.FindControl<Border>(borderName);
-            var textBlock = this.FindControl<TextBlock>(textBlockName);
-            if (border == null || textBlock == null) return;
-            border.IsVisible = true;
-            textBlock.Text = message;
-            border.Background = isError ? Brushes.LightYellow : Brushes.LightGreen;
-            border.BorderBrush = isError ? Brushes.Orange : Brushes.Green;
+            ScaleAlert.IsVisible = true;
+            ScaleAlertText.Text = message;
+            ScaleAlert.Background = isError ? Brushes.LightYellow : Brushes.LightGreen;
+            ScaleAlert.BorderBrush = isError ? Brushes.Orange : Brushes.Green;
         }
 
         private async Task<string?> PickImagePathAsync(string title)

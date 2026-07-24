@@ -1,14 +1,17 @@
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Globalization;
-using System.Net.Http;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
+using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 
@@ -48,14 +51,64 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         DataContext = this;
         Lines.CollectionChanged += (_, _) => UpdateReceiptChrome();
         Opened += OnFirstOpened;
+
+        // Подписка на изменение свойств окна через стандартный PropertyChanged
+        PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(WindowState))
+            {
+                UpdateWindowStateUI();
+            }
+        };
+
         UpdateReceiptChrome();
+        UpdateWindowStateUI();
     }
 
     private async void OnFirstOpened(object? sender, EventArgs e)
     {
         Opened -= OnFirstOpened;
+        UpdateWindowStateUI();
         await LoadSalesAsync(true).ConfigureAwait(true);
     }
+
+    #region Window State Logic (Fullscreen / Dimmer)
+
+    private void ToggleFullscreen_Click(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+    }
+
+    private void UpdateWindowStateUI()
+    {
+        bool isMaximized = WindowState == WindowState.Maximized;
+
+        // 1. Показываем полупрозрачное затемнение фона ТОЛЬКО в оконном режиме
+        var overlayDimmer = this.FindControl<Border>("OverlayDimmer");
+        if (overlayDimmer != null)
+        {
+            overlayDimmer.IsVisible = !isMaximized;
+        }
+
+        // 2. В полноэкранном режиме убираем лишние внешние отступы карточки
+        var mainCardBorder = this.FindControl<Border>("MainCardBorder");
+        if (mainCardBorder != null)
+        {
+            mainCardBorder.Margin = isMaximized ? new Thickness(0) : new Thickness(24);
+            mainCardBorder.CornerRadius = isMaximized ? new CornerRadius(0) : new CornerRadius(16);
+        }
+
+        // 3. Обновляем иконку переключателя
+        var fullscreenIconText = this.FindControl<TextBlock>("FullscreenIconText");
+        if (fullscreenIconText != null)
+        {
+            fullscreenIconText.Text = isMaximized ? "🗗" : "🗖";
+        }
+    }
+
+    #endregion
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close(false);
 
